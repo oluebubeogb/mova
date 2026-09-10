@@ -5,7 +5,14 @@
 
 declare(strict_types=1);
 
-require dirname(__DIR__) . '/app/Core/Bootstrap.php';
+// Support both layouts:
+// - Standard: public/hq/  →  app/ is two levels up
+// - Flat:     hq/         →  app/ is one level up
+$movaBootstrap = dirname(__DIR__, 2) . '/app/Core/Bootstrap.php';
+if (!is_file($movaBootstrap)) {
+    $movaBootstrap = dirname(__DIR__) . '/app/Core/Bootstrap.php';
+}
+require $movaBootstrap;
 require __DIR__ . '/helpers.php';
 
 use Mova\Core\Bootstrap;
