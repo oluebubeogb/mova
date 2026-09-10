@@ -14,6 +14,7 @@ RUN apk add --no-cache \
         libzip-dev \
         imap-dev \
         krb5-dev \
+        openssl-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
     && docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
     && docker-php-ext-install -j$(nproc) \
