@@ -1,0 +1,28 @@
+# Prevent script execution in uploads (shared-hosting safe — no Options directive)
+<FilesMatch "\.(?i:php|phtml|php3|php4|php5|phar|cgi|pl|py|asp|aspx|shtml)$">
+    Require all denied
+</FilesMatch>
+<IfModule !mod_authz_core.c>
+    <FilesMatch "\.(?i:php|phtml|php3|php4|php5|phar)$">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
+</IfModule>
+RemoveHandler .php .phtml .php3 .php4 .php5 .phar
+RemoveType .php .phtml .php3 .php4 .php5 .phar
+
+# Long-lived cache for static media (filenames are unique / versioned)
+<IfModule mod_headers.c>
+    <FilesMatch "\.(?i:webp|jpg|jpeg|png|gif|svg|ico|mp4|webm|mp3|wav|pdf)$">
+        Header set Cache-Control "public, max-age=2592000, immutable"
+    </FilesMatch>
+</IfModule>
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/webp "access plus 30 days"
+    ExpiresByType image/jpeg "access plus 30 days"
+    ExpiresByType image/png "access plus 30 days"
+    ExpiresByType image/gif "access plus 30 days"
+    ExpiresByType image/svg+xml "access plus 30 days"
+    ExpiresByType application/pdf "access plus 7 days"
+</IfModule>

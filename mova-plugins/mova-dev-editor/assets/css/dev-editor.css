@@ -1,0 +1,164 @@
+/* Mova Dev Editor */
+.mova-dev-editor {
+  margin: 0 0 1rem;
+  border: 1px solid var(--hq-border, #e2e8f0);
+  border-radius: 10px;
+  background: var(--hq-card, #fff);
+  overflow: hidden;
+}
+.mova-dev-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--hq-border, #e2e8f0);
+  background: var(--hq-muted-bg, #f8fafc);
+}
+.mova-dev-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  margin: 0;
+}
+.mova-dev-toggle input { width: 1.05rem; height: 1.05rem; }
+.mova-dev-hint {
+  font-weight: 400;
+  font-size: 0.75rem;
+  color: var(--hq-muted, #64748b);
+}
+.mova-dev-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+.mova-dev-badge.is-ok {
+  background: #f0fdf4;
+  color: #15803d;
+  border-color: #bbf7d0;
+}
+.mova-dev-panels { padding: 0; }
+.mova-dev-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--hq-border, #e2e8f0);
+  background: var(--hq-muted-bg, #f8fafc);
+}
+.mova-dev-tab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0.6rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--hq-muted, #64748b);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.mova-dev-tab:hover { color: var(--hq-text, #0f172a); }
+.mova-dev-tab.is-active {
+  color: var(--hq-accent, #2563eb);
+  border-bottom-color: var(--hq-accent, #2563eb);
+}
+.mova-dev-panes { position: relative; }
+.mova-dev-pane { display: none; }
+.mova-dev-pane.is-active { display: block; }
+.mova-monaco {
+  height: 360px;
+  width: 100%;
+  border: 0;
+}
+.mova-dev-note {
+  margin: 0;
+  padding: 0.5rem 1rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--hq-muted, #64748b);
+  border-top: 1px solid var(--hq-border, #e2e8f0);
+}
+/* When Dev Mode is on, hide the classic visual editor block */
+body.mova-dev-mode-on #editor-toolbar,
+body.mova-dev-mode-on #editor,
+body.mova-dev-mode-on #body-input {
+  display: none !important;
+}
+/* Keep form-group label "Body" but panels take over */
+body.mova-dev-mode-on .form-group:has(#editor) > label:first-child {
+  /* optional */
+}
+
+/* Error list under the editor */
+.mova-dev-error-list {
+  border-top: 1px solid var(--hq-border, #e2e8f0);
+  max-height: 160px;
+  overflow: auto;
+  background: #fffbeb;
+}
+.mova-dev-error-list-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #92400e;
+  padding: 0.4rem 0.85rem 0.2rem;
+}
+.mova-dev-error-row {
+  display: flex;
+  gap: 0.65rem;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-top: 1px solid #fde68a;
+  background: transparent;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+}
+.mova-dev-error-row:hover {
+  background: #fef3c7;
+}
+.mova-dev-error-row.is-error .mova-dev-error-loc {
+  color: #b91c1c;
+}
+.mova-dev-error-row.is-warning .mova-dev-error-loc {
+  color: #b45309;
+}
+.mova-dev-error-loc {
+  flex: 0 0 auto;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.mova-dev-error-msg {
+  flex: 1 1 auto;
+  color: #78350f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Monaco mount: ensure gutter (line numbers) has space */
+.mova-monaco .margin,
+.mova-monaco .monaco-editor .margin {
+  background: var(--hq-muted-bg, #f8fafc);
+}
+
+.mova-dev-toolbar { flex-wrap: wrap; }
+.mova-dev-chrome-toggle { margin-left: 0.5rem; }
+
+/* Isolate Dev Editor island from HQ chrome */
+.mova-dev-editor {
+  isolation: isolate;
+  contain: content;
+}
+.mova-dev-panels {
+  isolation: isolate;
+}

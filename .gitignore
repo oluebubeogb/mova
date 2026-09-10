@@ -1,0 +1,32 @@
+# Storage & runtime
+/storage/*
+!/storage/.gitkeep
+!/storage/cache/.gitkeep
+/public/mova-uploads/*
+!/public/mova-uploads/.htaccess
+
+# Local overrides
+/config/local.php
+.env
+.env.*
+
+# Database
+*.sqlite
+*.sqlite-journal
+
+# Logs
+*.log
+/storage/logs/*
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Composer / Node (if added later)
+/vendor/
+/node_modules/
+composer.lock
+package-lock.json

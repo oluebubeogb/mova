@@ -1,0 +1,41 @@
+/**
+ * Mova HQ — full-text search index (titles + body keywords + snippets)
+ * Loaded by hq-nav.js for the global HQ search field.
+ */
+window.MOVA_HQ_SEARCH_INDEX = [
+  { title: 'Overview', href: '/hq', group: 'Overview', keywords: 'overview dashboard home start', body: 'Mova HQ home. Jump into content, audience, design, extend, and operations workspaces.' },
+  { title: 'Content hub', href: '/hq/content-hub', group: 'Content', keywords: 'content hub workspace', body: 'Create, organize, and manage posts, media, types, taxonomy, and assemblies.' },
+  { title: 'All content', href: '/hq/content', group: 'Content', keywords: 'posts pages articles list draft published', body: 'Browse and filter all content by status: draft, review, published, archived, trash.' },
+  { title: 'New content', href: '/hq/content/new', group: 'Content', keywords: 'create write post page', body: 'Start a new piece of content with the visual or Dev Mode editor.' },
+  { title: 'Assembly', href: '/hq/assembly', group: 'Content', keywords: 'assembly component shortcode html css synced embed', body: 'Build reusable HTML and CSS components. Embed with [assembly slug="…"] and edit once to update everywhere.' },
+  { title: 'New assembly', href: '/hq/assembly/new', group: 'Content', keywords: 'assembly create component', body: 'Create a new Assembly with live HTML/CSS preview, then publish and embed.' },
+  { title: 'Media', href: '/hq/media', group: 'Content', keywords: 'images files uploads media library', body: 'Upload and manage images and files for your site.' },
+  { title: 'Types & fields', href: '/hq/types', group: 'Content', keywords: 'content types custom fields schema', body: 'Define content types and custom fields for structured content.' },
+  { title: 'Categories', href: '/hq/categories', group: 'Content', keywords: 'categories taxonomy organize', body: 'Organize content by category.' },
+  { title: 'Tags', href: '/hq/tags', group: 'Content', keywords: 'tags taxonomy filter', body: 'Tag and filter content.' },
+  { title: 'Audience', href: '/hq/audience', group: 'Audience', keywords: 'audience people mail', body: 'People, mailbox, campaigns, sequences, and insights.' },
+  { title: 'People', href: '/hq/people', group: 'Audience', keywords: 'people contacts subscribers', body: 'Manage people and contacts.' },
+  { title: 'Mailbox', href: '/hq/mailbox', group: 'Audience', keywords: 'mailbox inbox email compose', body: 'IMAP mailbox: inbox, sent, drafts, contacts, filters, accounts.' },
+  { title: 'Campaigns', href: '/hq/mail', group: 'Audience', keywords: 'campaigns newsletter mail', body: 'Send email campaigns and newsletters.' },
+  { title: 'Sequences', href: '/hq/sequences', group: 'Audience', keywords: 'sequences automation drip', body: 'Automated email sequences.' },
+  { title: 'Insights', href: '/hq/insights', group: 'Audience', keywords: 'insights analytics views popular', body: 'Popular content and recent page views.' },
+  { title: 'Design', href: '/hq/design', group: 'Design', keywords: 'design brand style layout', body: 'Design workspace: brand, style, layout, components, elements.' },
+  { title: 'Brand', href: '/hq/brand', group: 'Design', keywords: 'brand identity site name tagline homepage header footer logo theme', body: 'Identity: site name, tagline, homepage content, Assembly header and footer, logo, favicon, active theme package.' },
+  { title: 'Style', href: '/hq/style', group: 'Design', keywords: 'style colors typography tokens primary', body: 'Colors, type scale, density, and design tokens for the public site.' },
+  { title: 'Layout', href: '/hq/layout', group: 'Design', keywords: 'layout header footer container mobile menu nav drawer', body: 'Header type, nav alignment, container width, footer style, and mobile menu navigation style.' },
+  { title: 'Mobile Menu', href: '/hq/layout', group: 'Design', keywords: 'mobile menu nav drawer top right left fullscreen bottom sheet hamburger icon', body: 'Mobile nav styles: top dropdown, right drawer about 60 percent width, left drawer, fullscreen overlay, and bottom sheet. Configure the menu icon with presets, custom Font Awesome, or an image URL under Design → Layout → Mobile menu.' },
+  { title: 'Components', href: '/hq/components', group: 'Design', keywords: 'components buttons cards hero variants', body: 'Button, card, and hero component variants and hover styles.' },
+  { title: 'Elements', href: '/hq/elements', group: 'Design', keywords: 'elements editor styles', body: 'Element editor and applied styles on the public theme.' },
+  { title: 'Extend', href: '/hq/extend', group: 'Extend', keywords: 'extend plugins integrations', body: 'Plugins, integrations, API keys, and webhooks.' },
+  { title: 'Plugins', href: '/hq/plugins', group: 'Extend', keywords: 'plugins modules activate', body: 'Install and activate plugins such as the Dev Editor.' },
+  { title: 'Integrations', href: '/hq/integrations', group: 'Extend', keywords: 'integrations third party', body: 'Connect third-party services.' },
+  { title: 'API keys', href: '/hq/api-keys', group: 'Extend', keywords: 'api keys authentication', body: 'Manage API keys for programmatic access.' },
+  { title: 'Webhooks', href: '/hq/webhooks', group: 'Extend', keywords: 'webhooks events delivery', body: 'HTTP webhooks for content and system events.' },
+  { title: 'Operations', href: '/hq/operations', group: 'Operations', keywords: 'operations health security backups', body: 'Health, security, backups, and updates.' },
+  { title: 'Health', href: '/hq/health', group: 'Operations', keywords: 'health status requirements', body: 'System health and environment checks.' },
+  { title: 'Security', href: '/hq/security', group: 'Operations', keywords: 'security 2fa login audit', body: 'Security center and account protection.' },
+  { title: 'Backups', href: '/hq/backups', group: 'Operations', keywords: 'backups export restore', body: 'Create and download site backups.' },
+  { title: 'Updates', href: '/hq/updates', group: 'Operations', keywords: 'updates version release', body: 'Mova updates and release information.' },
+  { title: 'Settings', href: '/hq/settings', group: 'Settings', keywords: 'settings site configuration', body: 'Site settings and configuration.' },
+  { title: 'Sites', href: '/hq/sites', group: 'Settings', keywords: 'sites multisite domains', body: 'Multi-site management when enabled.' }
+];

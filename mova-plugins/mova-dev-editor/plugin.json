@@ -1,0 +1,10 @@
+{
+  "name": "Mova Dev Editor",
+  "slug": "mova-dev-editor",
+  "version": "1.0.0",
+  "description": "Raw HTML / CSS / JS editor with live Monaco syntax checking, red-line errors, validation, and safe frontend injection.",
+  "author": "Mova",
+  "requires": {
+    "mova": ">=1.0.0"
+  }
+}

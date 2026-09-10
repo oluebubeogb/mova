@@ -1,0 +1,452 @@
+/* ============================================================
+   Mova HQ — Landing pages
+   60% purple / 40% green · animated math & line art background
+   ============================================================ */
+
+/* Local tokens — blend purple accent with success green */
+.hq-landing {
+  --lp-purple: var(--hq-accent);
+  --lp-green: var(--hq-success);
+  --lp-mix: color-mix(in srgb, var(--lp-purple) 60%, var(--lp-green) 40%);
+  --lp-mix-soft: color-mix(in srgb, var(--lp-purple) 45%, var(--lp-green) 25%);
+
+  position: relative;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0.25rem 0 2.5rem;
+  isolation: isolate;
+  overflow: visible;
+}
+
+/* ============================================================
+   Background art layer — lines, grid, math symbols
+   Obvious motion, calm tempo
+   ============================================================ */
+.hq-landing-bg {
+  position: absolute;
+  inset: -1.5rem -2rem -2rem;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 18px;
+}
+
+/* Soft dual-tone wash */
+.hq-landing-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 55% at 12% 18%, color-mix(in srgb, var(--lp-purple) 14%, transparent), transparent 70%),
+    radial-gradient(ellipse 55% 50% at 88% 72%, color-mix(in srgb, var(--lp-green) 12%, transparent), transparent 68%),
+    radial-gradient(ellipse 40% 35% at 55% 40%, color-mix(in srgb, var(--lp-mix) 6%, transparent), transparent 70%);
+  animation: hqBgWash 18s ease-in-out infinite alternate;
+}
+
+/* Fine grid */
+.hq-landing-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--lp-purple) 9%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--lp-green) 7%, transparent) 1px, transparent 1px);
+  background-size: 36px 36px;
+  mask-image: radial-gradient(ellipse 85% 80% at 50% 40%, #000 20%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 85% 80% at 50% 40%, #000 20%, transparent 75%);
+  animation: hqGridDrift 28s linear infinite;
+  opacity: 0.85;
+}
+
+/* Floating math / geometry glyphs */
+.hq-landing-glyph {
+  position: absolute;
+  font-family: "Inter", system-ui, sans-serif;
+  font-weight: 500;
+  line-height: 1;
+  user-select: none;
+  opacity: 0;
+  animation: hqGlyphFloat 14s ease-in-out infinite;
+}
+
+.hq-landing-glyph:nth-child(1) {
+  top: 8%; left: 6%;
+  font-size: 1.35rem;
+  color: color-mix(in srgb, var(--lp-purple) 55%, transparent);
+  animation-delay: 0s;
+  animation-duration: 16s;
+}
+.hq-landing-glyph:nth-child(2) {
+  top: 22%; right: 10%;
+  font-size: 1.1rem;
+  color: color-mix(in srgb, var(--lp-green) 50%, transparent);
+  animation-delay: -3s;
+  animation-duration: 18s;
+}
+.hq-landing-glyph:nth-child(3) {
+  bottom: 28%; left: 14%;
+  font-size: 1.5rem;
+  color: color-mix(in srgb, var(--lp-mix) 45%, transparent);
+  animation-delay: -6s;
+  animation-duration: 15s;
+}
+.hq-landing-glyph:nth-child(4) {
+  top: 48%; right: 18%;
+  font-size: 0.95rem;
+  color: color-mix(in srgb, var(--lp-purple) 40%, transparent);
+  animation-delay: -2s;
+  animation-duration: 20s;
+}
+.hq-landing-glyph:nth-child(5) {
+  bottom: 14%; right: 8%;
+  font-size: 1.25rem;
+  color: color-mix(in srgb, var(--lp-green) 42%, transparent);
+  animation-delay: -8s;
+  animation-duration: 17s;
+}
+.hq-landing-glyph:nth-child(6) {
+  top: 35%; left: 4%;
+  font-size: 1rem;
+  color: color-mix(in srgb, var(--lp-purple) 38%, transparent);
+  animation-delay: -5s;
+  animation-duration: 19s;
+}
+
+/* Decorative diagonal lines (SVG-like via CSS) */
+.hq-landing-lines {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.hq-landing-lines span {
+  position: absolute;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--lp-purple) 28%, transparent),
+    color-mix(in srgb, var(--lp-green) 22%, transparent),
+    transparent
+  );
+  transform-origin: left center;
+  animation: hqLineSweep 12s ease-in-out infinite;
+}
+
+.hq-landing-lines span:nth-child(1) {
+  top: 18%; left: -10%; width: 55%;
+  transform: rotate(-12deg);
+  animation-delay: 0s;
+}
+.hq-landing-lines span:nth-child(2) {
+  top: 62%; right: -5%; width: 48%;
+  transform: rotate(8deg);
+  animation-delay: -4s;
+  animation-duration: 14s;
+}
+.hq-landing-lines span:nth-child(3) {
+  bottom: 22%; left: 20%; width: 40%;
+  transform: rotate(-5deg);
+  animation-delay: -7s;
+  animation-duration: 11s;
+}
+
+/* Keyframes */
+@keyframes hqBgWash {
+  0%   { opacity: 0.85; transform: scale(1); }
+  100% { opacity: 1; transform: scale(1.04); }
+}
+
+@keyframes hqGridDrift {
+  0%   { background-position: 0 0; }
+  100% { background-position: 36px 36px; }
+}
+
+@keyframes hqGlyphFloat {
+  0%, 100% {
+    opacity: 0.35;
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    opacity: 0.7;
+    transform: translateY(-8px) rotate(3deg);
+  }
+  50% {
+    opacity: 0.5;
+    transform: translateY(-4px) rotate(-2deg);
+  }
+  75% {
+    opacity: 0.75;
+    transform: translateY(-12px) rotate(2deg);
+  }
+}
+
+@keyframes hqLineSweep {
+  0%, 100% {
+    opacity: 0.25;
+    transform: scaleX(0.85) rotate(var(--r, -12deg));
+  }
+  50% {
+    opacity: 0.65;
+    transform: scaleX(1.05) rotate(var(--r, -12deg));
+  }
+}
+
+/* ============================================================
+   Content sits above the art
+   ============================================================ */
+.hq-landing > *:not(.hq-landing-bg) {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------- Header ---------- */
+.hq-landing-header {
+  margin-bottom: 1.85rem;
+  position: relative;
+}
+
+.hq-landing-header::after {
+  content: "";
+  display: block;
+  width: 48px;
+  height: 3px;
+  margin-top: 0.9rem;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--lp-purple) 0%,
+    var(--lp-mix) 55%,
+    var(--lp-green) 100%
+  );
+}
+
+.hq-landing-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--lp-mix);
+  margin: 0 0 0.4rem;
+}
+
+.hq-landing-kicker i {
+  font-size: 0.7rem;
+  color: var(--lp-green);
+  opacity: 0.95;
+}
+
+.hq-landing-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--hq-text);
+  line-height: 1.25;
+}
+
+.hq-landing-desc {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--hq-muted);
+  line-height: 1.5;
+  max-width: 42rem;
+}
+
+/* ---------- Grid ---------- */
+.hq-landing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+/* ---------- Card ---------- */
+.hq-landing-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 1.2rem 1.25rem;
+  border: 1px solid var(--hq-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--hq-surface) 92%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  text-decoration: none;
+  color: inherit;
+  overflow: hidden;
+  transition:
+    border-color 0.22s ease,
+    box-shadow 0.28s ease,
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    background 0.2s ease;
+  animation: hqLandingIn 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hq-landing-card:nth-child(1) { animation-delay: 0.04s; }
+.hq-landing-card:nth-child(2) { animation-delay: 0.08s; }
+.hq-landing-card:nth-child(3) { animation-delay: 0.12s; }
+.hq-landing-card:nth-child(4) { animation-delay: 0.16s; }
+.hq-landing-card:nth-child(5) { animation-delay: 0.20s; }
+.hq-landing-card:nth-child(6) { animation-delay: 0.24s; }
+.hq-landing-card:nth-child(7) { animation-delay: 0.28s; }
+.hq-landing-card:nth-child(8) { animation-delay: 0.32s; }
+
+@keyframes hqLandingIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Hover wash — 60% purple / 40% green */
+.hq-landing-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--lp-purple) 10%, transparent) 0%,
+    color-mix(in srgb, var(--lp-green) 7%, transparent) 55%,
+    transparent 100%
+  );
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+
+.hq-landing-card:hover {
+  border-color: color-mix(in srgb, var(--lp-mix) 50%, var(--hq-border));
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.07),
+    0 0 0 1px color-mix(in srgb, var(--lp-mix) 14%, transparent);
+  transform: translateY(-3px);
+}
+
+.hq-landing-card:hover::before {
+  opacity: 1;
+}
+
+/* Dark mode shadow */
+[data-theme="dark"] .hq-landing-card:hover,
+html[data-mova-hq][style*="color-scheme: dark"] .hq-landing-card:hover {
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.38),
+    0 0 0 1px color-mix(in srgb, var(--lp-mix) 20%, transparent);
+}
+
+/* Icon — alternate purple / green feel */
+.hq-landing-icon {
+  width: 2.4rem;
+  height: 2.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--lp-purple) 13%, transparent);
+  color: var(--lp-purple);
+  font-size: 1rem;
+  flex-shrink: 0;
+  transition: transform 0.22s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.hq-landing-card:hover .hq-landing-icon {
+  transform: scale(1.07);
+  background: color-mix(in srgb, var(--lp-purple) 20%, transparent);
+}
+
+/* Green-leaning icons (~40% of the set) */
+.hq-landing-icon.is-green {
+  background: color-mix(in srgb, var(--lp-green) 14%, transparent);
+  color: var(--lp-green);
+}
+
+.hq-landing-card:hover .hq-landing-icon.is-green {
+  background: color-mix(in srgb, var(--lp-green) 22%, transparent);
+}
+
+/* Mixed icon (subtle blend) */
+.hq-landing-icon.is-mix {
+  background: color-mix(in srgb, var(--lp-mix) 14%, transparent);
+  color: var(--lp-mix);
+}
+
+.hq-landing-card:hover .hq-landing-icon.is-mix {
+  background: color-mix(in srgb, var(--lp-mix) 22%, transparent);
+}
+
+/* Text */
+.hq-landing-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.hq-landing-card strong {
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: var(--hq-text);
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.hq-landing-card span {
+  font-size: 0.82rem;
+  color: var(--hq-muted);
+  line-height: 1.4;
+}
+
+/* Arrow */
+.hq-landing-arrow {
+  position: absolute;
+  top: 1.2rem;
+  right: 1.15rem;
+  font-size: 0.75rem;
+  color: var(--hq-muted);
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 0.2s ease, transform 0.22s ease, color 0.2s ease;
+}
+
+.hq-landing-card:hover .hq-landing-arrow {
+  opacity: 1;
+  transform: translateX(0);
+  color: var(--lp-mix);
+}
+
+.hq-landing-card-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 640px) {
+  .hq-landing-title { font-size: 1.35rem; }
+  .hq-landing-grid { grid-template-columns: 1fr; gap: 0.75rem; }
+  .hq-landing-card:hover { transform: none; }
+  .hq-landing-bg { inset: -0.5rem -0.75rem -1rem; }
+  .hq-landing-glyph { font-size: 0.9rem !important; }
+}
+
+/* Reduced motion — keep art visible, stop movement */
+@media (prefers-reduced-motion: reduce) {
+  .hq-landing-card { animation: none; }
+  .hq-landing-card,
+  .hq-landing-icon,
+  .hq-landing-arrow { transition: none; }
+  .hq-landing-bg::before,
+  .hq-landing-bg::after,
+  .hq-landing-glyph,
+  .hq-landing-lines span {
+    animation: none !important;
+  }
+  .hq-landing-glyph { opacity: 0.4; }
+  .hq-landing-lines span { opacity: 0.35; }
+}

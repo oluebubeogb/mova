@@ -1,0 +1,22 @@
+{
+  "name": "mova",
+  "title": "Mova CMS",
+  "tagline": "Content that moves.",
+  "version": "1.0.0",
+  "php": ">=8.1",
+  "channel": "stable",
+  "homepage": "",
+  "docs": "",
+  "support": "",
+  "release_manifest": "",
+  "site": {
+    "name": "Mova",
+    "created_at": "",
+    "updated_at": ""
+  },
+  "paths": {
+    "uploads": "mova-uploads",
+    "plugins": "mova-plugins",
+    "themes": "mova-themes"
+  }
+}

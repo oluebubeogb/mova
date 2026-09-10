@@ -1,0 +1,32 @@
+# Mova — shared hosting front controller + HTTPS/HSTS
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Force HTTPS (comment these 3 lines out if SSL is not active yet)
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # Serve real files directly (CSS, JS, images, existing PHP files)
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+
+    # HQ admin — ALL /hq and /hq/* go to HQ front controller
+    # (must run before the "is directory" rule, or /hq/* becomes 404)
+    RewriteRule ^hq(?:/.*)?$ hq/index.php [L,QSA]
+
+    # Real directories (mova-uploads, assets, etc.)
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Public site front controller
+    RewriteRule ^ index.php [L,QSA]
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header always set Strict-Transport-Security "max-age=15552000; includeSubDomains" env=HTTPS
+    SetEnvIf X-Forwarded-Proto "https" HTTPS=on
+    Header always set Strict-Transport-Security "max-age=15552000; includeSubDomains" env=HTTPS
+</IfModule>
+
+DirectoryIndex index.php index.html

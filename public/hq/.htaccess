@@ -1,0 +1,11 @@
+# Mova HQ — route all requests in /hq to index.php
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /hq/
+
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+
+    RewriteRule ^ index.php [L,QSA]
+</IfModule>
+DirectoryIndex index.php

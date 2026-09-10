@@ -1,0 +1,5 @@
+{
+  "name": "Hello Mova",
+  "version": "1.0.0",
+  "description": "Sample extension that registers a boot hook. Safe to activate."
+}
