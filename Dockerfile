@@ -12,7 +12,10 @@ RUN apk add --no-cache \
         icu-dev \
         oniguruma-dev \
         libzip-dev \
+        imap-dev \
+        krb5-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
+    && docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
     && docker-php-ext-install -j$(nproc) \
         gd \
         pdo \
@@ -21,7 +24,8 @@ RUN apk add --no-cache \
         intl \
         mbstring \
         zip \
-        exif
+        exif \
+        imap
 
 # Recommended OPcache settings for production
 RUN { \
