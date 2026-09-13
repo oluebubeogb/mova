@@ -19,6 +19,17 @@
   </header>
 
   <div class="hq-landing-grid">
+    <a class="hq-landing-card hq-landing-card-primary" href="/hq/content/new">
+      <div class="hq-landing-card-inner">
+        <div class="hq-landing-icon is-green"><i class="fa-solid fa-plus"></i></div>
+        <div class="hq-landing-card-body">
+          <strong>+ Add content</strong>
+          <span>Create a new post, page, or entry</span>
+        </div>
+      </div>
+      <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
+    </a>
+
     <a class="hq-landing-card" href="/hq/content">
       <div class="hq-landing-card-inner">
         <div class="hq-landing-icon"><i class="fa-solid fa-layer-group"></i></div>

@@ -20,9 +20,12 @@ if ($bare):
     echo $bodyHtml;
     return;
 endif;
+
+$hideChrome = !empty($content['meta']['hide_article_chrome']) && $content['meta']['hide_article_chrome'] !== '0';
 ?>
 <article class="article">
-    <header class="article-header">
+    <?php if (!$hideChrome): ?>
+  <header class="article-header">
         <h1><?= htmlspecialchars($content['title']) ?></h1>
         <div class="article-meta">
             <?php if (!empty($content['published_at'])): ?>
@@ -38,6 +41,7 @@ endif;
             <?php endif; ?>
         </div>
     </header>
+  <?php endif; ?>
 
     <?php if (!empty($content['featured_image'])): ?>
         <figure class="article-featured">

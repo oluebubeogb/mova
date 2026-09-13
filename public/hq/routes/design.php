@@ -387,9 +387,27 @@ $router->post('/elements/import', function (Request $req) {
         return (new Response())->status(403)->body('CSRF');
     }
     $raw = (string) $req->post('import_json', '');
+    // Prefer uploaded .json file when present
+    if (!empty($_FILES['import_file']['tmp_name']) && is_uploaded_file($_FILES['import_file']['tmp_name'])) {
+        $name = (string) ($_FILES['import_file']['name'] ?? '');
+        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+        if ($ext !== '' && $ext !== 'json') {
+            return (new Response())->redirect('/hq/elements?error=import_file');
+        }
+        $fileRaw = @file_get_contents($_FILES['import_file']['tmp_name']);
+        if ($fileRaw !== false && trim($fileRaw) !== '') {
+            $raw = $fileRaw;
+        }
+    }
     $data = json_decode($raw, true);
     if (!is_array($data)) {
         return (new Response())->redirect('/hq/elements?error=import');
+    }
+    // Drop documentation-only keys (sample JSON uses _comment etc.)
+    foreach (array_keys($data) as $k) {
+        if (is_string($k) && (str_starts_with($k, '_') || $k === 'comment')) {
+            unset($data[$k]);
+        }
     }
     $merge = $req->post('import_merge', '1') === '1';
     $count = \Mova\Theme\ElementStyles::importAll($data, $merge);

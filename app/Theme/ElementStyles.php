@@ -73,7 +73,7 @@ class ElementStyles
             'desktop' => self::emptyChunk(),
             'tablet' => self::emptyChunk(),
             'mobile' => self::emptyChunk(),
-            'target' => ['class' => '', 'id' => ''],
+            'target' => ['class' => '', 'id' => '', 'selector' => ''],
             'custom_js' => '',
             'enable_js' => false,
         ];
@@ -110,6 +110,7 @@ class ElementStyles
             $out['target'] = [
                 'class' => self::sanitizeClass((string) ($entry['target']['class'] ?? '')),
                 'id' => self::sanitizeId((string) ($entry['target']['id'] ?? '')),
+                'selector' => self::sanitizeSelector((string) ($entry['target']['selector'] ?? '')),
             ];
         }
         $out['custom_js'] = self::sanitizeJs((string) ($entry['custom_js'] ?? ''));
@@ -145,8 +146,9 @@ class ElementStyles
         $clean['target'] = [
             'class' => self::sanitizeClass((string) ($norm['target']['class'] ?? '')),
             'id' => self::sanitizeId((string) ($norm['target']['id'] ?? '')),
+            'selector' => self::sanitizeSelector((string) ($norm['target']['selector'] ?? '')),
         ];
-        if ($clean['target']['class'] !== '' || $clean['target']['id'] !== '') {
+        if ($clean['target']['class'] !== '' || $clean['target']['id'] !== '' || $clean['target']['selector'] !== '') {
             $hasAny = true;
         }
         $clean['custom_js'] = self::sanitizeJs((string) ($norm['custom_js'] ?? ''));
@@ -274,8 +276,9 @@ class ElementStyles
             $c['target'] = [
                 'class' => self::sanitizeClass((string) ($norm['target']['class'] ?? '')),
                 'id' => self::sanitizeId((string) ($norm['target']['id'] ?? '')),
+                'selector' => self::sanitizeSelector((string) ($norm['target']['selector'] ?? '')),
             ];
-            if ($c['target']['class'] !== '' || $c['target']['id'] !== '') {
+            if ($c['target']['class'] !== '' || $c['target']['id'] !== '' || $c['target']['selector'] !== '') {
                 $hasAny = true;
             }
             $c['custom_js'] = self::sanitizeJs((string) ($norm['custom_js'] ?? ''));
@@ -411,7 +414,19 @@ class ElementStyles
 
     public static function selectorForTag(string $tag, array $target = []): string
     {
+        // Free-form selector (e.g. "#main .home", ".card h3") — scoped under .site-main when relative
+        $free = self::sanitizeSelector((string) ($target['selector'] ?? ''));
+        if ($free !== '') {
+            if (str_starts_with($free, '.site-main') || str_starts_with($free, 'html') || str_starts_with($free, 'body') || str_starts_with($free, ':root')) {
+                return $free;
+            }
+            return '.site-main ' . $free;
+        }
+
         $tag = self::normalizeTag($tag);
+        if ($tag === '') {
+            return '.site-main';
+        }
         $sel = '.site-main ' . $tag;
         $id = self::sanitizeId((string) ($target['id'] ?? ''));
         $class = self::sanitizeClass((string) ($target['class'] ?? ''));
@@ -535,6 +550,26 @@ class ElementStyles
     {
         $id = trim($id);
         return preg_replace('/[^a-zA-Z0-9_\-]/', '', $id) ?? '';
+    }
+
+    /**
+     * Free-form CSS selector fragment (no braces, no @rules).
+     * Allows #id, .class, combinators, element names — used for target.selector.
+     */
+    public static function sanitizeSelector(string $sel): string
+    {
+        $sel = trim($sel);
+        $sel = str_replace(["\0", '{', '}', '<', '>'], '', $sel);
+        if (preg_match('/@import|expression\s*\(|javascript\s*:/i', $sel)) {
+            return '';
+        }
+        // Keep common selector characters only
+        $sel = preg_replace('/[^a-zA-Z0-9_\-#\.\s:>\+~\*\[\]=\"\'\|\(\),]/', '', $sel) ?? '';
+        $sel = trim(preg_replace('/\s+/', ' ', $sel) ?? '');
+        if (strlen($sel) > 200) {
+            $sel = substr($sel, 0, 200);
+        }
+        return $sel;
     }
 
     public static function sanitizeJs(string $js): string

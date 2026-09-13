@@ -187,11 +187,20 @@ if ($initialTag === '') {
             </ul>
             <hr class="hq-layer-rule" style="margin:1.25rem 0;">
             <h3>Import</h3>
-            <form method="post" action="/hq/elements/import" class="el-import-form">
+            <p class="field-hint" style="margin-bottom:0.75rem;">
+                Paste JSON or upload a <code>.json</code> file.
+                <a href="/assets/samples/element-styles-sample.json" download>Download full sample</a>
+                (h2 + responsive, pseudos, animation, light/dark via custom CSS, targeting).
+            </p>
+            <form method="post" action="/hq/elements/import" class="el-import-form" enctype="multipart/form-data">
                 <?= Csrf::field() ?>
                 <div class="form-group">
-                    <label>Paste element styles JSON</label>
-                    <textarea name="import_json" rows="8" placeholder='{ "h1": { "desktop": { "props": { "font-size": "2rem" } } } }'></textarea>
+                    <label>Upload .json file</label>
+                    <input type="file" name="import_file" accept=".json,application/json" id="el-import-file">
+                </div>
+                <div class="form-group">
+                    <label>Or paste element styles JSON</label>
+                    <textarea name="import_json" rows="8" placeholder='{ "h2": { "desktop": { "props": { "font-size": "2.25rem", "animation": "mova-fade-in 0.45s ease both" } }, "tablet": { "props": { "font-size": "1.85rem" } }, "mobile": { "props": { "font-size": "1.5rem" } }, "target": { "class": "", "id": "" } } }'></textarea>
                 </div>
                 <div class="form-group">
                     <label class="checkbox-label">

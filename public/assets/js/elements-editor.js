@@ -135,7 +135,7 @@
       }
       return {
         desktop: chunk(), tablet: chunk(), mobile: chunk(),
-        target: { class: '', id: '' },
+        target: { class: '', id: '', selector: '' },
         custom_js: '',
         enable_js: false
       };
@@ -162,7 +162,11 @@
         out.desktop.custom_css = d.custom_css || '';
       }
       if (d.target) {
-        out.target = { class: d.target.class || '', id: d.target.id || '' };
+        out.target = {
+          class: d.target.class || '',
+          id: d.target.id || '',
+          selector: d.target.selector || ''
+        };
       }
       out.custom_js = d.custom_js || '';
       out.enable_js = !!d.enable_js;
@@ -347,9 +351,14 @@
             setDirty(true);
             updatePreview();
           }));
+          body.appendChild(fieldRow('Custom selector', 'el-target-selector', '#main .home  or  .card h3', function () {
+            data.target.selector = (document.getElementById('el-target-selector').value || '').trim();
+            setDirty(true);
+            updatePreview();
+          }));
           var tip = document.createElement('p');
           tip.className = 'el-col-hint';
-          tip.textContent = 'Narrows selector to .site-main tag#id.class (optional).';
+          tip.innerHTML = 'Class/ID narrow the tag to <code>.site-main tag#id.class</code>. Custom selector overrides that (e.g. <code>#main .home</code> or <code>.card h3</code>) and is scoped under <code>.site-main</code> unless it already starts with <code>.site-main</code>, <code>html</code>, or <code>:root</code>.';
           body.appendChild(tip);
         }
 
@@ -482,8 +491,10 @@
       setCmContent(slice.custom_css || '');
       var tc = document.getElementById('el-target-class');
       var ti = document.getElementById('el-target-id');
+      var ts = document.getElementById('el-target-selector');
       if (tc) tc.value = data.target.class || '';
       if (ti) ti.value = data.target.id || '';
+      if (ts) ts.value = data.target.selector || '';
       var js = document.getElementById('el-custom-js');
       var en = document.getElementById('el-enable-js');
       if (js) js.value = data.custom_js || '';
@@ -509,6 +520,9 @@
     }
 
     function selectorHint() {
+      if (data.target.selector && data.target.selector.trim()) {
+        return data.target.selector.trim();
+      }
       var s = currentTag;
       if (data.target.id) s += '#' + data.target.id;
       if (data.target.class) {

@@ -257,7 +257,17 @@ if (!empty($content['published_at'])) {
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <button type="submit" class="btn-primary btn-block">Save</button>
+                <div class="form-group">
+                    <label class="checkbox-label" style="display:flex;align-items:flex-start;gap:0.5rem;font-weight:400;">
+                        <input type="checkbox" name="hide_article_chrome" value="1" id="hide-article-chrome"
+                            <?= !empty($meta['hide_article_chrome']) && $meta['hide_article_chrome'] !== '0' ? 'checked' : '' ?>>
+                        <span>
+                            Hide title, dates &amp; type on frontend
+                            <span style="display:block;font-size:0.75rem;color:var(--hq-muted);margin-top:0.2rem;">When checked, the article header (title, publish/update dates, content type) is hidden from public visitors.</span>
+                        </span>
+                    </label>
+                </div>
+                <button type="submit" class="btn-primary btn-block" id="btn-publish-save">Save</button>
                 <?php if (!$isNew && ($content['status'] ?? '') === 'published'): ?>
                     <a href="/<?= htmlspecialchars($content['slug']) ?>" target="_blank" class="btn-ghost btn-block" style="margin-top:0.5rem;text-align:center;display:block;">View →</a>
                 <?php endif; ?>
@@ -536,6 +546,46 @@ if (!empty($content['published_at'])) {
     if (!action) return;
     openSidebarTool(action);
   });
+
+  /**
+   * Shortcuts:
+   * - Ctrl/Cmd+S → always save (submit form)
+   * - Ctrl/Cmd+P → if not published: open Publish sidebar + set status Published
+   *   so the user can edit sidebar fields then click Save. If already live: save.
+   */
+  document.addEventListener('keydown', function (e) {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    var key = (e.key || '').toLowerCase();
+    if (key !== 's' && key !== 'p') return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    var form = document.querySelector('form[method="post"][action*="content"]')
+      || document.querySelector('#content-form-layout') && document.querySelector('#content-form-layout').closest('form')
+      || document.querySelector('form[method="post"]');
+
+    var statusSel = document.getElementById('status-select');
+    var currentStatus = statusSel ? statusSel.value : 'draft';
+    var isLive = currentStatus === 'published';
+
+    if (key === 'p' && !isLive) {
+      openSidebarTool('publish');
+      if (statusSel) {
+        statusSel.value = 'published';
+        statusSel.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      var saveBtn = document.getElementById('btn-publish-save');
+      if (saveBtn) {
+        try { saveBtn.focus({ preventScroll: true }); } catch (err) { saveBtn.focus(); }
+      }
+      return;
+    }
+
+    if (form) {
+      if (typeof form.requestSubmit === 'function') form.requestSubmit();
+      else form.submit();
+    }
+  }, true);
 })();
 </script>
 </aside>

@@ -19,8 +19,11 @@ if ($bare):
     echo $bodyHtml;
     return;
 endif;
+
+$hideChrome = !empty($content['meta']['hide_article_chrome']) && $content['meta']['hide_article_chrome'] !== '0';
 ?>
 <article class="article presence-article">
+  <?php if (!$hideChrome): ?>
   <header class="article-header">
     <div class="presence-heading-wash" aria-hidden="true"></div>
     <h1 class="presence-reveal" data-presence><?= htmlspecialchars($content['title']) ?></h1>
@@ -38,6 +41,7 @@ endif;
       <?php endif; ?>
     </div>
   </header>
+  <?php endif; ?>
 
   <?php if (!empty($content['featured_image'])): ?>
     <figure class="article-featured presence-reveal" data-presence>

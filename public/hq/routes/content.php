@@ -115,11 +115,12 @@ $router->post('/content/new', function (Request $req) {
         'featured_image' => trim((string) $req->post('featured_image', '')),
         'published_at'   => $publishedAt,
         'meta'           => [
-            'seo_title'        => trim((string) $req->post('seo_title', '')),
-            'meta_description' => trim((string) $req->post('meta_description', '')),
-            'og_title'         => trim((string) $req->post('og_title', '')),
-            'og_description'   => trim((string) $req->post('og_description', '')),
-            'robots'           => trim((string) $req->post('robots', 'index, follow')),
+            'seo_title'            => trim((string) $req->post('seo_title', '')),
+            'meta_description'     => trim((string) $req->post('meta_description', '')),
+            'og_title'             => trim((string) $req->post('og_title', '')),
+            'og_description'       => trim((string) $req->post('og_description', '')),
+            'robots'               => trim((string) $req->post('robots', 'index, follow')),
+            'hide_article_chrome'  => $req->post('hide_article_chrome') ? '1' : '0',
         ],
     ];
 
@@ -231,11 +232,12 @@ $router->post('/content/edit/{id}', function (Request $req, array $params) {
         'featured_image' => trim((string) $req->post('featured_image', '')),
         'published_at'   => $publishedAt,
         'meta'           => [
-            'seo_title'        => trim((string) $req->post('seo_title', '')),
-            'meta_description' => trim((string) $req->post('meta_description', '')),
-            'og_title'         => trim((string) $req->post('og_title', '')),
-            'og_description'   => trim((string) $req->post('og_description', '')),
-            'robots'           => trim((string) $req->post('robots', 'index, follow')),
+            'seo_title'            => trim((string) $req->post('seo_title', '')),
+            'meta_description'     => trim((string) $req->post('meta_description', '')),
+            'og_title'             => trim((string) $req->post('og_title', '')),
+            'og_description'       => trim((string) $req->post('og_description', '')),
+            'robots'               => trim((string) $req->post('robots', 'index, follow')),
+            'hide_article_chrome'  => $req->post('hide_article_chrome') ? '1' : '0',
         ],
     ];
 
