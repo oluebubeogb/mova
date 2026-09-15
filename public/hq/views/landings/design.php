@@ -15,7 +15,7 @@
   <header class="hq-landing-header">
     <p class="hq-landing-kicker"><i class="fa-solid fa-palette"></i> Design</p>
     <h1 class="hq-landing-title">Design workspace</h1>
-    <p class="hq-landing-desc">Shape how your site looks and feels — brand, style tokens, layout structure, and reusable components.</p>
+    <p class="hq-landing-desc">Shape how your site looks and feels — brand, style tokens, layout, components, elements, and shared variables.</p>
   </header>
 
   <div class="hq-landing-grid">
@@ -69,6 +69,17 @@
         <div class="hq-landing-card-body">
           <strong>Elements</strong>
           <span>Element editor and applied styles</span>
+        </div>
+      </div>
+      <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
+    </a>
+
+    <a class="hq-landing-card" href="/hq/variables">
+      <div class="hq-landing-card-inner">
+        <div class="hq-landing-icon is-mix"><i class="fa-solid fa-code"></i></div>
+        <div class="hq-landing-card-body">
+          <strong>Variables</strong>
+          <span>Shared tokens, var sheet, CSS &amp; HTML vars</span>
         </div>
       </div>
       <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
