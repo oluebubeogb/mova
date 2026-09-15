@@ -78,13 +78,24 @@
                     <p class="field-hint">Controls what appears in the frontend header logo area.</p>
                 </div>
                 <div class="form-group">
-                    <label>Logo URL</label>
+                    <label>Logo URL (light)</label>
                     <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
                         <input type="text" name="logo_url" id="logo_url" placeholder="/mova-uploads/..." value="<?= htmlspecialchars($settings['logo_url'] ?? '') ?>" style="flex:1;min-width:12rem;">
                         <button type="button" class="btn-ghost btn-sm" id="pick-logo" title="Pick from media library"><i class="fa-solid fa-images"></i> Media</button>
                     </div>
                     <?php if (!empty($settings['logo_url'])): ?>
                         <div style="margin-top:0.5rem;"><img src="<?= htmlspecialchars($settings['logo_url']) ?>" alt="" style="max-height:40px;width:auto;border:none;outline:none;"></div>
+                    <?php endif; ?>
+                </div>
+                <div class="form-group">
+                    <label>Logo URL (dark mode, optional)</label>
+                    <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+                        <input type="text" name="logo_url_dark" id="logo_url_dark" placeholder="/mova-uploads/... (optional)" value="<?= htmlspecialchars($settings['logo_url_dark'] ?? '') ?>" style="flex:1;min-width:12rem;">
+                        <button type="button" class="btn-ghost btn-sm" id="pick-logo-dark" title="Pick from media library"><i class="fa-solid fa-images"></i> Media</button>
+                    </div>
+                    <p class="field-hint">Used when the site is in dark mode. Falls back to the light logo if empty.</p>
+                    <?php if (!empty($settings['logo_url_dark'])): ?>
+                        <div style="margin-top:0.5rem;background:#12151c;padding:0.5rem;border-radius:8px;display:inline-block;"><img src="<?= htmlspecialchars($settings['logo_url_dark']) ?>" alt="" style="max-height:40px;width:auto;border:none;outline:none;"></div>
                     <?php endif; ?>
                 </div>
                 <div class="form-group">
@@ -266,8 +277,10 @@
   }
 
   var pickLogo = document.getElementById('pick-logo');
+  var pickLogoDark = document.getElementById('pick-logo-dark');
   var pickFav = document.getElementById('pick-favicon');
   if (pickLogo) pickLogo.addEventListener('click', function () { openMediaPicker('logo_url'); });
+  if (pickLogoDark) pickLogoDark.addEventListener('click', function () { openMediaPicker('logo_url_dark'); });
   if (pickFav) pickFav.addEventListener('click', function () { openMediaPicker('favicon_url'); });
 })();
 </script>

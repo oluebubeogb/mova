@@ -45,11 +45,23 @@ $lightLabels = [
             <div class="hq-layer-panel is-active" data-layer-panel="light">
                 <h3>Light colors</h3>
                 <div class="token-swatch-grid">
-                    <?php foreach ($lightLabels as $key => $label): $val = $colors[$key] ?? '#000000'; ?>
+                    <?php foreach ($lightLabels as $key => $label):
+                        $val = $colors[$key] ?? '#000000';
+                        // Normalize short hex for color input
+                        $pickerVal = $val;
+                        if (preg_match('/^#([0-9a-fA-F]{3})$/', $val, $m)) {
+                            $pickerVal = '#' . $m[1][0].$m[1][0].$m[1][1].$m[1][1].$m[1][2].$m[1][2];
+                        }
+                        if (!preg_match('/^#[0-9a-fA-F]{6}$/', $pickerVal)) {
+                            $pickerVal = '#000000';
+                        }
+                    ?>
                     <label class="token-swatch">
                         <span class="token-swatch-label"><?= htmlspecialchars($label) ?></span>
-                        <input type="color" name="color_<?= htmlspecialchars($key) ?>" value="<?= htmlspecialchars($val) ?>">
-                        <span class="token-swatch-hex"><?= htmlspecialchars($val) ?></span>
+                        <input type="color" class="token-color-picker" data-hex-target="color_hex_<?= htmlspecialchars($key) ?>" value="<?= htmlspecialchars($pickerVal) ?>">
+                        <input type="text" class="token-hex-input" name="color_<?= htmlspecialchars($key) ?>" id="color_hex_<?= htmlspecialchars($key) ?>"
+                               value="<?= htmlspecialchars($val) ?>" pattern="#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})"
+                               placeholder="#000 or #000000" title="HTML hex color (#RGB or #RRGGBB)" style="width:7.5rem;font-family:ui-monospace,monospace;font-size:0.85rem;">
                     </label>
                     <?php endforeach; ?>
                 </div>
@@ -57,11 +69,22 @@ $lightLabels = [
             <div class="hq-layer-panel" data-layer-panel="dark" hidden>
                 <h3>Dark colors</h3>
                 <div class="token-swatch-grid">
-                    <?php foreach ($lightLabels as $key => $label): $val = $dark[$key] ?? '#ffffff'; ?>
+                    <?php foreach ($lightLabels as $key => $label):
+                        $val = $dark[$key] ?? '#ffffff';
+                        $pickerVal = $val;
+                        if (preg_match('/^#([0-9a-fA-F]{3})$/', $val, $m)) {
+                            $pickerVal = '#' . $m[1][0].$m[1][0].$m[1][1].$m[1][1].$m[1][2].$m[1][2];
+                        }
+                        if (!preg_match('/^#[0-9a-fA-F]{6}$/', $pickerVal)) {
+                            $pickerVal = '#ffffff';
+                        }
+                    ?>
                     <label class="token-swatch">
                         <span class="token-swatch-label"><?= htmlspecialchars($label) ?></span>
-                        <input type="color" name="color_dark_<?= htmlspecialchars($key) ?>" value="<?= htmlspecialchars($val) ?>">
-                        <span class="token-swatch-hex"><?= htmlspecialchars($val) ?></span>
+                        <input type="color" class="token-color-picker" data-hex-target="color_dark_hex_<?= htmlspecialchars($key) ?>" value="<?= htmlspecialchars($pickerVal) ?>">
+                        <input type="text" class="token-hex-input" name="color_dark_<?= htmlspecialchars($key) ?>" id="color_dark_hex_<?= htmlspecialchars($key) ?>"
+                               value="<?= htmlspecialchars($val) ?>" pattern="#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})"
+                               placeholder="#000 or #000000" title="HTML hex color (#RGB or #RRGGBB)" style="width:7.5rem;font-family:ui-monospace,monospace;font-size:0.85rem;">
                     </label>
                     <?php endforeach; ?>
                 </div>
@@ -126,3 +149,40 @@ $lightLabels = [
     </div>
 </form>
 <?php include __DIR__ . '/_design_styles.php'; ?>
+<script>
+(function () {
+  function expandHex(v) {
+    v = (v || '').trim();
+    var m = v.match(/^#([0-9A-Fa-f]{3})$/);
+    if (m) {
+      var h = m[1];
+      return '#' + h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    }
+    if (/^#([0-9A-Fa-f]{6})$/.test(v)) return v;
+    if (/^([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(v)) return expandHex('#' + v);
+    return null;
+  }
+  document.querySelectorAll('.token-color-picker').forEach(function (picker) {
+    var id = picker.getAttribute('data-hex-target');
+    var hex = id ? document.getElementById(id) : null;
+    if (!hex) return;
+    picker.addEventListener('input', function () {
+      hex.value = picker.value;
+    });
+    hex.addEventListener('change', function () {
+      var exp = expandHex(hex.value);
+      if (exp) {
+        hex.value = exp;
+        picker.value = exp;
+      }
+    });
+    hex.addEventListener('blur', function () {
+      var exp = expandHex(hex.value);
+      if (exp) {
+        hex.value = exp;
+        picker.value = exp;
+      }
+    });
+  });
+})();
+</script>

@@ -56,6 +56,7 @@ $router->get('/brand', function () {
         'site_name' => DesignConfig::setting('site_name', 'Mova'),
         'site_description' => DesignConfig::setting('site_description', ''),
         'logo_url' => DesignConfig::setting('logo_url', ''),
+        'logo_url_dark' => DesignConfig::setting('logo_url_dark', ''),
         'favicon_url' => DesignConfig::setting('favicon_url', ''),
         'footer_text' => DesignConfig::setting('footer_text', ''),
         'brand_color' => DesignConfig::setting('brand_color', '#2563eb'),
@@ -127,7 +128,7 @@ $router->post('/brand', function (Request $req) {
     if (!Csrf::validate()) {
         return (new Response())->status(403)->body('CSRF');
     }
-    foreach (['site_name', 'site_description', 'logo_url', 'favicon_url', 'footer_text', 'brand_color', 'homepage_content_id', 'header_assembly_slug', 'footer_assembly_slug', 'header_brand_mode'] as $key) {
+    foreach (['site_name', 'site_description', 'logo_url', 'logo_url_dark', 'favicon_url', 'footer_text', 'brand_color', 'homepage_content_id', 'header_assembly_slug', 'footer_assembly_slug', 'header_brand_mode'] as $key) {
         DesignConfig::saveSetting($key, (string) $req->post($key, ''));
     }
     // Keep brand_color in sync with primary token for compatibility
@@ -164,9 +165,33 @@ $router->post('/style', function (Request $req) {
     }
     $tokens = DesignConfig::tokens();
     $colorKeys = ['primary', 'secondary', 'accent', 'background', 'surface', 'text', 'muted', 'border'];
+    $normalizeHex = static function (string $v, string $fallback): string {
+        $v = trim($v);
+        if (preg_match('/^#([0-9A-Fa-f]{3})$/', $v, $m)) {
+            $h = $m[1];
+            return '#' . $h[0] . $h[0] . $h[1] . $h[1] . $h[2] . $h[2];
+        }
+        if (preg_match('/^#([0-9A-Fa-f]{6})$/', $v)) {
+            return $v;
+        }
+        if (preg_match('/^([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/', $v, $m)) {
+            $h = $m[1];
+            if (strlen($h) === 3) {
+                return '#' . $h[0] . $h[0] . $h[1] . $h[1] . $h[2] . $h[2];
+            }
+            return '#' . $h;
+        }
+        return $fallback;
+    };
     foreach ($colorKeys as $ck) {
-        $tokens['colors'][$ck] = (string) $req->post('color_' . $ck, $tokens['colors'][$ck] ?? '');
-        $tokens['colors_dark'][$ck] = (string) $req->post('color_dark_' . $ck, $tokens['colors_dark'][$ck] ?? '');
+        $tokens['colors'][$ck] = $normalizeHex(
+            (string) $req->post('color_' . $ck, $tokens['colors'][$ck] ?? ''),
+            $tokens['colors'][$ck] ?? '#000000'
+        );
+        $tokens['colors_dark'][$ck] = $normalizeHex(
+            (string) $req->post('color_dark_' . $ck, $tokens['colors_dark'][$ck] ?? ''),
+            $tokens['colors_dark'][$ck] ?? '#ffffff'
+        );
     }
     $tokens['typography']['font_sans'] = (string) $req->post('font_sans', $tokens['typography']['font_sans'] ?? '');
     $tokens['typography']['scale'] = (string) $req->post('font_scale', '1');
@@ -417,4 +442,131 @@ $router->post('/elements/import', function (Request $req) {
     PageCache::flush();
     Audit::log('design.elements.imported', 'element', 0, ['count' => $count]);
     return (new Response())->redirect('/hq/elements?imported=' . (int) $count);
+});
+
+// ---- Variables ----
+$router->get('/variables', function () {
+    if ($r = mova_design_guard()) {
+        return $r;
+    }
+    return renderHq('design/variables', [
+        'variables' => \Mova\Theme\VariableService::all(),
+        'custom' => \Mova\Theme\VariableService::customCatalog(),
+        'title' => 'Variables',
+    ]);
+});
+
+$router->get('/variables/new', function () {
+    if ($r = mova_design_guard()) {
+        return $r;
+    }
+    return renderHq('design/variable-form', [
+        'variable' => ['name' => '', 'value' => '', 'type' => 'text', 'description' => ''],
+        'title' => 'Add variable',
+        'isNew' => true,
+    ]);
+});
+
+$router->post('/variables/new', function (Request $req) {
+    if ($r = mova_design_guard()) {
+        return $r;
+    }
+    if (!Csrf::validate()) {
+        return (new Response())->status(403)->body('CSRF');
+    }
+    $name = \Mova\Theme\VariableService::normalizeName((string) $req->post('name', ''));
+    $value = (string) $req->post('value', '');
+    $type = (string) $req->post('type', 'text');
+    $desc = (string) $req->post('description', '');
+    if ($name === '') {
+        return renderHq('design/variable-form', [
+            'variable' => ['name' => '', 'value' => $value, 'type' => $type, 'description' => $desc],
+            'title' => 'Add variable',
+            'isNew' => true,
+            'error' => 'Name is required (letters, numbers, - and _).',
+        ]);
+    }
+    $custom = \Mova\Theme\VariableService::customCatalog();
+    foreach ($custom as $i => $row) {
+        if ($row['name'] === $name) {
+            $custom[$i] = ['name' => $name, 'value' => $value, 'type' => $type, 'description' => $desc];
+            \Mova\Theme\VariableService::saveCustom($custom);
+            PageCache::flush();
+            return (new Response())->redirect('/hq/variables?saved=1');
+        }
+    }
+    // Reject collision with system names
+    foreach (\Mova\Theme\VariableService::systemCatalog() as $sys) {
+        if ($sys['name'] === $name) {
+            return renderHq('design/variable-form', [
+                'variable' => ['name' => $name, 'value' => $value, 'type' => $type, 'description' => $desc],
+                'title' => 'Add variable',
+                'isNew' => true,
+                'error' => 'That name is a system variable. Edit it on the Var sheet instead.',
+            ]);
+        }
+    }
+    $custom[] = ['name' => $name, 'value' => $value, 'type' => $type, 'description' => $desc];
+    \Mova\Theme\VariableService::saveCustom($custom);
+    PageCache::flush();
+    Audit::log('design.variables.created');
+    return (new Response())->redirect('/hq/variables?saved=1');
+});
+
+$router->get('/variables/sheet', function () {
+    if ($r = mova_design_guard()) {
+        return $r;
+    }
+    return renderHq('design/variable-sheet', [
+        'sheet' => \Mova\Theme\VariableService::sheetText(),
+        'title' => 'Var sheet',
+    ]);
+});
+
+$router->post('/variables/sheet', function (Request $req) {
+    if ($r = mova_design_guard()) {
+        return $r;
+    }
+    if (!Csrf::validate()) {
+        return (new Response())->status(403)->body('CSRF');
+    }
+    $text = (string) $req->post('sheet', '');
+    $parsed = \Mova\Theme\VariableService::parseSheetText($text);
+    // Enrich with type/description from existing when possible
+    $existing = [];
+    foreach (\Mova\Theme\VariableService::all() as $row) {
+        $existing[$row['name']] = $row;
+    }
+    $rows = [];
+    foreach ($parsed as $p) {
+        $prev = $existing[$p['name']] ?? [];
+        $rows[] = [
+            'name' => $p['name'],
+            'value' => $p['value'],
+            'type' => $prev['type'] ?? 'text',
+            'description' => $prev['description'] ?? '',
+            'source' => $prev['source'] ?? 'custom',
+        ];
+    }
+    \Mova\Theme\VariableService::saveSheet($rows);
+    PageCache::flush();
+    Audit::log('design.variables.sheet_saved');
+    return (new Response())->redirect('/hq/variables/sheet?saved=1');
+});
+
+$router->post('/variables/delete', function (Request $req) {
+    if ($r = mova_design_guard()) {
+        return $r;
+    }
+    if (!Csrf::validate()) {
+        return (new Response())->status(403)->body('CSRF');
+    }
+    $name = \Mova\Theme\VariableService::normalizeName((string) $req->post('name', ''));
+    $custom = array_values(array_filter(
+        \Mova\Theme\VariableService::customCatalog(),
+        static fn ($r) => ($r['name'] ?? '') !== $name
+    ));
+    \Mova\Theme\VariableService::saveCustom($custom);
+    PageCache::flush();
+    return (new Response())->redirect('/hq/variables?deleted=1');
 });

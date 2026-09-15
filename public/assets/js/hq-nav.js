@@ -106,7 +106,16 @@
                 { label: 'Style',      href: '/hq/style' },
                 { label: 'Layout',     href: '/hq/layout' },
                 { label: 'Components', href: '/hq/components' },
-                { label: 'Elements',   href: '/hq/elements' }
+                { label: 'Elements',   href: '/hq/elements' },
+                { label: 'Variables',  href: '/hq/variables' }
+            ]
+        },
+        'design.variables': {
+            sectionName: 'Design',
+            items: [
+                { label: 'All variables', href: '/hq/variables' },
+                { label: 'Add variable',  href: '/hq/variables/new', primary: true },
+                { label: 'Var sheet',     href: '/hq/variables/sheet' }
             ]
         },
         'design.brand': {
@@ -254,6 +263,7 @@
         if (path.startsWith('/hq/layout')) return { key: 'design.layout', params, section };
         if (path.startsWith('/hq/components')) return { key: 'design.components', params, section };
         if (path.startsWith('/hq/elements')) return { key: 'design.elements', params };
+        if (path.startsWith('/hq/variables')) return { key: 'design.variables', params, section };
 
         // Extend
         if (path.startsWith('/hq/integrations')) return { key: 'integrations', params };

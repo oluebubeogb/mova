@@ -701,29 +701,35 @@ if (!empty($content['published_at'])) {
         if (!sel || !sel.rangeCount) return null;
         let node = sel.anchorNode;
         if (node && node.nodeType === 3) node = node.parentElement;
+        // If selection is the editor itself, try first/last child near caret
+        if (node === editor) return null;
+        const blockTags = ['p','div','h1','h2','h3','h4','h5','h6','li','blockquote','figure','section','article','table','pre','ul','ol','aside','hr','img','iframe','video','audio','form','details','header','footer','nav','main'];
         while (node && node !== editor && node.nodeType === 1) {
             const tag = (node.tagName || '').toLowerCase();
-            if (['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'blockquote', 'figure', 'section', 'article', 'table', 'pre', 'ul', 'ol'].indexOf(tag) !== -1) {
-                // Prefer direct children of the editor when possible
-                if (node.parentElement === editor || node.parentElement === null) return node;
-                // For nested blocks (e.g. li), keep walking until editor child
-                if (node.parentElement && node.parentElement !== editor) {
-                    // still return this for indent; for reorder we'll walk up further
-                }
+            if (blockTags.indexOf(tag) !== -1) {
                 return node;
             }
             node = node.parentElement;
         }
-        return (node && node !== editor) ? node : null;
+        return (node && node !== editor && node.nodeType === 1) ? node : null;
     }
 
+    /** Top-level child of the contenteditable that contains the caret (any element). */
     function getEditorChildBlock() {
-        let node = getActiveBlock();
+        const sel = window.getSelection();
+        if (!sel || !sel.rangeCount) return null;
+        let node = sel.anchorNode;
         if (!node) return null;
+        if (node.nodeType === 3) node = node.parentElement;
+        if (!node || !editor.contains(node)) return null;
+        // Walk up until the direct child of the editor
         while (node && node.parentElement && node.parentElement !== editor) {
             node = node.parentElement;
         }
-        return (node && node.parentElement === editor) ? node : null;
+        if (node && node.parentElement === editor && node.nodeType === 1) {
+            return node;
+        }
+        return null;
     }
 
     // Standard execCommand buttons — custom indent avoids blockquote/background side-effects

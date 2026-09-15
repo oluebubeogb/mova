@@ -62,7 +62,8 @@ function hqLayout(string $view, string $content, array $data = []): string
         $workspace = 'audience';
     } elseif (strpos($view, 'landings/design') === 0 || strpos($view, 'brand') === 0 || strpos($view, 'style') === 0
         || strpos($view, 'layout') === 0 || strpos($view, 'components') === 0
-        || strpos($view, 'elements') === 0 || strpos($view, 'design/') === 0
+        || strpos($view, 'elements') === 0 || strpos($view, 'variables') === 0 || strpos($view, 'variable-') === 0
+        || strpos($view, 'design/') === 0
         || $view === 'appearance') {
         $workspace = 'design';
     } elseif (strpos($view, 'landings/extend') === 0 || strpos($view, 'plugins') === 0 || strpos($view, 'integrations') === 0

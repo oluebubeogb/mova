@@ -129,6 +129,11 @@ body {
     color: var(--color-accent);
 }
 
+.logo-img--dark { display: none; }
+[data-theme="dark"] .logo-img--light { display: none; }
+[data-theme="dark"] .logo-img--dark { display: inline; }
+[data-theme="dark"] .logo:not(:has(.logo-img--dark)) .logo-img--light { display: inline; }
+
 .header-actions {
     display: flex;
     flex-direction: row;

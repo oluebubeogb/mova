@@ -25,6 +25,7 @@ if (!function_exists('mova_setting')) {
 $siteName = mova_setting('site_name', Bootstrap::config('app_name', 'Mova'));
 $siteDesc = mova_setting('site_description', Bootstrap::config('app_tagline', 'Content that moves.'));
 $logoUrl = mova_setting('logo_url', '');
+$logoUrlDark = mova_setting('logo_url_dark', '');
 $faviconUrl = mova_setting('favicon_url', '');
 $brandColor = mova_setting('brand_color', '#2563eb');
 $headerBrandMode = mova_setting('header_brand_mode', 'logo_and_name'); // logo_and_name | logo_only | name_only
@@ -96,7 +97,17 @@ if (isset($seo) && is_object($seo)) {
     <!-- Font Awesome included by default so icons like fa-users, fa-solid, etc. work out of the box -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="/assets/css/mova.css">
-    <style>.logo img{border:none!important;outline:none!important;box-shadow:none!important;}</style>
+    <style>
+    .logo img{border:none!important;outline:none!important;box-shadow:none!important;}
+    .logo-img--dark{display:none;}
+    [data-theme="dark"] .logo-img--light{display:none;}
+    [data-theme="dark"] .logo-img--dark{display:inline;}
+    /* If no dark logo, keep light logo visible in dark mode */
+    [data-theme="dark"] .logo:not(:has(.logo-img--dark)) .logo-img--light{display:inline;}
+    </style>
+    <?php if (class_exists(\Mova\Theme\VariableService::class)): ?>
+    <script>window.MovaVars=<?= \Mova\Theme\VariableService::jsPayload() ?>;</script>
+    <?php endif; ?>
 
     <?php
     if (class_exists(\Mova\Theme\ElementStyles::class)) {
@@ -196,7 +207,10 @@ $headerTransparent = !empty($headerCfg['transparent']);
                         $showLogo = $logoUrl && $headerBrandMode !== 'name_only';
                         $showName = $headerBrandMode === 'name_only' || $headerBrandMode === 'logo_and_name' || !$logoUrl;
                         if ($showLogo): ?>
-                            <img src="<?= htmlspecialchars($logoUrl) ?>" alt="<?= htmlspecialchars($siteName) ?>" style="height:28px;width:auto;vertical-align:middle;border:none;outline:none;box-shadow:none;">
+                            <img class="logo-img logo-img--light" src="<?= htmlspecialchars($logoUrl) ?>" alt="<?= htmlspecialchars($siteName) ?>" style="height:28px;width:auto;vertical-align:middle;border:none;outline:none;box-shadow:none;">
+                            <?php if ($logoUrlDark): ?>
+                            <img class="logo-img logo-img--dark" src="<?= htmlspecialchars($logoUrlDark) ?>" alt="<?= htmlspecialchars($siteName) ?>" style="height:28px;width:auto;vertical-align:middle;border:none;outline:none;box-shadow:none;">
+                            <?php endif; ?>
                         <?php endif; ?>
                         <?php if ($showName): ?>
                             <span class="logo-text"><?= htmlspecialchars($siteName) ?></span>

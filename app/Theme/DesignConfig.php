@@ -252,6 +252,11 @@ class DesignConfig
         $lines[] = '  font-size: calc(16px * var(--font-scale, 1));';
         $lines[] = '}';
 
+        // User / custom design variables (Design → Variables)
+        if (class_exists(VariableService::class)) {
+            $lines[] = VariableService::customCssVariables();
+        }
+
         return implode("\n", $lines);
     }
 
