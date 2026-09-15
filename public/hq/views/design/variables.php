@@ -18,6 +18,7 @@ $custom = $custom ?? [];
 <div class="toolbar" style="margin-bottom:1rem;display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
     <a class="btn-primary" href="/hq/variables/new"><i class="fa-solid fa-plus"></i> Add variable</a>
     <a class="btn-ghost" href="/hq/variables/sheet"><i class="fa-solid fa-table"></i> Var sheet</a>
+    <a class="btn-ghost" href="/hq/variables/export"><i class="fa-solid fa-file-export"></i> Export</a>
 </div>
 
 <details open style="margin-bottom:1.25rem;">

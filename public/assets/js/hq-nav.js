@@ -113,9 +113,10 @@
         'design.variables': {
             sectionName: 'Design',
             items: [
-                { label: 'All variables', href: '/hq/variables' },
-                { label: 'Add variable',  href: '/hq/variables/new', primary: true },
-                { label: 'Var sheet',     href: '/hq/variables/sheet' }
+                { label: 'All variables',   href: '/hq/variables',        match: { path: '/hq/variables' } },
+                { label: 'Add variable',    href: '/hq/variables/new',    match: { path: '/hq/variables/new' }, primary: true },
+                { label: 'Var sheet',       href: '/hq/variables/sheet',  match: { path: '/hq/variables/sheet' } },
+                { label: 'Export variable', href: '/hq/variables/export', match: { path: '/hq/variables/export' } }
             ]
         },
         'design.brand': {
@@ -344,7 +345,12 @@
                 if (itemPath === '/hq' || itemPath === '') {
                     return currentPath === '/hq' || currentPath === '';
                 }
-                return currentPath === itemPath || currentPath.startsWith(itemPath + '/');
+                // Exact path only — avoids parent links (e.g. /hq/variables) looking active
+                // on child pages (/hq/variables/sheet, /export, …).
+                if (item.prefixMatch) {
+                    return currentPath === itemPath || currentPath.startsWith(itemPath + '/');
+                }
+                return currentPath === itemPath;
             }
 
             for (const key of ['status', 'section', 'view', 'folder', 'provider']) {
@@ -483,6 +489,7 @@
         { title: 'Variables',        href: '/hq/variables',       keywords: 'variables vars tokens css var sheet', group: 'Design' },
         { title: 'Add variable',     href: '/hq/variables/new',   keywords: 'add variable new custom', group: 'Design' },
         { title: 'Var sheet',        href: '/hq/variables/sheet', keywords: 'var sheet variables tokens', group: 'Design' },
+        { title: 'Export variables', href: '/hq/variables/export', keywords: 'export variables copy download', group: 'Design' },
         { title: 'Extend',           href: '/hq/extend',          keywords: 'extend', group: 'Extend' },
         { title: 'Plugins',          href: '/hq/plugins',         keywords: 'plugins modules', group: 'Extend' },
         { title: 'Integrations',     href: '/hq/integrations',    keywords: 'integrations', group: 'Extend' },

@@ -628,3 +628,13 @@ $router->post('/variables/delete', function (Request $req) {
     PageCache::flush();
     return (new Response())->redirect('/hq/variables?deleted=1');
 });
+
+$router->get('/variables/export', function () {
+    if ($r = mova_design_guard()) {
+        return $r;
+    }
+    return renderHq('design/variable-export', [
+        'variables' => \Mova\Theme\VariableService::all(),
+        'title' => 'Export variables',
+    ]);
+});
