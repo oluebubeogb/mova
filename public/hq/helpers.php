@@ -11,7 +11,16 @@ use Mova\Auth\Auth;
 function requireAuth(): void
 {
     if (!Auth::check()) {
-        header('Location: /hq/login');
+        // Remember where the user was so we can send them back after re-login
+        $uri = $_SERVER['REQUEST_URI'] ?? '/hq';
+        // Prefer path+query only (no scheme/host)
+        $path = parse_url($uri, PHP_URL_PATH) ?: '/hq';
+        $query = parse_url($uri, PHP_URL_QUERY);
+        $intended = $path . ($query ? '?' . $query : '');
+        Auth::setIntendedUrl($intended);
+
+        $qs = Auth::wasTimedOut() ? '?timeout=1' : '';
+        header('Location: /hq/login' . $qs);
         exit;
     }
 }

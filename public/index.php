@@ -133,7 +133,18 @@ $router->get('/search', function (Request $req) use ($contentRepo, $seo) {
 });
 
 // Homepage — optional fixed content from Brand → Identity
+// Browser title is always "Sitename | site description" on the homepage.
 $router->get('/', function () use ($contentRepo, $seo) {
+    $siteName = 'Mova';
+    $siteDesc = '';
+    try {
+        if (class_exists(\Mova\Theme\DesignConfig::class)) {
+            $siteName = (string) \Mova\Theme\DesignConfig::setting('site_name', Bootstrap::config('app_name', 'Mova'));
+            $siteDesc = (string) \Mova\Theme\DesignConfig::setting('site_description', Bootstrap::config('app_tagline', ''));
+        }
+    } catch (\Throwable $e) {}
+    $homeTitle = $siteDesc !== '' ? ($siteName . ' | ' . $siteDesc) : $siteName;
+
     $homeId = 0;
     try {
         if (class_exists(\Mova\Theme\DesignConfig::class)) {
@@ -146,7 +157,7 @@ $router->get('/', function () use ($contentRepo, $seo) {
             return renderTheme('content', [
                 'content' => $content,
                 'seo'     => $seo,
-                'title'   => $content['title'] ?? null,
+                'title'   => $homeTitle,
             ]);
         }
     }
@@ -154,6 +165,7 @@ $router->get('/', function () use ($contentRepo, $seo) {
     return renderTheme('home', [
         'posts' => $posts,
         'seo'   => $seo,
+        'title' => $homeTitle,
     ]);
 });
 

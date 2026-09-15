@@ -26,6 +26,10 @@ $siteDesc = mova_setting('site_description', Bootstrap::config('app_tagline', 'C
 $logoUrl = mova_setting('logo_url', '');
 $faviconUrl = mova_setting('favicon_url', '');
 $brandColor = mova_setting('brand_color', '#2563eb');
+$headerBrandMode = mova_setting('header_brand_mode', 'logo_and_name');
+if (!in_array($headerBrandMode, ['logo_and_name', 'logo_only', 'name_only'], true)) {
+    $headerBrandMode = 'logo_and_name';
+}
 $footerText = mova_setting('footer_text', '');
 $navRaw = mova_setting('nav_links', "Home|/\nSearch|/search");
 $navItems = [];
@@ -76,9 +80,12 @@ if (isset($seo) && is_object($seo)) {
     <?php if ($faviconUrl): ?>
         <link rel="icon" href="<?= htmlspecialchars($faviconUrl) ?>">
     <?php endif; ?>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous">
     <!-- Font Awesome included by default so icons like fa-users, fa-solid, etc. work out of the box -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="/assets/css/mova.css">
+    <style>.logo img{border:none!important;outline:none!important;box-shadow:none!important;}</style>
 
     <?php
     if (class_exists(\Mova\Theme\ElementStyles::class)) {
@@ -128,11 +135,15 @@ $headerTransparent = !empty($headerCfg['transparent']);
 <body class="theme-documentation header-<?= htmlspecialchars($headerType) ?> logo-<?= htmlspecialchars($logoPos) ?> nav-<?= htmlspecialchars($navAlign) ?> footer-<?= htmlspecialchars($footerStyle) ?> mobile-nav-<?= htmlspecialchars($mobileNavStyle) ?> mobile-nav-align-<?= htmlspecialchars($mobileNavAlign) ?> btn-<?= htmlspecialchars($btnVar) ?> card-<?= htmlspecialchars($cardVar) ?> hero-<?= htmlspecialchars($heroVar) ?> card-hover-<?= htmlspecialchars($cardHover) ?><?= $btnUpper ? ' btn-uppercase' : '' ?><?= $headerTransparent ? ' header-transparent' : '' ?>">
     <header class="site-header">
         <div class="container">
-            <a href="/" class="logo">
-                <?php if ($logoUrl): ?>
-                    <img src="<?= htmlspecialchars($logoUrl) ?>" alt="<?= htmlspecialchars($siteName) ?>" style="height:28px;width:auto;vertical-align:middle;">
-                <?php else: ?>
-                    <?= htmlspecialchars($siteName) ?>
+            <a href="/" class="logo" style="display:inline-flex;align-items:center;gap:0.5rem;">
+                <?php
+                $showLogo = $logoUrl && $headerBrandMode !== 'name_only';
+                $showName = $headerBrandMode === 'name_only' || $headerBrandMode === 'logo_and_name' || !$logoUrl;
+                if ($showLogo): ?>
+                    <img src="<?= htmlspecialchars($logoUrl) ?>" alt="<?= htmlspecialchars($siteName) ?>" style="height:28px;width:auto;vertical-align:middle;border:none;outline:none;box-shadow:none;">
+                <?php endif; ?>
+                <?php if ($showName): ?>
+                    <span class="logo-text"><?= htmlspecialchars($siteName) ?></span>
                 <?php endif; ?>
             </a>
             <div class="header-actions">

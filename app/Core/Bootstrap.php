@@ -131,8 +131,10 @@ class Bootstrap
             || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
 
         session_name(self::config('security.session_name', 'mova_session'));
+        // Use 0 lifetime so the cookie is a pure session cookie; we enforce
+        // inactivity ourselves via _mova_last_activity (sliding window).
         session_set_cookie_params([
-            'lifetime' => self::config('security.session_lifetime', 7200),
+            'lifetime' => 0,
             'path'     => '/',
             'domain'   => '',
             'secure'   => $isHttps && $secure,
@@ -148,6 +150,19 @@ class Bootstrap
         } elseif (time() - $_SESSION['_mova_created'] > 1800) {
             session_regenerate_id(true);
             $_SESSION['_mova_created'] = time();
+        }
+
+        // Sliding inactivity window for authenticated users (checked in Auth)
+        if (isset($_SESSION['mova_user_id'])) {
+            $lifetime = (int) self::config('security.session_lifetime', 7200);
+            $last = (int) ($_SESSION['_mova_last_activity'] ?? 0);
+            if ($last > 0 && (time() - $last) > $lifetime) {
+                // Mark as timed out; Auth / requireAuth will finish logout + redirect
+                $_SESSION['_mova_timed_out'] = 1;
+                unset($_SESSION['mova_user_id'], $_SESSION['mova_user_role'], $_SESSION['_mova_last_activity']);
+            } else {
+                $_SESSION['_mova_last_activity'] = time();
+            }
         }
     }
 

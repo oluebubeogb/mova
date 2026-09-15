@@ -6,12 +6,13 @@
         <?= Csrf::field() ?>
         <label class="btn-primary" style="cursor:pointer;">
             Upload
-            <input type="file" name="file" id="file-input" accept="image/*" hidden>
+            <input type="file" name="file" id="file-input" accept="image/*" multiple hidden>
         </label>
     </form>
 </div>
 
 <div id="upload-status"></div>
+<div id="upload-queue" style="margin:0.75rem 0;display:flex;flex-direction:column;gap:0.4rem;"></div>
 
 <?php if (empty($items)): ?>
     <p class="empty">No media yet. Upload an image to get started.</p>
@@ -85,25 +86,95 @@
     var csrf = document.querySelector('#upload-form input[name="_mova_csrf"]');
     var csrfToken = csrf ? csrf.value : '';
 
+    function esc(s) {
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    function uploadOne(file, rowEl) {
+        return new Promise(function (resolve) {
+            var fd = new FormData();
+            fd.append('_mova_csrf', csrfToken);
+            fd.append('file', file);
+
+            var bar = rowEl.querySelector('.uq-bar');
+            var label = rowEl.querySelector('.uq-label');
+            var pctEl = rowEl.querySelector('.uq-pct');
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/hq/media/upload');
+            xhr.upload.onprogress = function (e) {
+                if (!e.lengthComputable) return;
+                var pct = Math.round((e.loaded / e.total) * 100);
+                if (bar) bar.style.width = pct + '%';
+                if (pctEl) pctEl.textContent = pct + '%';
+                if (label) label.textContent = 'Uploading ' + esc(file.name) + '…';
+            };
+            xhr.onload = function () {
+                var data = {};
+                try { data = JSON.parse(xhr.responseText); } catch (e) {}
+                if (xhr.status >= 200 && xhr.status < 300 && data.success) {
+                    if (bar) bar.style.width = '100%';
+                    if (pctEl) pctEl.textContent = '100%';
+                    if (label) label.innerHTML = '<span style="color:var(--hq-success,#15803d);">✓ ' + esc(file.name) + '</span>';
+                    rowEl.classList.add('uq-ok');
+                    resolve({ ok: true, data: data });
+                } else {
+                    if (label) label.innerHTML = '<span style="color:var(--hq-danger,#b91c1c);">✗ ' + esc(file.name) + ' — ' + esc(data.error || 'Upload failed') + '</span>';
+                    rowEl.classList.add('uq-fail');
+                    resolve({ ok: false, error: data.error || 'Upload failed' });
+                }
+            };
+            xhr.onerror = function () {
+                if (label) label.innerHTML = '<span style="color:var(--hq-danger,#b91c1c);">✗ ' + esc(file.name) + ' — network error</span>';
+                rowEl.classList.add('uq-fail');
+                resolve({ ok: false, error: 'Network error' });
+            };
+            xhr.send(fd);
+        });
+    }
+
     document.getElementById('file-input').addEventListener('change', async function() {
-        const file = this.files[0];
-        if (!file) return;
-        const form = document.getElementById('upload-form');
-        const fd = new FormData(form);
-        fd.set('file', file);
-        const status = document.getElementById('upload-status');
-        status.innerHTML = '<div class="alert">Uploading…</div>';
-        try {
-            const res = await fetch('/hq/media/upload', { method: 'POST', body: fd });
-            const data = await res.json();
-            if (data.success) {
-                status.innerHTML = '<div class="alert alert-success">Uploaded. Reloading…</div>';
-                location.reload();
-            } else {
-                status.innerHTML = '<div class="alert alert-error">' + (data.error || 'Upload failed') + '</div>';
-            }
-        } catch (e) {
-            status.innerHTML = '<div class="alert alert-error">Upload failed</div>';
+        var files = Array.prototype.slice.call(this.files || []);
+        this.value = ''; // allow re-selecting same files
+        if (!files.length) return;
+
+        var status = document.getElementById('upload-status');
+        var queue = document.getElementById('upload-queue');
+        status.innerHTML = '<div class="alert">Uploading ' + files.length + ' file' + (files.length > 1 ? 's' : '') + ' (queued)…</div>';
+        queue.innerHTML = '';
+
+        var rows = files.map(function (file) {
+            var row = document.createElement('div');
+            row.className = 'uq-row';
+            row.style.cssText = 'background:var(--hq-surface,#f8fafc);border:1px solid var(--hq-border,#e2e8f0);border-radius:8px;padding:0.5rem 0.75rem;';
+            row.innerHTML =
+                '<div style="display:flex;justify-content:space-between;gap:0.5rem;font-size:0.85rem;margin-bottom:0.35rem;">' +
+                    '<span class="uq-label">Queued: ' + esc(file.name) + '</span>' +
+                    '<span class="uq-pct" style="font-variant-numeric:tabular-nums;color:var(--hq-muted);">0%</span>' +
+                '</div>' +
+                '<div style="height:6px;background:#e2e8f0;border-radius:999px;overflow:hidden;">' +
+                    '<div class="uq-bar" style="height:100%;width:0%;background:var(--hq-accent,#2563eb);transition:width 0.15s linear;"></div>' +
+                '</div>';
+            queue.appendChild(row);
+            return row;
+        });
+
+        var okCount = 0;
+        // Sequential queue so we don't overwhelm the server / session
+        for (var i = 0; i < files.length; i++) {
+            var result = await uploadOne(files[i], rows[i]);
+            if (result.ok) okCount++;
+        }
+
+        if (okCount === files.length) {
+            status.innerHTML = '<div class="alert alert-success">All ' + okCount + ' file(s) uploaded. Reloading…</div>';
+            setTimeout(function () { location.reload(); }, 600);
+        } else if (okCount > 0) {
+            status.innerHTML = '<div class="alert alert-success">' + okCount + ' of ' + files.length + ' uploaded. Refresh to see new items.</div>';
+        } else {
+            status.innerHTML = '<div class="alert alert-error">All uploads failed. See details above.</div>';
         }
     });
 

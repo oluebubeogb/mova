@@ -62,6 +62,7 @@ $router->get('/brand', function () {
         'homepage_content_id' => DesignConfig::setting('homepage_content_id', ''),
         'header_assembly_slug' => DesignConfig::setting('header_assembly_slug', ''),
         'footer_assembly_slug' => DesignConfig::setting('footer_assembly_slug', ''),
+        'header_brand_mode' => DesignConfig::setting('header_brand_mode', 'logo_and_name'),
     ];
     $hid = (int) ($settings['homepage_content_id'] ?? 0);
     if ($hid > 0) {
@@ -126,7 +127,7 @@ $router->post('/brand', function (Request $req) {
     if (!Csrf::validate()) {
         return (new Response())->status(403)->body('CSRF');
     }
-    foreach (['site_name', 'site_description', 'logo_url', 'favicon_url', 'footer_text', 'brand_color', 'homepage_content_id', 'header_assembly_slug', 'footer_assembly_slug'] as $key) {
+    foreach (['site_name', 'site_description', 'logo_url', 'favicon_url', 'footer_text', 'brand_color', 'homepage_content_id', 'header_assembly_slug', 'footer_assembly_slug', 'header_brand_mode'] as $key) {
         DesignConfig::saveSetting($key, (string) $req->post($key, ''));
     }
     // Keep brand_color in sync with primary token for compatibility

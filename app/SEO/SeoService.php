@@ -17,6 +17,7 @@ class SeoService
 
         // Prefer explicit SEO title, then post title, then site name (empty strings ignored)
         $seoTitle = trim((string) ($overrides['title'] ?? ''));
+        $forcedTitle = $seoTitle !== ''; // caller passed an explicit full title (e.g. homepage)
         if ($seoTitle === '' && $content) {
             $seoTitle = trim((string) ($content['meta']['seo_title'] ?? ''));
         }
@@ -29,7 +30,8 @@ class SeoService
             $title = $siteName;
         }
 
-        if ($content && $postTitle !== '' && $title !== $siteName) {
+        // Append site name for content pages only when the title was not fully forced by the caller
+        if (!$forcedTitle && $content && $postTitle !== '' && $title !== $siteName) {
             // "Post name — Site name"
             $title = $title . $separator . $siteName;
         }

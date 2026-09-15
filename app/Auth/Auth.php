@@ -44,6 +44,8 @@ class Auth
 
         $_SESSION['mova_user_id'] = (int) $user['id'];
         $_SESSION['mova_user_role'] = $user['role'];
+        $_SESSION['_mova_last_activity'] = time();
+        unset($_SESSION['_mova_timed_out']);
 
         Database::update('users', [
             'last_login_at' => date('c'),
@@ -57,9 +59,44 @@ class Auth
     public static function logout(): void
     {
         self::$user = null;
-        unset($_SESSION['mova_user_id'], $_SESSION['mova_user_role']);
+        unset($_SESSION['mova_user_id'], $_SESSION['mova_user_role'], $_SESSION['_mova_last_activity']);
         session_regenerate_id(true);
         Csrf::regenerate();
+    }
+
+    /** Whether the previous request timed out due to inactivity. */
+    public static function wasTimedOut(): bool
+    {
+        return !empty($_SESSION['_mova_timed_out']);
+    }
+
+    public static function clearTimedOutFlag(): void
+    {
+        unset($_SESSION['_mova_timed_out']);
+    }
+
+    /** Store a URL to return to after login (must be an HQ path). */
+    public static function setIntendedUrl(string $url): void
+    {
+        $url = trim($url);
+        if ($url === '' || strpos($url, '/hq') !== 0) {
+            return;
+        }
+        // Avoid storing login/logout themselves
+        if (preg_match('#^/hq/(login|logout)(/|$)#', $url)) {
+            return;
+        }
+        $_SESSION['mova_intended'] = $url;
+    }
+
+    public static function pullIntendedUrl(string $default = '/hq'): string
+    {
+        $url = $_SESSION['mova_intended'] ?? null;
+        unset($_SESSION['mova_intended']);
+        if (is_string($url) && strpos($url, '/hq') === 0 && !preg_match('#^/hq/(login|logout)(/|$)#', $url)) {
+            return $url;
+        }
+        return $default;
     }
 
     public static function check(): bool
@@ -71,6 +108,11 @@ class Auth
     {
         if (self::$user !== null) {
             return self::$user;
+        }
+
+        // Inactivity timeout already cleared the session keys in Bootstrap
+        if (!empty($_SESSION['_mova_timed_out'])) {
+            return null;
         }
 
         $id = $_SESSION['mova_user_id'] ?? null;
@@ -86,6 +128,8 @@ class Auth
 
         unset($user['password']);
         self::$user = $user;
+        // Touch activity on successful user resolution
+        $_SESSION['_mova_last_activity'] = time();
         return self::$user;
     }
 

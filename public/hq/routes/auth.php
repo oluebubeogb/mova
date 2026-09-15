@@ -8,11 +8,16 @@ use Mova\Security\Csrf;
 
 /** @var \Mova\Core\Router $router */
 
-$router->get('/login', function () {
+$router->get('/login', function (Request $req) {
     if (Auth::check()) {
-        return (new Response())->redirect('/hq');
+        return (new Response())->redirect(Auth::pullIntendedUrl('/hq'));
     }
-    return renderHq('login');
+    $data = [];
+    if ($req->query('timeout') || Auth::wasTimedOut()) {
+        $data['error'] = 'Your session expired due to inactivity. Please sign in again to continue where you left off.';
+        Auth::clearTimedOutFlag();
+    }
+    return renderHq('login', $data);
 });
 
 $router->post('/login', function (Request $req) {
@@ -24,7 +29,8 @@ $router->post('/login', function (Request $req) {
     $password = (string) $req->post('password', '');
 
     if (Auth::attempt($username, $password)) {
-        return (new Response())->redirect('/hq');
+        $dest = Auth::pullIntendedUrl('/hq');
+        return (new Response())->redirect($dest);
     }
 
     return renderHq('login', ['error' => 'Invalid credentials or too many attempts.']);

@@ -66,14 +66,37 @@
             </div>
 
             <div class="hq-layer-panel" data-layer-panel="marks" role="tabpanel" hidden>
-                <h3>Logo &amp; favicon</h3>
+                <h3>Logo &amp; site icon</h3>
                 <div class="form-group">
-                    <label>Logo URL</label>
-                    <input type="text" name="logo_url" placeholder="/mova-uploads/..." value="<?= htmlspecialchars($settings['logo_url'] ?? '') ?>">
+                    <label>Header brand display</label>
+                    <?php $brandMode = $settings['header_brand_mode'] ?? 'logo_and_name'; ?>
+                    <select name="header_brand_mode">
+                        <option value="logo_and_name" <?= $brandMode === 'logo_and_name' ? 'selected' : '' ?>>Logo + site name</option>
+                        <option value="logo_only" <?= $brandMode === 'logo_only' ? 'selected' : '' ?>>Logo only</option>
+                        <option value="name_only" <?= $brandMode === 'name_only' ? 'selected' : '' ?>>Site name only</option>
+                    </select>
+                    <p class="field-hint">Controls what appears in the frontend header logo area.</p>
                 </div>
                 <div class="form-group">
-                    <label>Favicon URL</label>
-                    <input type="text" name="favicon_url" placeholder="/mova-uploads/favicon.ico" value="<?= htmlspecialchars($settings['favicon_url'] ?? '') ?>">
+                    <label>Logo URL</label>
+                    <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+                        <input type="text" name="logo_url" id="logo_url" placeholder="/mova-uploads/..." value="<?= htmlspecialchars($settings['logo_url'] ?? '') ?>" style="flex:1;min-width:12rem;">
+                        <button type="button" class="btn-ghost btn-sm" id="pick-logo" title="Pick from media library"><i class="fa-solid fa-images"></i> Media</button>
+                    </div>
+                    <?php if (!empty($settings['logo_url'])): ?>
+                        <div style="margin-top:0.5rem;"><img src="<?= htmlspecialchars($settings['logo_url']) ?>" alt="" style="max-height:40px;width:auto;border:none;outline:none;"></div>
+                    <?php endif; ?>
+                </div>
+                <div class="form-group">
+                    <label>Site icon (favicon)</label>
+                    <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+                        <input type="text" name="favicon_url" id="favicon_url" placeholder="/mova-uploads/favicon.ico" value="<?= htmlspecialchars($settings['favicon_url'] ?? '') ?>" style="flex:1;min-width:12rem;">
+                        <button type="button" class="btn-ghost btn-sm" id="pick-favicon" title="Pick from media library"><i class="fa-solid fa-images"></i> Media</button>
+                    </div>
+                    <p class="field-hint">Shown in the browser tab and bookmarks. Prefer a square PNG or ICO.</p>
+                    <?php if (!empty($settings['favicon_url'])): ?>
+                        <div style="margin-top:0.5rem;"><img src="<?= htmlspecialchars($settings['favicon_url']) ?>" alt="" style="height:32px;width:32px;object-fit:contain;border:none;outline:none;"></div>
+                    <?php endif; ?>
                 </div>
                 <div class="form-group">
                     <label>Brand color (quick)</label>
@@ -178,6 +201,74 @@
   bindSuggest('footer_assembly_suggest', 'footer_assembly_list', 'footer_assembly_slug', '/hq/brand/suggest-assembly', function (it) {
     return { value: it.slug, label: it.name, sub: it.slug };
   });
+
+  // Simple media picker for logo / site icon
+  function openMediaPicker(targetInputId) {
+    var existing = document.getElementById('mova-media-picker');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'mova-media-picker';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:1rem;';
+    overlay.innerHTML =
+      '<div style="background:var(--hq-surface,#fff);border-radius:12px;max-width:640px;width:100%;max-height:80vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.2);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;padding:0.85rem 1rem;border-bottom:1px solid var(--hq-border,#e2e8f0);">' +
+          '<strong>Choose media</strong>' +
+          '<button type="button" class="btn-ghost btn-sm" id="mpp-close">Close</button>' +
+        '</div>' +
+        '<div style="padding:0.75rem 1rem;"><input type="search" id="mpp-q" placeholder="Search…" style="width:100%;"></div>' +
+        '<div id="mpp-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:0.5rem;padding:0 1rem 1rem;"></div>' +
+        '<p id="mpp-empty" class="muted" style="padding:0 1rem 1rem;display:none;">No images found. <a href="/hq/media">Upload in Media</a>.</p>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    function close() { overlay.remove(); }
+    overlay.querySelector('#mpp-close').addEventListener('click', close);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+
+    function load(q) {
+      var url = '/hq/media/json?page=1' + (q ? '&q=' + encodeURIComponent(q) : '');
+      fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+        var grid = overlay.querySelector('#mpp-grid');
+        var empty = overlay.querySelector('#mpp-empty');
+        var items = (data.items || []).filter(function (it) {
+          return (it.mime_type || '').indexOf('image/') === 0 || /\.(png|jpe?g|gif|webp|svg|ico)$/i.test(it.url || it.path || '');
+        });
+        grid.innerHTML = '';
+        if (!items.length) { empty.style.display = 'block'; return; }
+        empty.style.display = 'none';
+        items.forEach(function (it) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.title = it.original_name || it.url;
+          btn.style.cssText = 'border:1px solid var(--hq-border,#e2e8f0);border-radius:8px;padding:0.25rem;background:#fff;cursor:pointer;aspect-ratio:1;overflow:hidden;';
+          btn.innerHTML = '<img src="' + (it.url || '') + '" alt="" style="width:100%;height:100%;object-fit:cover;border:none;">';
+          btn.addEventListener('click', function () {
+            var input = document.getElementById(targetInputId);
+            if (input) {
+              input.value = it.url || '';
+              input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            close();
+          });
+          grid.appendChild(btn);
+        });
+      }).catch(function () {
+        overlay.querySelector('#mpp-empty').style.display = 'block';
+      });
+    }
+    var t;
+    overlay.querySelector('#mpp-q').addEventListener('input', function (e) {
+      clearTimeout(t);
+      t = setTimeout(function () { load(e.target.value.trim()); }, 200);
+    });
+    load('');
+  }
+
+  var pickLogo = document.getElementById('pick-logo');
+  var pickFav = document.getElementById('pick-favicon');
+  if (pickLogo) pickLogo.addEventListener('click', function () { openMediaPicker('logo_url'); });
+  if (pickFav) pickFav.addEventListener('click', function () { openMediaPicker('favicon_url'); });
 })();
 </script>
 <?php include __DIR__ . '/_design_styles.php'; ?>
