@@ -193,6 +193,64 @@ $router->post('/style', function (Request $req) {
             $tokens['colors_dark'][$ck] ?? '#ffffff'
         );
     }
+
+    // Custom colors: labels/slugs from light; values from light + dark (matched by slug)
+    $labels = $req->post('custom_label');
+    $slugs = $req->post('custom_slug');
+    $lights = $req->post('custom_light');
+    $darkSlugs = $req->post('custom_dark_slug');
+    $darks = $req->post('custom_dark');
+    if (!is_array($labels)) {
+        $labels = [];
+    }
+    if (!is_array($slugs)) {
+        $slugs = [];
+    }
+    if (!is_array($lights)) {
+        $lights = [];
+    }
+    if (!is_array($darkSlugs)) {
+        $darkSlugs = [];
+    }
+    if (!is_array($darks)) {
+        $darks = [];
+    }
+    $darkBySlug = [];
+    foreach ($darkSlugs as $i => $ds) {
+        $ds = preg_replace('/[^a-z0-9\-]/', '', strtolower((string) $ds)) ?? '';
+        if ($ds === '') {
+            continue;
+        }
+        $darkBySlug[$ds] = $normalizeHex((string) ($darks[$i] ?? '#ffffff'), '#ffffff');
+    }
+    $customOut = [];
+    $seenSlug = [];
+    foreach ($labels as $i => $lab) {
+        $lab = trim((string) $lab);
+        if ($lab === '' || strcasecmp($lab, 'Custom') === 0) {
+            continue;
+        }
+        $slug = preg_replace('/[^a-z0-9\-]/', '', strtolower((string) ($slugs[$i] ?? ''))) ?? '';
+        if ($slug === '' || $slug === 'custom') {
+            $slug = preg_replace('/[^a-z0-9]+/', '-', strtolower($lab)) ?? '';
+            $slug = trim($slug, '-');
+            if ($slug === '') {
+                $slug = 'custom-' . ($i + 1);
+            }
+        }
+        if (isset($seenSlug[$slug])) {
+            $slug .= '-' . ($i + 1);
+        }
+        $seenSlug[$slug] = true;
+        $customOut[] = [
+            'slug' => $slug,
+            'label' => $lab,
+            'light' => $normalizeHex((string) ($lights[$i] ?? '#ffffff'), '#ffffff'),
+            'dark' => $darkBySlug[$slug] ?? '#ffffff',
+        ];
+    }
+    $tokens['custom_colors'] = $customOut;
+
     $tokens['typography']['font_sans'] = (string) $req->post('font_sans', $tokens['typography']['font_sans'] ?? '');
     $tokens['typography']['scale'] = (string) $req->post('font_scale', '1');
     $tokens['radius']['sm'] = (string) $req->post('radius_sm', '6px');

@@ -238,6 +238,35 @@ class DesignConfig
         $lines[] = '  --color-quote-border: ' . self::cssVal($dark['primary'] ?? '#60a5fa') . ';';
         $lines[] = '}';
 
+        // User-defined custom colors (Style → custom swatches)
+        $customColors = $t['custom_colors'] ?? [];
+        if (is_array($customColors) && $customColors) {
+            $lines[] = ':root, [data-theme="light"] {';
+            foreach ($customColors as $cc) {
+                if (!is_array($cc)) {
+                    continue;
+                }
+                $slug = preg_replace('/[^a-z0-9\-]/', '', strtolower((string) ($cc['slug'] ?? ''))) ?? '';
+                if ($slug === '') {
+                    continue;
+                }
+                $lines[] = '  --color-' . $slug . ': ' . self::cssVal((string) ($cc['light'] ?? '#ffffff')) . ';';
+            }
+            $lines[] = '}';
+            $lines[] = '[data-theme="dark"] {';
+            foreach ($customColors as $cc) {
+                if (!is_array($cc)) {
+                    continue;
+                }
+                $slug = preg_replace('/[^a-z0-9\-]/', '', strtolower((string) ($cc['slug'] ?? ''))) ?? '';
+                if ($slug === '') {
+                    continue;
+                }
+                $lines[] = '  --color-' . $slug . ': ' . self::cssVal((string) ($cc['dark'] ?? '#ffffff')) . ';';
+            }
+            $lines[] = '}';
+        }
+
         // Component data attributes as CSS hooks
         $btnVariant = preg_replace('/[^a-z0-9\-]/', '', (string) ($c['button']['variant'] ?? 'solid')) ?: 'solid';
         $cardVariant = preg_replace('/[^a-z0-9\-]/', '', (string) ($c['card']['variant'] ?? 'elevated')) ?: 'elevated';
