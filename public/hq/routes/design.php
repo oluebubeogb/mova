@@ -213,7 +213,8 @@ $router->get('/layout', function () {
     }
     return renderHq('design/layout', [
         'layout' => DesignConfig::layout(),
-        'nav_links' => DesignConfig::setting('nav_links', "Home|/\nSearch|/search"),
+        'nav_links' => DesignConfig::setting('nav_links', "Home|/\nAbout Us|/about\nContact|/contact\nBlog|/blog\nSearch|/search"),
+        'nav_links_desktop' => DesignConfig::setting('nav_links_desktop', ''),
         'mobile_menu_icon_mode' => DesignConfig::setting('mobile_menu_icon_mode', 'preset'),
         'mobile_menu_icon_preset' => DesignConfig::setting('mobile_menu_icon_preset', 'fa-bars'),
         'mobile_menu_icon_custom' => DesignConfig::setting('mobile_menu_icon_custom', ''),
@@ -252,6 +253,7 @@ $router->post('/layout', function (Request $req) {
     DesignConfig::saveLayout($layout);
 
     DesignConfig::saveSetting('nav_links', (string) $req->post('nav_links', ''));
+    DesignConfig::saveSetting('nav_links_desktop', (string) $req->post('nav_links_desktop', ''));
 
     $mode = (string) $req->post('mobile_menu_icon_mode', 'preset');
     if (!in_array($mode, ['preset', 'custom', 'upload'], true)) {

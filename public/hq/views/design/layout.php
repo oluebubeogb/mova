@@ -91,8 +91,14 @@ $mobileIconPresets = $mobileIconPresets ?? [];
             <div class="hq-layer-panel" data-layer-panel="nav" hidden>
                 <h3>Navigation links</h3>
                 <div class="form-group">
-                    <label>Primary nav (label|url per line)</label>
-                    <textarea name="nav_links" rows="6" placeholder="Home|/&#10;About|/about"><?= htmlspecialchars($nav_links ?? '') ?></textarea>
+                    <label>Primary nav — mobile &amp; fallback (label|url per line)</label>
+                    <textarea name="nav_links" rows="6" placeholder="Home|/&#10;About Us|/about&#10;Contact|/contact&#10;Blog|/blog"><?= htmlspecialchars($nav_links ?? '') ?></textarea>
+                    <p class="field-hint">Used in the mobile drawer. Also used on wide screens if “Desktop nav” below is empty.</p>
+                </div>
+                <div class="form-group">
+                    <label>Desktop / tablet nav (optional, label|url per line)</label>
+                    <textarea name="nav_links_desktop" rows="6" placeholder="About Us|/about&#10;Contact|/contact&#10;Blog|/blog"><?= htmlspecialchars($nav_links_desktop ?? '') ?></textarea>
+                    <p class="field-hint">Shown in the header on wide screens next to Search and Theme toggle. Leave blank to reuse primary nav. Home and Search lines are skipped (logo + search icon cover those).</p>
                 </div>
             </div>
 

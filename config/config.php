@@ -98,7 +98,7 @@ return [
 
     // SEO defaults
     'seo' => [
-        'title_separator' => ' — ',
+        'title_separator' => ' | ',
         'default_robots'  => 'index, follow',
     ],
 

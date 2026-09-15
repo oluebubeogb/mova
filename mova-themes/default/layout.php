@@ -32,21 +32,27 @@ if (!in_array($headerBrandMode, ['logo_and_name', 'logo_only', 'name_only'], tru
     $headerBrandMode = 'logo_and_name';
 }
 $footerText = mova_setting('footer_text', '');
-$navRaw = mova_setting('nav_links', "Search|/search");
-$navItems = [];
-foreach (preg_split('/\r\n|\r|\n/', (string) $navRaw) as $line) {
-    $line = trim($line);
-    if ($line === '' || strpos($line, '|') === false) {
-        continue;
+$parseNav = static function (string $raw): array {
+    $items = [];
+    foreach (preg_split('/\r\n|\r|\n/', $raw) as $line) {
+        $line = trim($line);
+        if ($line === '' || strpos($line, '|') === false) {
+            continue;
+        }
+        [$label, $url] = array_map('trim', explode('|', $line, 2));
+        if ($label !== '' && $url !== '') {
+            $items[] = ['label' => $label, 'url' => $url];
+        }
     }
-    [$label, $url] = array_map('trim', explode('|', $line, 2));
-    if ($label !== '' && $url !== '') {
-        $navItems[] = ['label' => $label, 'url' => $url];
-    }
-}
+    return $items;
+};
+$navRaw = mova_setting('nav_links', "Home|/\nAbout Us|/about\nContact|/contact\nBlog|/blog\nSearch|/search");
+$navItems = $parseNav((string) $navRaw);
 if (!$navItems) {
     $navItems = [['label' => 'Search', 'url' => '/search']];
 }
+$navDesktopRaw = trim((string) mova_setting('nav_links_desktop', ''));
+$navDesktopSource = $navDesktopRaw !== '' ? $parseNav($navDesktopRaw) : $navItems;
 
 // Mobile menu icon (Design → Layout). Presets = inline SVG so icons always show.
 $needFontAwesome = false;
@@ -167,7 +173,7 @@ $headerTransparent = !empty($headerCfg['transparent']);
     }
     // Desktop nav: skip Home (logo links home) and Search (icon control)
     $navDesktop = [];
-    foreach ($navItems as $item) {
+    foreach ($navDesktopSource as $item) {
         $lab = strtolower(trim((string) ($item['label'] ?? '')));
         $url = rtrim((string) ($item['url'] ?? ''), '/');
         if ($lab === 'home' || $url === '' || $url === '/') {

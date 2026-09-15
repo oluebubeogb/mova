@@ -101,6 +101,11 @@ if (!empty($content['published_at'])) {
                             <button type="button" data-cmd="justifyCenter" title="Align center"><i class="fa-solid fa-align-center"></i></button>
                             <button type="button" data-cmd="justifyRight" title="Align right"><i class="fa-solid fa-align-right"></i></button>
                             <button type="button" data-cmd="justifyFull" title="Justify"><i class="fa-solid fa-align-justify"></i></button>
+                            <span class="toolbar-sep"></span>
+                            <button type="button" id="btn-move-up" title="Move block up"><i class="fa-solid fa-arrow-up"></i></button>
+                            <button type="button" id="btn-move-down" title="Move block down"><i class="fa-solid fa-arrow-down"></i></button>
+                            <button type="button" id="btn-move-left" title="Move block left (outdent)"><i class="fa-solid fa-arrow-left"></i></button>
+                            <button type="button" id="btn-move-right" title="Move block right (indent)"><i class="fa-solid fa-arrow-right"></i></button>
                         </div>
 
                         <div class="toolbar-panel" data-panel="insert">
@@ -690,20 +695,41 @@ if (!empty($content['published_at'])) {
             .replace(/"/g, '&quot;');
     }
 
-    // Standard execCommand buttons — custom indent avoids blockquote/background side-effects
-    function applyIndent(dir) {
-        focusEditor();
+    // Resolve the nearest block-level element under the caret
+    function getActiveBlock() {
         const sel = window.getSelection();
-        if (!sel || !sel.rangeCount) return;
+        if (!sel || !sel.rangeCount) return null;
         let node = sel.anchorNode;
         if (node && node.nodeType === 3) node = node.parentElement;
         while (node && node !== editor && node.nodeType === 1) {
             const tag = (node.tagName || '').toLowerCase();
-            if (['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'blockquote'].indexOf(tag) !== -1) {
-                break;
+            if (['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'blockquote', 'figure', 'section', 'article', 'table', 'pre', 'ul', 'ol'].indexOf(tag) !== -1) {
+                // Prefer direct children of the editor when possible
+                if (node.parentElement === editor || node.parentElement === null) return node;
+                // For nested blocks (e.g. li), keep walking until editor child
+                if (node.parentElement && node.parentElement !== editor) {
+                    // still return this for indent; for reorder we'll walk up further
+                }
+                return node;
             }
             node = node.parentElement;
         }
+        return (node && node !== editor) ? node : null;
+    }
+
+    function getEditorChildBlock() {
+        let node = getActiveBlock();
+        if (!node) return null;
+        while (node && node.parentElement && node.parentElement !== editor) {
+            node = node.parentElement;
+        }
+        return (node && node.parentElement === editor) ? node : null;
+    }
+
+    // Standard execCommand buttons — custom indent avoids blockquote/background side-effects
+    function applyIndent(dir) {
+        focusEditor();
+        const node = getActiveBlock();
         if (!node || node === editor) return;
         const step = 1.5; // rem
         const current = parseFloat(node.style.marginLeft || '0') || 0;
@@ -711,16 +737,51 @@ if (!empty($content['published_at'])) {
         if (next <= 0) {
             node.style.marginLeft = '';
             node.style.paddingLeft = '';
-            // Clear any accidental background browsers may have applied via native indent
             if (node.style.backgroundColor) node.style.backgroundColor = '';
             if (node.style.background) node.style.background = '';
         } else {
             node.style.marginLeft = next + 'rem';
-            // Keep typography identical to surrounding text — indent only
             node.style.background = '';
             node.style.backgroundColor = '';
             node.style.borderLeft = '';
         }
+        updatePlaceholder();
+        if (bodyInput) bodyInput.value = editor.innerHTML;
+    }
+
+    // Move the current top-level block relative to its siblings
+    function moveBlock(direction) {
+        focusEditor();
+        const block = getEditorChildBlock();
+        if (!block) return;
+        if (direction === 'up') {
+            const prev = block.previousElementSibling;
+            if (prev) {
+                editor.insertBefore(block, prev);
+            }
+        } else if (direction === 'down') {
+            const next = block.nextElementSibling;
+            if (next) {
+                editor.insertBefore(next, block);
+            }
+        } else if (direction === 'left') {
+            // Outdent
+            applyIndent(-1);
+            return;
+        } else if (direction === 'right') {
+            // Indent
+            applyIndent(1);
+            return;
+        }
+        // Restore caret inside the moved block
+        try {
+            const range = document.createRange();
+            range.selectNodeContents(block);
+            range.collapse(true);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+        } catch (e) {}
         updatePlaceholder();
         if (bodyInput) bodyInput.value = editor.innerHTML;
     }
@@ -960,6 +1021,16 @@ if (!empty($content['published_at'])) {
     document.getElementById('btn-callout').addEventListener('click', function (e) {
         e.preventDefault();
         insertHTML('<aside class="callout"><p>Callout text — important note or tip.</p></aside><p><br></p>');
+    });
+
+    ['up', 'down', 'left', 'right'].forEach(function (dir) {
+        var el = document.getElementById('btn-move-' + dir);
+        if (el) {
+            el.addEventListener('click', function (e) {
+                e.preventDefault();
+                moveBlock(dir);
+            });
+        }
     });
 
     document.getElementById('btn-table').addEventListener('click', function (e) {

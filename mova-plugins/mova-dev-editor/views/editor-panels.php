@@ -53,6 +53,58 @@ $useSiteChrome = !empty($useSiteChrome);
             Mova extracts CSS/JS automatically. Or split into the three panels.
             Uncheck “Show site header &amp; footer” for a blank canvas.
         </p>
+        <details class="mova-dev-note" style="margin-top:0.5rem;">
+            <summary style="cursor:pointer;font-weight:600;">Theme-aware CSS sample (dark / light)</summary>
+            <p style="margin:0.5rem 0 0.35rem;">Use Mova’s CSS variables so your content follows the site theme toggle:</p>
+            <pre class="mova-dev-sample-css" style="margin:0;padding:0.75rem;overflow:auto;font-size:0.78rem;line-height:1.45;background:var(--hq-code-bg,#0f172a);color:#e2e8f0;border-radius:8px;"><?= htmlspecialchars(<<<'CSS'
+/* Works with Mova light / dark toggle (data-theme on <html>) */
+.my-card {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+}
+
+.my-card h2 {
+  color: var(--color-text);
+  margin: 0 0 0.5rem;
+}
+
+.my-card p {
+  color: var(--color-muted);
+  margin: 0 0 1rem;
+}
+
+.my-card .btn {
+  display: inline-block;
+  background: var(--color-accent);
+  color: #fff;
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+}
+.my-card .btn:hover {
+  background: var(--color-accent-hover);
+}
+
+/* Optional: extra tweaks only in dark mode */
+[data-theme="dark"] .my-card {
+  box-shadow: 0 0 0 1px rgba(255,255,255,.04);
+}
+
+/* Optional: only when system is dark and user has not forced light */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .my-card {
+    /* same vars already flip — use for rare overrides */
+  }
+}
+CSS
+) ?></pre>
+            <p style="margin:0.5rem 0 0;font-size:0.85rem;opacity:0.85;">Available tokens: <code>--color-bg</code>, <code>--color-surface</code>, <code>--color-text</code>, <code>--color-muted</code>, <code>--color-accent</code>, <code>--color-accent-hover</code>, <code>--color-border</code>, <code>--color-code-bg</code>, <code>--color-quote-border</code>, <code>--color-header-bg</code>.</p>
+        </details>
     </div>
 </div>
 
