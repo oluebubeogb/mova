@@ -53,6 +53,7 @@ class VariableService
             ['name' => 'brand_color', 'value' => $brand, 'type' => 'color', 'description' => 'Brand accent color', 'source' => 'setting:brand_color'],
 
             ['name' => 'max-width', 'value' => $container, 'type' => 'length', 'description' => 'Content max width (Layout)', 'source' => 'layout:container_width'],
+            // Built-in light palette (Style → Light colors)
             ['name' => 'color-primary', 'value' => (string) ($colors['primary'] ?? '#2563eb'), 'type' => 'color', 'description' => 'Primary (light)', 'source' => 'token:colors.primary'],
             ['name' => 'color-secondary', 'value' => (string) ($colors['secondary'] ?? '#64748b'), 'type' => 'color', 'description' => 'Secondary (light)', 'source' => 'token:colors.secondary'],
             ['name' => 'color-accent', 'value' => (string) ($colors['accent'] ?? '#7c3aed'), 'type' => 'color', 'description' => 'Accent (light)', 'source' => 'token:colors.accent'],
@@ -62,10 +63,15 @@ class VariableService
             ['name' => 'color-muted', 'value' => (string) ($colors['muted'] ?? '#6b7280'), 'type' => 'color', 'description' => 'Muted text (light)', 'source' => 'token:colors.muted'],
             ['name' => 'color-border', 'value' => (string) ($colors['border'] ?? '#e5e7eb'), 'type' => 'color', 'description' => 'Border (light)', 'source' => 'token:colors.border'],
 
+            // Built-in dark palette (Style → Dark colors) — full set
             ['name' => 'color-primary-dark', 'value' => (string) ($dark['primary'] ?? '#60a5fa'), 'type' => 'color', 'description' => 'Primary (dark)', 'source' => 'token:colors_dark.primary'],
+            ['name' => 'color-secondary-dark', 'value' => (string) ($dark['secondary'] ?? '#94a3b8'), 'type' => 'color', 'description' => 'Secondary (dark)', 'source' => 'token:colors_dark.secondary'],
+            ['name' => 'color-accent-dark', 'value' => (string) ($dark['accent'] ?? '#a78bfa'), 'type' => 'color', 'description' => 'Accent (dark)', 'source' => 'token:colors_dark.accent'],
             ['name' => 'color-bg-dark', 'value' => (string) ($dark['background'] ?? '#0b0d12'), 'type' => 'color', 'description' => 'Background (dark)', 'source' => 'token:colors_dark.background'],
             ['name' => 'color-surface-dark', 'value' => (string) ($dark['surface'] ?? '#12151c'), 'type' => 'color', 'description' => 'Surface (dark)', 'source' => 'token:colors_dark.surface'],
             ['name' => 'color-text-dark', 'value' => (string) ($dark['text'] ?? '#f3f4f6'), 'type' => 'color', 'description' => 'Text (dark)', 'source' => 'token:colors_dark.text'],
+            ['name' => 'color-muted-dark', 'value' => (string) ($dark['muted'] ?? '#9ca3af'), 'type' => 'color', 'description' => 'Muted text (dark)', 'source' => 'token:colors_dark.muted'],
+            ['name' => 'color-border-dark', 'value' => (string) ($dark['border'] ?? '#1f2430'), 'type' => 'color', 'description' => 'Border (dark)', 'source' => 'token:colors_dark.border'],
 
             ['name' => 'radius-sm', 'value' => (string) ($radius['sm'] ?? '6px'), 'type' => 'length', 'description' => 'Radius small', 'source' => 'token:radius.sm'],
             ['name' => 'radius-md', 'value' => (string) ($radius['md'] ?? '10px'), 'type' => 'length', 'description' => 'Radius medium', 'source' => 'token:radius.md'],
@@ -79,6 +85,109 @@ class VariableService
             ['name' => 'shadow-sm', 'value' => (string) ($shadows['sm'] ?? '0 1px 2px rgba(0,0,0,0.04)'), 'type' => 'text', 'description' => 'Shadow small', 'source' => 'token:shadows.sm'],
             ['name' => 'shadow-md', 'value' => (string) ($shadows['md'] ?? '0 4px 12px rgba(0,0,0,0.08)'), 'type' => 'text', 'description' => 'Shadow medium', 'source' => 'token:shadows.md'],
         ];
+
+        // Any extra light/dark palette keys not already listed (future-proof)
+        $knownLight = ['primary', 'secondary', 'accent', 'background', 'surface', 'text', 'muted', 'border'];
+        $knownDark = $knownLight;
+        $lightNameMap = [
+            'primary' => 'color-primary', 'secondary' => 'color-secondary', 'accent' => 'color-accent',
+            'background' => 'color-bg', 'surface' => 'color-surface', 'text' => 'color-text',
+            'muted' => 'color-muted', 'border' => 'color-border',
+        ];
+        $darkNameMap = [
+            'primary' => 'color-primary-dark', 'secondary' => 'color-secondary-dark', 'accent' => 'color-accent-dark',
+            'background' => 'color-bg-dark', 'surface' => 'color-surface-dark', 'text' => 'color-text-dark',
+            'muted' => 'color-muted-dark', 'border' => 'color-border-dark',
+        ];
+        $existingNames = [];
+        foreach ($rows as $r) {
+            $existingNames[$r['name']] = true;
+        }
+        if (is_array($colors)) {
+            foreach ($colors as $key => $val) {
+                $key = (string) $key;
+                if ($key === '' || !is_string($val) && !is_numeric($val)) {
+                    continue;
+                }
+                $name = $lightNameMap[$key] ?? ('color-' . preg_replace('/[^a-z0-9\-]/', '', strtolower($key)));
+                if ($name === 'color-' || isset($existingNames[$name])) {
+                    continue;
+                }
+                $rows[] = [
+                    'name' => $name,
+                    'value' => (string) $val,
+                    'type' => 'color',
+                    'description' => ucfirst($key) . ' (light palette)',
+                    'source' => 'token:colors.' . $key,
+                ];
+                $existingNames[$name] = true;
+            }
+        }
+        if (is_array($dark)) {
+            foreach ($dark as $key => $val) {
+                $key = (string) $key;
+                if ($key === '' || (!is_string($val) && !is_numeric($val))) {
+                    continue;
+                }
+                $name = $darkNameMap[$key] ?? ('color-' . preg_replace('/[^a-z0-9\-]/', '', strtolower($key)) . '-dark');
+                if ($name === 'color--dark' || isset($existingNames[$name])) {
+                    continue;
+                }
+                $rows[] = [
+                    'name' => $name,
+                    'value' => (string) $val,
+                    'type' => 'color',
+                    'description' => ucfirst($key) . ' (dark palette)',
+                    'source' => 'token:colors_dark.' . $key,
+                ];
+                $existingNames[$name] = true;
+            }
+        }
+
+        // Style → custom color swatches (light + dark), always reflected as variables
+        $customColors = $tokens['custom_colors'] ?? [];
+        if (is_array($customColors)) {
+            foreach ($customColors as $cc) {
+                if (!is_array($cc)) {
+                    continue;
+                }
+                $slug = preg_replace('/[^a-z0-9\-]/', '', strtolower((string) ($cc['slug'] ?? ''))) ?? '';
+                if ($slug === '') {
+                    $label = (string) ($cc['label'] ?? '');
+                    $slug = preg_replace('/[^a-z0-9]+/', '-', strtolower($label)) ?? '';
+                    $slug = trim($slug, '-');
+                }
+                if ($slug === '') {
+                    continue;
+                }
+                $label = (string) ($cc['label'] ?? $slug);
+                $lightVal = (string) ($cc['light'] ?? '#ffffff');
+                $darkVal = (string) ($cc['dark'] ?? '#ffffff');
+
+                $lightName = 'color-' . $slug;
+                if (!isset($existingNames[$lightName])) {
+                    $rows[] = [
+                        'name' => $lightName,
+                        'value' => $lightVal,
+                        'type' => 'color',
+                        'description' => $label . ' (custom, light)',
+                        'source' => 'token:custom_colors.' . $slug . '.light',
+                    ];
+                    $existingNames[$lightName] = true;
+                }
+                $darkName = 'color-' . $slug . '-dark';
+                if (!isset($existingNames[$darkName])) {
+                    $rows[] = [
+                        'name' => $darkName,
+                        'value' => $darkVal,
+                        'type' => 'color',
+                        'description' => $label . ' (custom, dark)',
+                        'source' => 'token:custom_colors.' . $slug . '.dark',
+                    ];
+                    $existingNames[$darkName] = true;
+                }
+            }
+        }
 
         return $rows;
     }
@@ -243,12 +352,51 @@ class VariableService
         }
         if (strpos($source, 'token:') === 0) {
             $path = substr($source, 6);
+            $tokens = DesignConfig::tokens();
+
+            // Custom color swatches: custom_colors.{slug}.light|dark
+            if (strpos($path, 'custom_colors.') === 0) {
+                $rest = substr($path, strlen('custom_colors.'));
+                $bits = explode('.', $rest);
+                if (count($bits) >= 2) {
+                    $slug = $bits[0];
+                    $mode = $bits[1]; // light | dark
+                    if (!isset($tokens['custom_colors']) || !is_array($tokens['custom_colors'])) {
+                        $tokens['custom_colors'] = [];
+                    }
+                    $found = false;
+                    foreach ($tokens['custom_colors'] as &$cc) {
+                        if (!is_array($cc)) {
+                            continue;
+                        }
+                        $s = preg_replace('/[^a-z0-9\-]/', '', strtolower((string) ($cc['slug'] ?? ''))) ?? '';
+                        if ($s === $slug) {
+                            if ($mode === 'light' || $mode === 'dark') {
+                                $cc[$mode] = $value;
+                            }
+                            $found = true;
+                            break;
+                        }
+                    }
+                    unset($cc);
+                    if (!$found) {
+                        $tokens['custom_colors'][] = [
+                            'slug' => $slug,
+                            'label' => $slug,
+                            'light' => $mode === 'light' ? $value : '#ffffff',
+                            'dark' => $mode === 'dark' ? $value : '#ffffff',
+                        ];
+                    }
+                    DesignConfig::saveTokens($tokens);
+                }
+                return;
+            }
+
             $parts = explode('.', $path, 2);
             if (count($parts) !== 2) {
                 return;
             }
             [$group, $key] = $parts;
-            $tokens = DesignConfig::tokens();
             if (!isset($tokens[$group]) || !is_array($tokens[$group])) {
                 $tokens[$group] = [];
             }
