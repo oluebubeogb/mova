@@ -196,18 +196,40 @@ class DesignConfig
         $btnRadius = $radius[$c['button']['radius'] ?? 'md'] ?? ($radius['md'] ?? '10px');
         $cardRadius = $radius[$c['card']['radius'] ?? 'md'] ?? ($radius['md'] ?? '10px');
 
+        // Palette values (fixed -light / -dark aliases always available)
+        $L = [
+            'primary' => self::cssVal($colors['primary'] ?? '#2563eb'),
+            'secondary' => self::cssVal($colors['secondary'] ?? '#64748b'),
+            'accent' => self::cssVal($colors['accent'] ?? '#7c3aed'),
+            'bg' => self::cssVal($colors['background'] ?? '#f8f9fb'),
+            'surface' => self::cssVal($colors['surface'] ?? '#ffffff'),
+            'text' => self::cssVal($colors['text'] ?? '#111827'),
+            'muted' => self::cssVal($colors['muted'] ?? '#6b7280'),
+            'border' => self::cssVal($colors['border'] ?? '#e5e7eb'),
+        ];
+        $D = [
+            'primary' => self::cssVal($dark['primary'] ?? '#60a5fa'),
+            'secondary' => self::cssVal($dark['secondary'] ?? '#94a3b8'),
+            'accent' => self::cssVal($dark['accent'] ?? '#a78bfa'),
+            'bg' => self::cssVal($dark['background'] ?? '#0b0d12'),
+            'surface' => self::cssVal($dark['surface'] ?? '#12151c'),
+            'text' => self::cssVal($dark['text'] ?? '#f3f4f6'),
+            'muted' => self::cssVal($dark['muted'] ?? '#9ca3af'),
+            'border' => self::cssVal($dark['border'] ?? '#1f2430'),
+        ];
+
         $lines = [];
-        $lines[] = ':root, [data-theme="light"] {';
-        $lines[] = '  --color-accent: ' . self::cssVal($colors['primary'] ?? '#2563eb') . ';';
-        $lines[] = '  --color-accent-hover: ' . self::cssVal($colors['primary'] ?? '#2563eb') . ';';
-        $lines[] = '  --color-secondary: ' . self::cssVal($colors['secondary'] ?? '#64748b') . ';';
-        $lines[] = '  --color-brand-accent: ' . self::cssVal($colors['accent'] ?? '#7c3aed') . ';';
-        $lines[] = '  --color-bg: ' . self::cssVal($colors['background'] ?? '#f8f9fb') . ';';
-        $lines[] = '  --color-surface: ' . self::cssVal($colors['surface'] ?? '#ffffff') . ';';
-        $lines[] = '  --color-text: ' . self::cssVal($colors['text'] ?? '#111827') . ';';
-        $lines[] = '  --color-muted: ' . self::cssVal($colors['muted'] ?? '#6b7280') . ';';
-        $lines[] = '  --color-border: ' . self::cssVal($colors['border'] ?? '#e5e7eb') . ';';
-        $lines[] = '  --color-quote-border: ' . self::cssVal($colors['primary'] ?? '#2563eb') . ';';
+
+        // Explicit light/dark palette tokens (always the same regardless of active theme)
+        $lines[] = ':root {';
+        foreach (['primary', 'secondary', 'accent', 'bg', 'surface', 'text', 'muted', 'border'] as $k) {
+            $lines[] = '  --color-' . $k . '-light: ' . $L[$k] . ';';
+            $lines[] = '  --color-' . $k . '-dark: ' . $D[$k] . ';';
+        }
+        // Aliases matching Style / Variables naming
+        $lines[] = '  --color-background-light: ' . $L['bg'] . ';';
+        $lines[] = '  --color-background-dark: ' . $D['bg'] . ';';
+        // Non-color design tokens
         $lines[] = '  --font-sans: ' . ($typo['font_sans'] ?? 'system-ui, sans-serif') . ';';
         $lines[] = '  --font-mono: ' . ($typo['font_mono'] ?? 'ui-monospace, monospace') . ';';
         $lines[] = '  --font-scale: ' . $scale . ';';
@@ -225,23 +247,57 @@ class DesignConfig
         $lines[] = '  --space-element: ' . self::cssVal($spacing['element'] ?? '1.5rem') . ';';
         $lines[] = '}';
 
-        $lines[] = '[data-theme="dark"] {';
-        $lines[] = '  --color-accent: ' . self::cssVal($dark['primary'] ?? '#60a5fa') . ';';
-        $lines[] = '  --color-accent-hover: ' . self::cssVal($dark['primary'] ?? '#60a5fa') . ';';
-        $lines[] = '  --color-secondary: ' . self::cssVal($dark['secondary'] ?? '#94a3b8') . ';';
-        $lines[] = '  --color-brand-accent: ' . self::cssVal($dark['accent'] ?? '#a78bfa') . ';';
-        $lines[] = '  --color-bg: ' . self::cssVal($dark['background'] ?? '#0b0d12') . ';';
-        $lines[] = '  --color-surface: ' . self::cssVal($dark['surface'] ?? '#12151c') . ';';
-        $lines[] = '  --color-text: ' . self::cssVal($dark['text'] ?? '#f3f4f6') . ';';
-        $lines[] = '  --color-muted: ' . self::cssVal($dark['muted'] ?? '#9ca3af') . ';';
-        $lines[] = '  --color-border: ' . self::cssVal($dark['border'] ?? '#1f2430') . ';';
-        $lines[] = '  --color-quote-border: ' . self::cssVal($dark['primary'] ?? '#60a5fa') . ';';
+        // Theme-aware tokens (use these in content CSS — they flip with the toggle)
+        // html[data-theme] beats :root specificity so dark mode always wins.
+        $lines[] = ':root, html[data-theme="light"] {';
+        $lines[] = '  --color-primary: ' . $L['primary'] . ';';
+        $lines[] = '  --color-accent: ' . $L['primary'] . ';';
+        $lines[] = '  --color-accent-hover: ' . $L['primary'] . ';';
+        $lines[] = '  --color-secondary: ' . $L['secondary'] . ';';
+        $lines[] = '  --color-brand-accent: ' . $L['accent'] . ';';
+        $lines[] = '  --color-bg: ' . $L['bg'] . ';';
+        $lines[] = '  --color-background: ' . $L['bg'] . ';';
+        $lines[] = '  --color-surface: ' . $L['surface'] . ';';
+        $lines[] = '  --color-text: ' . $L['text'] . ';';
+        $lines[] = '  --color-muted: ' . $L['muted'] . ';';
+        $lines[] = '  --color-border: ' . $L['border'] . ';';
+        $lines[] = '  --color-quote-border: ' . $L['primary'] . ';';
+        $lines[] = '}';
+
+        $lines[] = 'html[data-theme="dark"] {';
+        $lines[] = '  --color-primary: ' . $D['primary'] . ';';
+        $lines[] = '  --color-accent: ' . $D['primary'] . ';';
+        $lines[] = '  --color-accent-hover: ' . $D['primary'] . ';';
+        $lines[] = '  --color-secondary: ' . $D['secondary'] . ';';
+        $lines[] = '  --color-brand-accent: ' . $D['accent'] . ';';
+        $lines[] = '  --color-bg: ' . $D['bg'] . ';';
+        $lines[] = '  --color-background: ' . $D['bg'] . ';';
+        $lines[] = '  --color-surface: ' . $D['surface'] . ';';
+        $lines[] = '  --color-text: ' . $D['text'] . ';';
+        $lines[] = '  --color-muted: ' . $D['muted'] . ';';
+        $lines[] = '  --color-border: ' . $D['border'] . ';';
+        $lines[] = '  --color-quote-border: ' . $D['primary'] . ';';
         $lines[] = '}';
 
         // User-defined custom colors (Style → custom swatches)
         $customColors = $t['custom_colors'] ?? [];
         if (is_array($customColors) && $customColors) {
-            $lines[] = ':root, [data-theme="light"] {';
+            $lines[] = ':root {';
+            foreach ($customColors as $cc) {
+                if (!is_array($cc)) {
+                    continue;
+                }
+                $slug = preg_replace('/[^a-z0-9\-]/', '', strtolower((string) ($cc['slug'] ?? ''))) ?? '';
+                if ($slug === '') {
+                    continue;
+                }
+                $lv = self::cssVal((string) ($cc['light'] ?? '#ffffff'));
+                $dv = self::cssVal((string) ($cc['dark'] ?? '#ffffff'));
+                $lines[] = '  --color-' . $slug . '-light: ' . $lv . ';';
+                $lines[] = '  --color-' . $slug . '-dark: ' . $dv . ';';
+            }
+            $lines[] = '}';
+            $lines[] = ':root, html[data-theme="light"] {';
             foreach ($customColors as $cc) {
                 if (!is_array($cc)) {
                     continue;
@@ -253,7 +309,7 @@ class DesignConfig
                 $lines[] = '  --color-' . $slug . ': ' . self::cssVal((string) ($cc['light'] ?? '#ffffff')) . ';';
             }
             $lines[] = '}';
-            $lines[] = '[data-theme="dark"] {';
+            $lines[] = 'html[data-theme="dark"] {';
             foreach ($customColors as $cc) {
                 if (!is_array($cc)) {
                     continue;

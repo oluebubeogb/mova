@@ -133,8 +133,7 @@ if (class_exists(\Mova\Theme\DesignConfig::class)) {
     echo \Mova\Theme\DesignConfig::cssVariables();
 } else {
 ?>
-        :root, [data-theme="light"] { --color-accent: <?= htmlspecialchars($brandColor) ?>; --color-accent-hover: <?= htmlspecialchars($brandColor) ?>; --color-quote-border: <?= htmlspecialchars($brandColor) ?>; }
-        [data-theme="dark"] { --color-accent: <?= htmlspecialchars($brandColor) ?>; --color-accent-hover: <?= htmlspecialchars($brandColor) ?>; --color-quote-border: <?= htmlspecialchars($brandColor) ?>; }
+        /* Theme colors from DesignConfig::cssVariables() — do not override dark palette here */
 <?php } ?>
     </style>
 </head>
