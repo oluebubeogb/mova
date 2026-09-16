@@ -3,19 +3,37 @@
    Native light / dark mode via data-theme + system preference.
 */
 
-/* ---------- Light (default) ---------- */
-:root,
-[data-theme="light"] {
+/* ---------- Light (default on :root; explicit light wins when set) ---------- */
+:root {
     --color-bg: #f8f9fb;
+    --color-background: #f8f9fb;
     --color-surface: #ffffff;
     --color-text: #111827;
     --color-muted: #6b7280;
+    --color-primary: #2563eb;
+    --color-secondary: #64748b;
     --color-accent: #2563eb;
     --color-accent-hover: #1d4ed8;
+    --color-brand-accent: #7c3aed;
     --color-border: #e5e7eb;
     --color-code-bg: #f3f4f6;
     --color-quote-border: #2563eb;
     --color-header-bg: rgba(255, 255, 255, 0.85);
+    /* Explicit palette aliases (always light/dark values) */
+    --color-bg-light: #f8f9fb;
+    --color-surface-light: #ffffff;
+    --color-text-light: #111827;
+    --color-muted-light: #6b7280;
+    --color-primary-light: #2563eb;
+    --color-secondary-light: #64748b;
+    --color-border-light: #e5e7eb;
+    --color-bg-dark: #0b0d12;
+    --color-surface-dark: #12151c;
+    --color-text-dark: #f3f4f6;
+    --color-muted-dark: #9ca3af;
+    --color-primary-dark: #60a5fa;
+    --color-secondary-dark: #94a3b8;
+    --color-border-dark: #1f2430;
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
     --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -24,14 +42,37 @@
     color-scheme: light;
 }
 
-/* ---------- Dark ---------- */
-[data-theme="dark"] {
+html[data-theme="light"] {
+    --color-bg: #f8f9fb;
+    --color-background: #f8f9fb;
+    --color-surface: #ffffff;
+    --color-text: #111827;
+    --color-muted: #6b7280;
+    --color-primary: #2563eb;
+    --color-secondary: #64748b;
+    --color-accent: #2563eb;
+    --color-accent-hover: #1d4ed8;
+    --color-brand-accent: #7c3aed;
+    --color-border: #e5e7eb;
+    --color-code-bg: #f3f4f6;
+    --color-quote-border: #2563eb;
+    --color-header-bg: rgba(255, 255, 255, 0.85);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+    color-scheme: light;
+}
+
+/* ---------- Dark (html[data-theme] beats :root so content CSS vars flip) ---------- */
+html[data-theme="dark"] {
     --color-bg: #0b0d12;
+    --color-background: #0b0d12;
     --color-surface: #12151c;
     --color-text: #f3f4f6;
     --color-muted: #9ca3af;
+    --color-primary: #60a5fa;
+    --color-secondary: #94a3b8;
     --color-accent: #60a5fa;
     --color-accent-hover: #93c5fd;
+    --color-brand-accent: #a78bfa;
     --color-border: #1f2430;
     --color-code-bg: #1a1e28;
     --color-quote-border: #60a5fa;
@@ -42,13 +83,17 @@
 
 /* System preference when no explicit choice is stored */
 @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
+    :root:not([data-theme="light"]):not([data-theme="dark"]) {
         --color-bg: #0b0d12;
+        --color-background: #0b0d12;
         --color-surface: #12151c;
         --color-text: #f3f4f6;
         --color-muted: #9ca3af;
+        --color-primary: #60a5fa;
+        --color-secondary: #94a3b8;
         --color-accent: #60a5fa;
         --color-accent-hover: #93c5fd;
+        --color-brand-accent: #a78bfa;
         --color-border: #1f2430;
         --color-code-bg: #1a1e28;
         --color-quote-border: #60a5fa;
