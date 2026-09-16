@@ -54,10 +54,12 @@ try {
     // ignore
 }
 
-// Page cache for anonymous GET (skip search & HQ)
+// Page cache for anonymous GET (skip search, HQ, and system XML/text endpoints)
+// System routes must not be cached as bare body — they need correct Content-Type
+$systemPaths = ['/search', '/robots.txt', '/sitemap.xml', '/feed.xml', '/llms.txt', '/unsubscribe'];
 $cacheable = $request->isGet()
     && !Auth::check()
-    && $path !== '/search'
+    && !in_array($path, $systemPaths, true)
     && strpos($path, '/hq') !== 0;
 
 $cacheKey = 'page_' . md5($path . '?' . ($_SERVER['QUERY_STRING'] ?? ''));

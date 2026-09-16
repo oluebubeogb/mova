@@ -72,9 +72,11 @@ class PageCache
         self::forget('page_' . md5('/' . $slug));
         self::forget('page_' . md5('/'));
         self::forget('page_' . md5(''));
-        self::forget('sitemap');
-        self::forget('feed');
-        self::forget('llms');
+        // System endpoints use the same key format (path + query)
+        self::forget('page_' . md5('/sitemap.xml'));
+        self::forget('page_' . md5('/feed.xml'));
+        self::forget('page_' . md5('/llms.txt'));
+        self::forget('page_' . md5('/robots.txt'));
         // Full flush is safest on shared hosting when cache keys may include query strings
         if (Bootstrap::config('cache.flush_on_publish', true)) {
             self::flush();
