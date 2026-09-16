@@ -1,7 +1,14 @@
 FROM php:8.3-fpm-alpine
 
-# Install system dependencies and PHP extensions required by Mova
-RUN apk add --no-cache \
+# Install system dependencies and PHP extensions required by Mova.
+# apk update is retried to survive transient DNS / mirror failures on Alpine.
+RUN set -eux; \
+    for i in 1 2 3 4 5; do \
+        apk update --no-cache && break; \
+        echo "apk update failed (attempt $i), retrying in $((i * 3))s..."; \
+        sleep $((i * 3)); \
+    done; \
+    apk add --no-cache \
         nginx \
         supervisor \
         libpng-dev \
@@ -15,6 +22,7 @@ RUN apk add --no-cache \
         imap-dev \
         krb5-dev \
         openssl-dev \
+        $PHPIZE_DEPS \
     && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
     && docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
     && docker-php-ext-install -j$(nproc) \
@@ -26,7 +34,9 @@ RUN apk add --no-cache \
         mbstring \
         zip \
         exif \
-        imap
+        imap \
+    && apk del --no-network $PHPIZE_DEPS \
+    && rm -rf /var/cache/apk/*
 
 # Recommended OPcache settings for production
 RUN { \
