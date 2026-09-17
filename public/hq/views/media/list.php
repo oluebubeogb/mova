@@ -193,20 +193,38 @@
         }
     });
 
+    function movaAvailableWidths(maxW) {
+        var breakpoints = [320, 480, 768, 1200];
+        var out = [];
+        breakpoints.forEach(function (w) { if (w < maxW) out.push(w); });
+        if (out.indexOf(maxW) === -1) out.push(maxW);
+        out.sort(function (a, b) { return a - b; });
+        return out;
+    }
+    function movaResponsiveImgHtml(src, alt) {
+        alt = alt || '';
+        var m = (src || '').match(/^(.*?)-(\d+)(\.(?:webp|jpe?g|png|gif))$/i);
+        if (!m) {
+            return '<img src="' + src + '" alt="' + alt.replace(/"/g, '&quot;') + '" loading="lazy" decoding="async" class="mova-img" onload="this.classList.add(\'is-loaded\')">';
+        }
+        var base = m[1], maxW = parseInt(m[2], 10), ext = m[3];
+        var widths = movaAvailableWidths(maxW);
+        var srcset = widths.map(function (w) { return base + '-' + w + ext + ' ' + w + 'w'; }).join(', ');
+        var preferred = base + '-' + maxW + ext;
+        if (widths.indexOf(480) !== -1) preferred = base + '-480' + ext;
+        else if (widths.indexOf(320) !== -1) preferred = base + '-320' + ext;
+        var sizes;
+        if (maxW <= 320) sizes = maxW + 'px';
+        else if (maxW <= 480) sizes = '(max-width: 360px) 320px, ' + maxW + 'px';
+        else if (maxW <= 768) sizes = '(max-width: 360px) 320px, (max-width: 640px) 480px, ' + maxW + 'px';
+        else sizes = '(max-width: 360px) 320px, (max-width: 640px) 480px, (max-width: 1024px) 768px, ' + maxW + 'px';
+        return '<img src="' + preferred + '" srcset="' + srcset + '" sizes="' + sizes + '" alt="' + alt.replace(/"/g, '&quot;') + '" loading="lazy" decoding="async" class="mova-img" onload="this.classList.add(\'is-loaded\')">';
+    }
     document.querySelectorAll('.media-copy-html').forEach(function (btn) {
         btn.addEventListener('click', function () {
             var src = btn.getAttribute('data-src') || '';
             var alt = btn.getAttribute('data-alt') || '';
-            // Build responsive markup matching ImageTag (320/480/768/1200)
-            var m = src.match(/^(.*?)(?:-(320|480|768|1200))?(\.(?:webp|jpe?g|png|gif))$/i);
-            var html;
-            if (m) {
-                var base = m[1], ext = m[3];
-                var srcset = [320,480,768,1200].map(function(w){ return base + '-' + w + ext + ' ' + w + 'w'; }).join(', ');
-                html = '<img src="' + base + '-480' + ext + '" srcset="' + srcset + '" sizes="(max-width: 360px) 320px, (max-width: 640px) 480px, (max-width: 1024px) 768px, 1200px" alt="' + alt.replace(/"/g, '&quot;') + '" loading="lazy" decoding="async" class="mova-img" onload="this.classList.add(\'is-loaded\')">';
-            } else {
-                html = '<img src="' + src + '" alt="' + alt.replace(/"/g, '&quot;') + '" loading="lazy" decoding="async" class="mova-img" onload="this.classList.add(\'is-loaded\')">';
-            }
+            var html = movaResponsiveImgHtml(src, alt);
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(html).then(function () {
                     btn.textContent = 'Copied';

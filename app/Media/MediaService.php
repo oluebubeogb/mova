@@ -196,13 +196,27 @@ class MediaService
 
         if (!empty($media['variants']) && is_array($media['variants'])) {
             if ($width) {
+                // Exact match
                 foreach ($media['variants'] as $v) {
-                    if (($v['width'] ?? 0) == $width) {
+                    if (($v['width'] ?? 0) == $width && !empty($v['path'])) {
                         return $base . $v['path'];
                     }
                 }
+                // Closest available at or below requested width (never invent missing -1200)
+                $bestAtOrBelow = null;
+                foreach ($media['variants'] as $v) {
+                    $vw = (int) ($v['width'] ?? 0);
+                    if ($vw > 0 && $vw <= $width && !empty($v['path'])) {
+                        if ($bestAtOrBelow === null || $vw > (int) ($bestAtOrBelow['width'] ?? 0)) {
+                            $bestAtOrBelow = $v;
+                        }
+                    }
+                }
+                if ($bestAtOrBelow) {
+                    return $base . $bestAtOrBelow['path'];
+                }
             }
-            // Prefer largest variant when no width requested
+            // Prefer largest variant that actually exists in the record
             $best = null;
             foreach ($media['variants'] as $v) {
                 if ($best === null || ($v['width'] ?? 0) > ($best['width'] ?? 0)) {

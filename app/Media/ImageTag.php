@@ -1,50 +1,147 @@
 <?php
 /**
- * Responsive <img> helpers for Mova media (320 / 480 / 768 / 1200 WebP variants).
- * Progressive reveal: images start invisible and fade in when loaded so visitors
- * never see a broken icon or blank box on first paint / weak networks.
+ * Responsive <img> helpers for Mova media.
+ * Progressive reveal + srcset that only references widths that actually exist
+ * (e.g. a 764px upload yields -320/-480/-764, never a missing -1200).
  */
 namespace Mova\Media;
 
 class ImageTag
 {
-    /** Breakpoints used for srcset (must match MediaService variants). */
+    /** Configured breakpoints (must match MediaService defaults). */
     public const WIDTHS = [320, 480, 768, 1200];
 
     /**
+     * Parse a media URL/path into base, width (if any), and extension.
+     *
+     * @return array{base:string,width:?int,ext:string}|null
+     */
+    public static function parseSrc(string $src): ?array
+    {
+        $src = trim($src);
+        if ($src === '') {
+            return null;
+        }
+        // Any numeric size suffix: -320.webp, -764.webp, -1200.webp, etc.
+        if (preg_match('#^(.*?)-(\d+)(\.(?:webp|jpe?g|png|gif))(?:\?.*)?$#i', $src, $m)) {
+            return [
+                'base'  => $m[1],
+                'width' => (int) $m[2],
+                'ext'   => $m[3],
+            ];
+        }
+        if (preg_match('#^(.*?)(\.(?:webp|jpe?g|png|gif))(?:\?.*)?$#i', $src, $m)) {
+            return [
+                'base'  => $m[1],
+                'width' => null,
+                'ext'   => $m[2],
+            ];
+        }
+        return null;
+    }
+
+    /**
+     * Widths that processImage would have written for a source of maxWidth px.
+     * Downscales for each configured breakpoint strictly below maxWidth, plus maxWidth itself.
+     *
+     * @return list<int>
+     */
+    public static function availableWidths(int $maxWidth): array
+    {
+        if ($maxWidth <= 0) {
+            return [];
+        }
+        $out = [];
+        foreach (self::WIDTHS as $w) {
+            if ($w < $maxWidth) {
+                $out[] = $w;
+            }
+        }
+        // Always include the actual stored max (may be 360, 764, etc.)
+        if (!in_array($maxWidth, $out, true)) {
+            $out[] = $maxWidth;
+        }
+        sort($out, SORT_NUMERIC);
+        return $out;
+    }
+
+    /**
      * Build src / srcset / sizes from a media path or full URL.
+     * Never invents -1200 (or any other size) that was not produced at upload time.
      *
      * @return array{src:string,srcset:string,sizes:string}
      */
     public static function responsiveAttrs(string $src, ?string $sizes = null): array
     {
         $src = trim($src);
-        // Default sizes: mobile-first, avoid downloading 1200px for a 320px slot
         $sizes = $sizes ?? '(max-width: 360px) 320px, (max-width: 640px) 480px, (max-width: 1024px) 768px, 1200px';
         if ($src === '') {
             return ['src' => '', 'srcset' => '', 'sizes' => $sizes];
         }
 
-        $srcset = '';
-        // Match …-320.webp | …-480.webp | plain .webp/.jpg etc.
-        if (preg_match('#^(.*?)(?:-(320|480|768|1200))?(\.(?:webp|jpe?g|png|gif))(?:\?.*)?$#i', $src, $m)) {
-            $base = $m[1];
-            $ext = $m[3];
-            $parts = [];
-            foreach (self::WIDTHS as $w) {
-                $parts[] = $base . '-' . $w . $ext . ' ' . $w . 'w';
-            }
-            $srcset = implode(', ', $parts);
-            // Prefer 480 as default src (good LCP balance; browser still picks from srcset)
-            $preferred = $base . '-480' . $ext;
-            $src = $preferred;
-            if (!empty($m[2])) {
-                // Keep explicitly requested size as src when caller passed e.g. -768
-                $src = $base . '-' . $m[2] . $ext;
-            }
+        $parsed = self::parseSrc($src);
+        if ($parsed === null) {
+            return ['src' => $src, 'srcset' => '', 'sizes' => $sizes];
         }
 
-        return ['src' => $src, 'srcset' => $srcset, 'sizes' => $sizes];
+        $base = $parsed['base'];
+        $ext = $parsed['ext'];
+        $fileW = $parsed['width'];
+
+        // No size suffix → leave as a single src (cannot invent variants safely)
+        if ($fileW === null || $fileW <= 0) {
+            return ['src' => $src, 'srcset' => '', 'sizes' => $sizes];
+        }
+
+        $widths = self::availableWidths($fileW);
+        $parts = [];
+        foreach ($widths as $w) {
+            $parts[] = $base . '-' . $w . $ext . ' ' . $w . 'w';
+        }
+        $srcset = implode(', ', $parts);
+
+        // Prefer mid-size default src among what actually exists
+        $preferred = null;
+        foreach ([480, 320, 768] as $try) {
+            if (in_array($try, $widths, true)) {
+                $preferred = $base . '-' . $try . $ext;
+                break;
+            }
+        }
+        if ($preferred === null) {
+            // Only natural size exists (tiny upload)
+            $preferred = $base . '-' . $fileW . $ext;
+        }
+
+        // If caller passed a specific existing size, keep it as src
+        if (in_array($fileW, $widths, true) && $fileW >= 480) {
+            // large explicit request is fine as src; browser still uses srcset
+            $preferred = $base . '-' . $fileW . $ext;
+        }
+
+        // Tighten sizes when max is well below 1200 so browser doesn't over-request
+        if ($fileW < 1200) {
+            $sizes = self::sizesForMax($fileW);
+        }
+
+        return ['src' => $preferred, 'srcset' => $srcset, 'sizes' => $sizes];
+    }
+
+    /**
+     * sizes attribute capped at the real max width of the asset.
+     */
+    public static function sizesForMax(int $maxWidth): string
+    {
+        if ($maxWidth <= 320) {
+            return $maxWidth . 'px';
+        }
+        if ($maxWidth <= 480) {
+            return '(max-width: 360px) 320px, ' . $maxWidth . 'px';
+        }
+        if ($maxWidth <= 768) {
+            return '(max-width: 360px) 320px, (max-width: 640px) 480px, ' . $maxWidth . 'px';
+        }
+        return '(max-width: 360px) 320px, (max-width: 640px) 480px, (max-width: 1024px) 768px, ' . $maxWidth . 'px';
     }
 
     /**
@@ -90,7 +187,6 @@ class ImageTag
             $defaults['sizes'] = $r['sizes'];
         }
 
-        // Merge class names
         if (!empty($attrs['class'])) {
             $defaults['class'] = trim($defaults['class'] . ' ' . $attrs['class']);
             unset($attrs['class']);
@@ -98,7 +194,6 @@ class ImageTag
 
         $merged = array_merge($defaults, $attrs);
 
-        // Progressive reveal: fade in when the image finishes loading (inline for reliability)
         $merged['onload'] = "this.classList.add('is-loaded')" . (isset($merged['onload']) ? ';' . $merged['onload'] : '');
 
         $attrStr = '';
@@ -112,7 +207,8 @@ class ImageTag
     }
 
     /**
-     * Smallest available variant path/URL for HQ thumbnails (avoids loading 1200px in grids).
+     * Smallest safe thumb URL: prefer -320 if the asset is at least that wide,
+     * otherwise the real max width from the path (never invent a missing file).
      */
     public static function thumbSrc(string $src): string
     {
@@ -120,15 +216,19 @@ class ImageTag
         if ($src === '') {
             return '';
         }
-        if (preg_match('#^(.*?)(?:-(320|480|768|1200))?(\.(?:webp|jpe?g|png|gif))(?:\?.*)?$#i', $src, $m)) {
-            return $m[1] . '-320' . $m[3];
+        $parsed = self::parseSrc($src);
+        if ($parsed === null || $parsed['width'] === null) {
+            return $src;
         }
-        return $src;
+        $maxW = $parsed['width'];
+        $widths = self::availableWidths($maxW);
+        $thumbW = $widths[0] ?? $maxW;
+        return $parsed['base'] . '-' . $thumbW . $parsed['ext'];
     }
 
     /**
      * Upgrade plain media <img> tags in HTML body to responsive srcset + progressive class.
-     * Safe for already-responsive markup (skips if srcset present).
+     * Only references widths that exist for that asset (no phantom -1200).
      */
     public static function upgradeBody(string $html): string
     {
@@ -140,22 +240,21 @@ class ImageTag
             static function (array $m) {
                 $attrs = $m[1];
                 if (preg_match('/\bsrcset\s*=/i', $attrs)) {
-                    return $m[0]; // already responsive
+                    return $m[0];
                 }
                 if (!preg_match('/\bsrc\s*=\s*["\']([^"\']+)["\']/i', $attrs, $sm)) {
                     return $m[0];
                 }
                 $src = $sm[1];
-                if (!preg_match('#(?:-(?:320|480|768|1200))?\.(?:webp|jpe?g|png|gif)$#i', $src)) {
-                    return $m[0]; // not a sized media file
+                $parsed = self::parseSrc($src);
+                if ($parsed === null || $parsed['width'] === null) {
+                    return $m[0];
                 }
                 $r = self::responsiveAttrs($src);
                 if ($r['srcset'] === '') {
                     return $m[0];
                 }
-                // Strip old src/loading/decoding/class that we will re-add
                 $attrs = preg_replace('/\s*(?:src|srcset|sizes|loading|decoding)\s*=\s*["\'][^"\']*["\']/i', '', $attrs);
-                // Ensure mova-img class
                 if (preg_match('/\bclass\s*=\s*["\']([^"\']*)["\']/i', $attrs, $cm)) {
                     if (strpos($cm[1], 'mova-img') === false) {
                         $attrs = preg_replace(
@@ -181,4 +280,3 @@ class ImageTag
         ) ?? $html;
     }
 }
-

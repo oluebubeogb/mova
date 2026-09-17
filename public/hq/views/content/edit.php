@@ -1267,16 +1267,63 @@ if (!empty($content['published_at'])) {
             return;
         }
 
+        function movaAvailableWidths(maxW) {
+            var breakpoints = [320, 480, 768, 1200];
+            var out = [];
+            breakpoints.forEach(function (w) { if (w < maxW) out.push(w); });
+            if (out.indexOf(maxW) === -1) out.push(maxW);
+            out.sort(function (a, b) { return a - b; });
+            return out;
+        }
         function responsiveImgHtml(item) {
             var src = item.url || '';
             var alt = item.alt_text || '';
-            var m = src.match(/^(.*?)(?:-(320|480|768|1200))?(\.(?:webp|jpe?g|png|gif))$/i);
-            if (m) {
-                var base = m[1], ext = m[3];
-                var srcset = [320,480,768,1200].map(function(w){ return base + '-' + w + ext + ' ' + w + 'w'; }).join(', ');
-                return '<img src="' + escapeHtml(base + '-480' + ext) + '" srcset="' + escapeHtml(srcset) + '" sizes="(max-width: 360px) 320px, (max-width: 640px) 480px, (max-width: 1024px) 768px, 1200px" alt="' + escapeHtml(alt) + '" loading="lazy" decoding="async" class="mova-img" onload="this.classList.add(\'is-loaded\')">';
+            // Prefer real variant widths from API when present
+            var widthList = [];
+            if (item.urls && typeof item.urls === 'object') {
+                Object.keys(item.urls).forEach(function (k) {
+                    var n = parseInt(k, 10);
+                    if (n > 0) widthList.push(n);
+                });
             }
-            return '<img src="' + escapeHtml(src) + '" alt="' + escapeHtml(alt) + '" loading="lazy" decoding="async" class="mova-img" onload="this.classList.add(\'is-loaded\')">';
+            if (!widthList.length && item.variants && item.variants.length) {
+                item.variants.forEach(function (v) {
+                    var n = parseInt(v.width, 10);
+                    if (n > 0) widthList.push(n);
+                });
+            }
+            var m = src.match(/^(.*?)-(\d+)(\.(?:webp|jpe?g|png|gif))$/i);
+            if (!m && !widthList.length) {
+                return '<img src="' + escapeHtml(src) + '" alt="' + escapeHtml(alt) + '" loading="lazy" decoding="async" class="mova-img" onload="this.classList.add(\'is-loaded\')">';
+            }
+            var base, maxW, ext;
+            if (m) {
+                base = m[1]; maxW = parseInt(m[2], 10); ext = m[3];
+            } else {
+                // derive from first urls path
+                var anyUrl = item.url || '';
+                var m2 = anyUrl.match(/^(.*?)-(\d+)(\.(?:webp|jpe?g|png|gif))$/i);
+                if (!m2) {
+                    return '<img src="' + escapeHtml(src) + '" alt="' + escapeHtml(alt) + '" loading="lazy" decoding="async" class="mova-img" onload="this.classList.add(\'is-loaded\')">';
+                }
+                base = m2[1]; maxW = parseInt(m2[2], 10); ext = m2[3];
+            }
+            if (widthList.length) {
+                widthList.sort(function (a, b) { return a - b; });
+                maxW = widthList[widthList.length - 1];
+            } else {
+                widthList = movaAvailableWidths(maxW);
+            }
+            var srcset = widthList.map(function (w) { return base + '-' + w + ext + ' ' + w + 'w'; }).join(', ');
+            var preferred = base + '-' + maxW + ext;
+            if (widthList.indexOf(480) !== -1) preferred = base + '-480' + ext;
+            else if (widthList.indexOf(320) !== -1) preferred = base + '-320' + ext;
+            var sizes;
+            if (maxW <= 320) sizes = maxW + 'px';
+            else if (maxW <= 480) sizes = '(max-width: 360px) 320px, ' + maxW + 'px';
+            else if (maxW <= 768) sizes = '(max-width: 360px) 320px, (max-width: 640px) 480px, ' + maxW + 'px';
+            else sizes = '(max-width: 360px) 320px, (max-width: 640px) 480px, (max-width: 1024px) 768px, ' + maxW + 'px';
+            return '<img src="' + escapeHtml(preferred) + '" srcset="' + escapeHtml(srcset) + '" sizes="' + escapeHtml(sizes) + '" alt="' + escapeHtml(alt) + '" loading="lazy" decoding="async" class="mova-img" onload="this.classList.add(\'is-loaded\')">';
         }
         if (pickerMode === 'gallery' || items.length > 1) {
             let html = '<div class="gallery">';
