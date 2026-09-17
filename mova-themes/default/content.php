@@ -13,6 +13,9 @@ $bare = $isDev && !$useChrome;
 $bodyHtml = $content['body'] ?? '';
 if (class_exists(\Mova\Plugin\PluginManager::class)) {
     $bodyHtml = \Mova\Plugin\PluginManager::applyFilters('content.render.body', $bodyHtml, $content);
+if (class_exists(\Mova\Media\ImageTag::class)) {
+    $bodyHtml = \Mova\Media\ImageTag::upgradeBody($bodyHtml);
+}
 }
 
 // Bare Dev Mode (no site header/footer): show only the content island — no theme article chrome
@@ -43,13 +46,17 @@ $hideChrome = !empty($content['meta']['hide_article_chrome']) && $content['meta'
     </header>
   <?php endif; ?>
 
-    <?php if (!empty($content['featured_image'])): ?>
-        <figure class="article-featured">
-            <?= function_exists('mova_img') ? mova_img((string)($content['featured_image'] ?? ''), (string)($content['title'] ?? '')) : '' ?>
-                 alt="<?= htmlspecialchars($content['title']) ?>"
-                 loading="lazy">
-        </figure>
-    <?php endif; ?>
+        <?php if (!empty($content['featured_image'])): ?>
+      <figure class="article-featured">
+        <?= function_exists('mova_img')
+            ? mova_img((string)($content['featured_image'] ?? ''), (string)($content['title'] ?? ''), [
+                'priority' => true,
+                'class' => 'article-featured-img',
+                'sizes' => '(max-width: 768px) 100vw, 1200px',
+              ])
+            : '' ?>
+      </figure>
+      <?php endif; ?>
 
     <div class="article-body">
         <?= $bodyHtml ?>

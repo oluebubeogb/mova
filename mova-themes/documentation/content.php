@@ -28,15 +28,25 @@ $hideChrome = !empty($content['meta']['hide_article_chrome']) && $content['meta'
     </header>
   <?php endif; ?>
 
-    <?php if (!empty($content['featured_image'])): ?>
-        <figure class="article-featured">
-            <?= function_exists('mova_img') ? mova_img((string)($content['featured_image'] ?? ''), (string)($content['title'] ?? '')) : '' ?>
-                 alt="<?= htmlspecialchars($content['title']) ?>"
-                 loading="lazy">
-        </figure>
-    <?php endif; ?>
+        <?php if (!empty($content['featured_image'])): ?>
+      <figure class="article-featured">
+        <?= function_exists('mova_img')
+            ? mova_img((string)($content['featured_image'] ?? ''), (string)($content['title'] ?? ''), [
+                'priority' => true,
+                'class' => 'article-featured-img',
+                'sizes' => '(max-width: 768px) 100vw, 1200px',
+              ])
+            : '' ?>
+      </figure>
+      <?php endif; ?>
 
     <div class="article-body">
-        <?= $content['body'] ?? '' ?>
+        <?php
+$__body = $content['body'] ?? '';
+if (class_exists(\Mova\Media\ImageTag::class)) {
+    $__body = \Mova\Media\ImageTag::upgradeBody($__body);
+}
+echo $__body;
+?>
     </div>
 </article>

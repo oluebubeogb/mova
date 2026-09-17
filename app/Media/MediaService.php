@@ -296,7 +296,7 @@ class MediaService
     private function processImage(string $source, string $subdir, string $originalFilename, ?int $origW, ?int $origH): array
     {
         $variants = [];
-        $sizes = Bootstrap::config('media.variants', [480, 768, 1200]);
+        $sizes = Bootstrap::config('media.variants', [320, 480, 768, 1200]);
         $quality = (int) Bootstrap::config('media.quality', 85);
         $uploadDir = Bootstrap::path('uploads') . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $subdir);
 
@@ -396,6 +396,109 @@ class MediaService
             default:
                 return false;
         }
+    }
+
+    /**
+     * Ensure all configured width variants exist for an existing media row.
+     * Used on upgrade so sites that already uploaded images get 320/480/etc.
+     * @return array updated variants list (also persisted)
+     */
+    /**
+     * Ensure all configured width variants exist for an existing media row.
+     * Used on upgrade so sites that already uploaded images get 320/480/etc.
+     * @return array updated variants list (also persisted)
+     */
+    public function ensureVariants(array $media): array
+    {
+        if (empty($media['id']) || strpos((string)($media['mime_type'] ?? ''), 'image/') !== 0) {
+            return $media['variants'] ?? [];
+        }
+        if (($media['extension'] ?? '') === 'svg') {
+            return $media['variants'] ?? [];
+        }
+
+        $base = Bootstrap::path('uploads');
+        $existing = is_array($media['variants'] ?? null) ? $media['variants'] : [];
+        $have = [];
+        foreach ($existing as $v) {
+            $have[(int)($v['width'] ?? 0)] = $v;
+        }
+
+        $sizes = Bootstrap::config('media.variants', [320, 480, 768, 1200]);
+        $need = false;
+        foreach ($sizes as $w) {
+            if (!isset($have[(int)$w])) {
+                $need = true;
+                break;
+            }
+        }
+        // Also need if no file exists on disk for listed variants
+        if (!$need) {
+            foreach ($existing as $v) {
+                $p = $base . '/' . str_replace('/', DIRECTORY_SEPARATOR, (string)($v['path'] ?? ''));
+                if (!is_file($p)) {
+                    $need = true;
+                    break;
+                }
+            }
+        }
+        if (!$need) {
+            return $existing;
+        }
+
+        // Find a source file: prefer largest existing variant, else media path
+        $sourcePath = null;
+        $bestW = 0;
+        foreach ($existing as $v) {
+            $p = $base . '/' . str_replace('/', DIRECTORY_SEPARATOR, (string)($v['path'] ?? ''));
+            if (is_file($p) && (int)($v['width'] ?? 0) >= $bestW) {
+                $sourcePath = $p;
+                $bestW = (int)($v['width'] ?? 0);
+            }
+        }
+        if (!$sourcePath) {
+            $p = $base . '/' . str_replace('/', DIRECTORY_SEPARATOR, (string)($media['path'] ?? ''));
+            if (is_file($p)) {
+                $sourcePath = $p;
+            }
+        }
+        if (!$sourcePath) {
+            return $existing;
+        }
+
+        $info = @getimagesize($sourcePath);
+        $origW = $info ? $info[0] : (int)($media['width'] ?? 0);
+        $origH = $info ? $info[1] : (int)($media['height'] ?? 0);
+        $subdir = dirname(str_replace('\\', '/', (string)($media['path'] ?? '')));
+        if ($subdir === '.') {
+            $subdir = date('Y/m');
+        }
+        $filename = basename($sourcePath);
+        // processImage expects original filename without size suffix ideally
+        $filename = preg_replace('/-(320|480|768|1200)\.webp$/i', '.webp', $filename);
+
+        $newVariants = $this->processImage($sourcePath, $subdir, $filename, $origW, $origH);
+        if ($newVariants === []) {
+            return $existing;
+        }
+
+        // Prefer largest as stored width/height
+        usort($newVariants, static function ($a, $b) {
+            return ($b['width'] ?? 0) <=> ($a['width'] ?? 0);
+        });
+        $primary = $newVariants[0];
+
+        Database::query(
+            'UPDATE media SET variants = :v, width = :w, height = :h WHERE id = :id',
+            [
+                'v' => json_encode($newVariants),
+                'w' => (int)($primary['width'] ?? $origW),
+                'h' => (int)($primary['height'] ?? $origH),
+                'id' => (int)$media['id'],
+            ]
+        );
+
+        return $newVariants;
     }
 
     private function sanitizeSvg(string $path): void

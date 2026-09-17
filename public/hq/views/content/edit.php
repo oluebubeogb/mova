@@ -1163,7 +1163,16 @@ if (!empty($content['published_at'])) {
             el.dataset.id = item.id;
             const isImage = (item.mime_type || '').indexOf('image/') === 0;
             if (isImage) {
-                el.innerHTML = '<img src="' + escapeHtml(item.url) + '" alt="" loading="lazy">'
+                var thumbUrl = item.thumb_url || item.url;
+                if (item.variants && item.variants.length) {
+                    var sorted = item.variants.slice().sort(function(a,b){ return (a.width||0) - (b.width||0); });
+                    if (sorted[0] && sorted[0].path) {
+                        thumbUrl = '/mova-uploads/' + String(sorted[0].path).replace(/^\/+/, '');
+                    }
+                } else if (thumbUrl) {
+                    thumbUrl = thumbUrl.replace(/-(480|768|1200)\.(webp|jpe?g|png|gif)$/i, '-320.$2');
+                }
+                el.innerHTML = '<img src="' + escapeHtml(thumbUrl) + '" alt="" loading="lazy" decoding="async">'
                     + '<span class="media-picker-name" title="' + escapeHtml(item.original_name) + '">' + escapeHtml(item.original_name) + '</span>'
                     + '<span class="check"><i class="fa-solid fa-check"></i></span>';
             } else {
@@ -1258,17 +1267,28 @@ if (!empty($content['published_at'])) {
             return;
         }
 
+        function responsiveImgHtml(item) {
+            var src = item.url || '';
+            var alt = item.alt_text || '';
+            var m = src.match(/^(.*?)(?:-(320|480|768|1200))?(\.(?:webp|jpe?g|png|gif))$/i);
+            if (m) {
+                var base = m[1], ext = m[3];
+                var srcset = [320,480,768,1200].map(function(w){ return base + '-' + w + ext + ' ' + w + 'w'; }).join(', ');
+                return '<img src="' + escapeHtml(base + '-480' + ext) + '" srcset="' + escapeHtml(srcset) + '" sizes="(max-width: 360px) 320px, (max-width: 640px) 480px, (max-width: 1024px) 768px, 1200px" alt="' + escapeHtml(alt) + '" loading="lazy" decoding="async" class="mova-img" onload="this.classList.add(\'is-loaded\')">';
+            }
+            return '<img src="' + escapeHtml(src) + '" alt="' + escapeHtml(alt) + '" loading="lazy" decoding="async" class="mova-img" onload="this.classList.add(\'is-loaded\')">';
+        }
         if (pickerMode === 'gallery' || items.length > 1) {
             let html = '<div class="gallery">';
             items.forEach(function (item) {
-                html += '<figure><img src="' + escapeHtml(item.url) + '" alt="' + escapeHtml(item.alt_text || '') + '" loading="lazy"></figure>';
+                html += '<figure>' + responsiveImgHtml(item) + '</figure>';
             });
             html += '</div><p><br></p>';
             insertHTML(html);
         } else {
             const item = items[0];
             insertHTML(
-                '<figure><img src="' + escapeHtml(item.url) + '" alt="' + escapeHtml(item.alt_text || '') + '" loading="lazy"><figcaption></figcaption></figure><p><br></p>'
+                '<figure>' + responsiveImgHtml(item) + '<figcaption></figcaption></figure><p><br></p>'
             );
         }
         closePicker();

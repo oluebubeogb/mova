@@ -101,3 +101,36 @@
         getStored: getStored
     };
 })();
+
+/* Progressive images: mark already-complete (cached) imgs as loaded */
+(function () {
+  function mark(img) {
+    if (img && img.classList && img.classList.contains('mova-img')) {
+      if (img.complete && img.naturalWidth) img.classList.add('is-loaded');
+    }
+  }
+  function scan(root) {
+    (root || document).querySelectorAll('img.mova-img').forEach(mark);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { scan(); });
+  } else {
+    scan();
+  }
+  // Mutation observer for late-inserted content
+  if (typeof MutationObserver !== 'undefined') {
+    var mo = new MutationObserver(function (muts) {
+      muts.forEach(function (m) {
+        m.addedNodes && m.addedNodes.forEach(function (n) {
+          if (n.nodeType === 1) {
+            if (n.tagName === 'IMG') mark(n);
+            else if (n.querySelectorAll) scan(n);
+          }
+        });
+      });
+    });
+    if (document.documentElement) {
+      mo.observe(document.documentElement, { childList: true, subtree: true });
+    }
+  }
+})();

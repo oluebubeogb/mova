@@ -722,6 +722,53 @@ class Schema
         ");
         $db->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_assemblies_slug ON assemblies(slug)");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_assemblies_status ON assemblies(status)");
+
+        self::migratePhase6($db);
+    }
+
+    /**
+     * Regenerate missing image variants (320/480/768/1200) for existing media
+     * so upgraded sites get responsive srcset without re-uploading.
+     */
+    private static function migratePhase6(\PDO $db): void
+    {
+        try {
+            $flag = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'media_variants_v2'")->fetch(\PDO::FETCH_ASSOC);
+            if ($flag && ($flag['setting_value'] ?? '') === '1') {
+                return;
+            }
+        } catch (\Throwable $e) {
+            return;
+        }
+
+        try {
+            $rows = $db->query("SELECT * FROM media WHERE mime_type LIKE 'image/%'")->fetchAll(\PDO::FETCH_ASSOC);
+        } catch (\Throwable $e) {
+            return;
+        }
+
+        if ($rows && class_exists(\Mova\Media\MediaService::class)) {
+            $svc = new \Mova\Media\MediaService();
+            foreach ($rows as $row) {
+                if (!empty($row['variants'])) {
+                    $decoded = json_decode((string)$row['variants'], true);
+                    $row['variants'] = is_array($decoded) ? $decoded : [];
+                } else {
+                    $row['variants'] = [];
+                }
+                try {
+                    $svc->ensureVariants($row);
+                } catch (\Throwable $e) {
+                    // skip broken files
+                }
+            }
+        }
+
+        try {
+            $db->exec("INSERT OR REPLACE INTO settings (setting_key, setting_value) VALUES ('media_variants_v2', '1')");
+        } catch (\Throwable $e) {
+            // ignore
+        }
     }
 
     public static function isInstalled(): bool

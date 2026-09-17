@@ -59,9 +59,23 @@ $router->get('/media/json', function (Request $req) {
                 continue;
             }
         }
+        $variants = $item['variants'] ?? [];
+        $urlsByWidth = [];
+        if (is_array($variants)) {
+            foreach ($variants as $v) {
+                $w = (int)($v['width'] ?? 0);
+                if ($w > 0 && !empty($v['path'])) {
+                    $urlsByWidth[$w] = $svc->url($item, $w);
+                }
+            }
+        }
+        ksort($urlsByWidth);
+        $thumbUrl = $urlsByWidth ? reset($urlsByWidth) : $svc->url($item);
         $out[] = [
             'id' => (int) $item['id'],
             'url' => $svc->url($item),
+            'thumb_url' => $thumbUrl,
+            'urls' => $urlsByWidth,
             'path' => $item['path'] ?? '',
             'original_name' => $item['original_name'] ?? '',
             'alt_text' => $item['alt_text'] ?? '',
@@ -69,7 +83,7 @@ $router->get('/media/json', function (Request $req) {
             'width' => $item['width'] ?? null,
             'height' => $item['height'] ?? null,
             'extension' => $item['extension'] ?? '',
-            'variants' => $item['variants'] ?? [],
+            'variants' => $variants,
         ];
     }
     return (new Response())

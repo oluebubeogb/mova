@@ -1388,3 +1388,30 @@ body.hero-fullscreen .hero {
     :root:not([data-theme="light"]) .nav-drawer-action .icon-sun { display: block; }
     :root:not([data-theme="light"]) .nav-drawer-action .icon-moon { display: none; }
 }
+
+/* Progressive image reveal — shell paints instantly; images fade in when ready */
+img.mova-img {
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    background: color-mix(in srgb, var(--color-border, #e5e7eb) 40%, transparent);
+}
+img.mova-img.is-loaded,
+img.mova-img[complete] {
+    opacity: 1;
+}
+/* Already-cached images (from bfcache / memory) should show immediately */
+img.mova-img:not([src=""]) {
+    content-visibility: auto;
+}
+/* Reduce layout shift: keep aspect ratio when width/height known via CSS */
+.article-featured img.mova-img,
+.article-body img.mova-img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
+/* Font Awesome / icon fonts: swap so text & icons never stay invisible */
+.fa, .fas, .far, .fal, .fab, .fa-solid, .fa-regular, .fa-brands,
+[class^="fa-"], [class*=" fa-"] {
+    font-display: swap;
+}

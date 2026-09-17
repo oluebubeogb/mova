@@ -20,35 +20,50 @@
     <div class="media-grid">
         <?php foreach ($items as $item):
             $imgPath = $item['path'] ?? '';
-            if (!empty($item['variants']) && is_array($item['variants'])) {
-                $best = null;
-                foreach ($item['variants'] as $v) {
-                    if ($best === null || ($v['width'] ?? 0) > ($best['width'] ?? 0)) {
-                        $best = $v;
-                    }
-                }
-                if ($best && !empty($best['path'])) {
-                    $imgPath = $best['path'];
+            $variants = is_array($item['variants'] ?? null) ? $item['variants'] : [];
+            $byWidth = [];
+            foreach ($variants as $v) {
+                $w = (int)($v['width'] ?? 0);
+                if ($w > 0 && !empty($v['path'])) {
+                    $byWidth[$w] = '/mova-uploads/' . ltrim((string)$v['path'], '/');
                 }
             }
-            $public = '/mova-uploads/' . ltrim((string) $imgPath, '/');
+            // Prefer largest for "full" URL, smallest for grid thumb
+            $fullPublic = $imgPath ? '/mova-uploads/' . ltrim((string)$imgPath, '/') : '';
+            if ($byWidth) {
+                ksort($byWidth);
+                $thumbPublic = reset($byWidth); // smallest
+                $fullPublic = end($byWidth);    // largest
+            } else {
+                $thumbPublic = $fullPublic;
+            }
             $id = (int) ($item['id'] ?? 0);
+            $isImage = strpos((string)($item['mime_type'] ?? ''), 'image/') === 0
+                || str_ends_with(strtolower((string)$imgPath), '.webp');
             ?>
             <div class="media-card" data-id="<?= $id ?>">
-                <?php if (strpos((string)($item['mime_type'] ?? ''), 'image/') === 0 || str_ends_with(strtolower($imgPath), '.webp')): ?>
-                    <img src="<?= htmlspecialchars($public) ?>" alt="<?= htmlspecialchars($item['alt_text'] ?? '') ?>" loading="lazy" onerror="this.style.opacity=0.3">
+                <?php if ($isImage && $thumbPublic): ?>
+                    <img src="<?= htmlspecialchars($thumbPublic) ?>" alt="<?= htmlspecialchars($item['alt_text'] ?? '') ?>" loading="lazy" decoding="async" class="mova-img" onload="this.classList.add('is-loaded')" onerror="this.style.opacity=0.3" width="150" height="150" style="object-fit:cover;">
                 <?php else: ?>
                     <div class="media-placeholder"><?= htmlspecialchars(strtoupper($item['extension'] ?? '')) ?></div>
                 <?php endif; ?>
                 <div class="media-info">
                     <span class="media-name" title="<?= htmlspecialchars($item['original_name'] ?? '') ?>"><?= htmlspecialchars($item['original_name'] ?? '') ?></span>
-                    <code class="media-path"><?= htmlspecialchars($public) ?></code>
+                    <code class="media-path" title="Largest variant"><?= htmlspecialchars($fullPublic) ?></code>
                     <div class="media-actions" style="margin-top:0.5rem;display:flex;gap:0.35rem;flex-wrap:wrap;">
-                        <button type="button" class="btn-ghost btn-sm media-copy" data-url="<?= htmlspecialchars($public) ?>" title="Copy URL">
-                            <i class="fa-solid fa-link"></i> Copy
+                        <?php if ($byWidth): foreach ($byWidth as $w => $u): ?>
+                        <button type="button" class="btn-ghost btn-sm media-copy" data-url="<?= htmlspecialchars($u) ?>" title="Copy <?= (int)$w ?>px URL">
+                            <?= (int)$w ?>
+                        </button>
+                        <?php endforeach; endif; ?>
+                        <button type="button" class="btn-ghost btn-sm media-copy" data-url="<?= htmlspecialchars($fullPublic) ?>" title="Copy largest URL">
+                            <i class="fa-solid fa-link"></i>
+                        </button>
+                        <button type="button" class="btn-ghost btn-sm media-copy-html" data-src="<?= htmlspecialchars($fullPublic) ?>" data-alt="<?= htmlspecialchars($item['alt_text'] ?? '') ?>" title="Copy responsive &lt;img&gt; HTML">
+                            HTML
                         </button>
                         <button type="button" class="btn-ghost btn-sm media-delete" data-id="<?= $id ?>" style="color:var(--hq-danger,#b91c1c);" title="Delete">
-                            <i class="fa-solid fa-trash"></i> Delete
+                            <i class="fa-solid fa-trash"></i>
                         </button>
                     </div>
                 </div>
@@ -178,6 +193,30 @@
         }
     });
 
+    document.querySelectorAll('.media-copy-html').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var src = btn.getAttribute('data-src') || '';
+            var alt = btn.getAttribute('data-alt') || '';
+            // Build responsive markup matching ImageTag (320/480/768/1200)
+            var m = src.match(/^(.*?)(?:-(320|480|768|1200))?(\.(?:webp|jpe?g|png|gif))$/i);
+            var html;
+            if (m) {
+                var base = m[1], ext = m[3];
+                var srcset = [320,480,768,1200].map(function(w){ return base + '-' + w + ext + ' ' + w + 'w'; }).join(', ');
+                html = '<img src="' + base + '-480' + ext + '" srcset="' + srcset + '" sizes="(max-width: 360px) 320px, (max-width: 640px) 480px, (max-width: 1024px) 768px, 1200px" alt="' + alt.replace(/"/g, '&quot;') + '" loading="lazy" decoding="async" class="mova-img" onload="this.classList.add(\'is-loaded\')">';
+            } else {
+                html = '<img src="' + src + '" alt="' + alt.replace(/"/g, '&quot;') + '" loading="lazy" decoding="async" class="mova-img" onload="this.classList.add(\'is-loaded\')">';
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(html).then(function () {
+                    btn.textContent = 'Copied';
+                    setTimeout(function(){ btn.textContent = 'HTML'; }, 1200);
+                });
+            } else {
+                prompt('Copy HTML', html);
+            }
+        });
+    });
     document.querySelectorAll('.media-copy').forEach(function (btn) {
         btn.addEventListener('click', function () {
             var url = btn.getAttribute('data-url') || '';
