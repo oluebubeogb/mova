@@ -375,5 +375,462 @@
     }, true);
   }
 
+  /* ── Import / Export ─────────────────────────────────────────────── */
+
+  function getContentName() {
+    var slugEl = document.querySelector('input[name="slug"]');
+    var titleEl = document.querySelector('input[name="title"]');
+    var raw = (slugEl && slugEl.value.trim()) || (titleEl && titleEl.value.trim()) || 'content';
+    return raw
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 64) || 'content';
+  }
+
+  function getEditorValues() {
+    return {
+      html: editors.html ? editors.html.getValue() : (document.getElementById('mova-dev-html-input') || {}).value || '',
+      css: editors.css ? editors.css.getValue() : (document.getElementById('mova-dev-css-input') || {}).value || '',
+      js: editors.js ? editors.js.getValue() : (document.getElementById('mova-dev-js-input') || {}).value || ''
+    };
+  }
+
+  function setEditorValue(lang, value) {
+    if (editors[lang]) {
+      editors[lang].setValue(value == null ? '' : String(value));
+    }
+    var el = document.getElementById('mova-dev-' + lang + '-input');
+    if (el) el.value = value == null ? '' : String(value);
+    if (lang === 'html') {
+      var bodyInput = document.getElementById('body-input');
+      if (bodyInput) bodyInput.value = value == null ? '' : String(value);
+    }
+  }
+
+  function triggerAutoSave() {
+    syncHiddenInputs();
+    // Ensure form is in dev mode so body/css/js post correctly
+    if (modeInput) modeInput.value = 'dev';
+    if (toggle && !toggle.checked) {
+      toggle.checked = true;
+      setMode(true);
+    }
+    var saveBtn = document.getElementById('btn-publish-save');
+    if (saveBtn) {
+      try { saveBtn.click(); } catch (e) {}
+      return;
+    }
+    if (form) {
+      try { form.requestSubmit ? form.requestSubmit() : form.submit(); } catch (e) {}
+    }
+  }
+
+  /* Minimal ZIP writer (store only, no compression) — no external dependency */
+  function crc32(str) {
+    var table = crc32._t;
+    if (!table) {
+      table = crc32._t = new Uint32Array(256);
+      for (var n = 0; n < 256; n++) {
+        var c = n;
+        for (var k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+        table[n] = c;
+      }
+    }
+    var crc = 0 ^ (-1);
+    for (var i = 0; i < str.length; i++) {
+      crc = (crc >>> 8) ^ table[(crc ^ str.charCodeAt(i)) & 0xff];
+    }
+    return (crc ^ (-1)) >>> 0;
+  }
+
+  function strToU8(str) {
+    if (typeof TextEncoder !== 'undefined') return new TextEncoder().encode(str);
+    var arr = new Uint8Array(str.length);
+    for (var i = 0; i < str.length; i++) arr[i] = str.charCodeAt(i) & 0xff;
+    return arr;
+  }
+
+  function u32(n) {
+    return new Uint8Array([n & 0xff, (n >>> 8) & 0xff, (n >>> 16) & 0xff, (n >>> 24) & 0xff]);
+  }
+  function u16(n) {
+    return new Uint8Array([n & 0xff, (n >>> 8) & 0xff]);
+  }
+
+  function buildZip(files) {
+    // files: [{ name, data: string }]
+    var localParts = [];
+    var centralParts = [];
+    var offset = 0;
+    files.forEach(function (f) {
+      var nameBytes = strToU8(f.name);
+      var dataBytes = strToU8(f.data);
+      var crc = crc32(f.data);
+      var size = dataBytes.length;
+
+      // Local file header
+      var local = [];
+      local.push(u32(0x04034b50));
+      local.push(u16(20)); // version needed
+      local.push(u16(0));  // flags
+      local.push(u16(0));  // method store
+      local.push(u16(0));  // time
+      local.push(u16(0));  // date
+      local.push(u32(crc));
+      local.push(u32(size));
+      local.push(u32(size));
+      local.push(u16(nameBytes.length));
+      local.push(u16(0)); // extra
+      local.push(nameBytes);
+      local.push(dataBytes);
+
+      var localLen = 30 + nameBytes.length + size;
+      localParts.push({ chunks: local, len: localLen });
+
+      // Central directory header
+      var central = [];
+      central.push(u32(0x02014b50));
+      central.push(u16(20)); // version made by
+      central.push(u16(20)); // version needed
+      central.push(u16(0));
+      central.push(u16(0));
+      central.push(u16(0));
+      central.push(u16(0));
+      central.push(u32(crc));
+      central.push(u32(size));
+      central.push(u32(size));
+      central.push(u16(nameBytes.length));
+      central.push(u16(0)); // extra
+      central.push(u16(0)); // comment
+      central.push(u16(0)); // disk
+      central.push(u16(0)); // int attr
+      central.push(u32(0)); // ext attr
+      central.push(u32(offset));
+      central.push(nameBytes);
+
+      centralParts.push({ chunks: central, len: 46 + nameBytes.length });
+      offset += localLen;
+    });
+
+    var centralSize = 0;
+    centralParts.forEach(function (p) { centralSize += p.len; });
+    var centralOffset = offset;
+
+    var end = [];
+    end.push(u32(0x06054b50));
+    end.push(u16(0));
+    end.push(u16(0));
+    end.push(u16(files.length));
+    end.push(u16(files.length));
+    end.push(u32(centralSize));
+    end.push(u32(centralOffset));
+    end.push(u16(0));
+
+    var total = offset + centralSize + 22;
+    var out = new Uint8Array(total);
+    var pos = 0;
+    function writeChunks(parts) {
+      parts.forEach(function (p) {
+        p.chunks.forEach(function (c) {
+          out.set(c, pos);
+          pos += c.length;
+        });
+      });
+    }
+    writeChunks(localParts);
+    writeChunks(centralParts);
+    end.forEach(function (c) {
+      out.set(c, pos);
+      pos += c.length;
+    });
+    return out;
+  }
+
+  function downloadBlob(blob, filename) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () {
+      URL.revokeObjectURL(url);
+      a.remove();
+    }, 1500);
+  }
+
+  function exportZip() {
+    var name = getContentName();
+    var vals = getEditorValues();
+    var files = [
+      { name: name + '.html', data: vals.html || '' },
+      { name: name + '.css', data: vals.css || '' },
+      { name: name + '.js', data: vals.js || '' }
+    ];
+    var zipBytes = buildZip(files);
+    var blob = new Blob([zipBytes], { type: 'application/zip' });
+    downloadBlob(blob, name + '.zip');
+  }
+
+  /* ── Mixed .txt parser ─────────────────────────────────────────────
+     Keeps consecutive runs of the same language together.
+     Detects HTML / CSS / JS via strong signals; respects comments
+     (HTML comments, block comments, and line comments) so comment
+     text does not flip language. */
+
+  function stripCommentsForDetect(line, state) {
+    // Returns { text, state } where state tracks open block comments
+    var out = '';
+    var i = 0;
+    var s = state || { inBlock: false, blockType: null }; // blockType: 'cssjs' | 'html'
+    while (i < line.length) {
+      if (s.inBlock) {
+        if (s.blockType === 'html') {
+          var endH = line.indexOf('-->', i);
+          if (endH === -1) { i = line.length; }
+          else { i = endH + 3; s.inBlock = false; s.blockType = null; }
+        } else {
+          var endC = line.indexOf('*/', i);
+          if (endC === -1) { i = line.length; }
+          else { i = endC + 2; s.inBlock = false; s.blockType = null; }
+        }
+        continue;
+      }
+      // HTML comment
+      if (line.substr(i, 4) === '<!--') {
+        s.inBlock = true; s.blockType = 'html'; i += 4; continue;
+      }
+      // CSS/JS block comment
+      if (line.substr(i, 2) === '/*') {
+        s.inBlock = true; s.blockType = 'cssjs'; i += 2; continue;
+      }
+      // JS line comment
+      if (line.substr(i, 2) === '//') {
+        break; // rest of line is comment
+      }
+      out += line[i];
+      i++;
+    }
+    return { text: out, state: s };
+  }
+
+  function detectLineLang(rawLine, prevLang, commentState) {
+    var stripped = stripCommentsForDetect(rawLine, commentState);
+    var line = stripped.text.trim();
+    commentState = stripped.state;
+
+    if (!line) return { lang: prevLang || null, commentState: commentState };
+
+    // Strong HTML signals
+    if (
+      /^<!doctype\b/i.test(line) ||
+      /^<\/?[a-z][\w:-]*\b/i.test(line) ||
+      /<\/[a-z][\w:-]*>/i.test(line) ||
+      /^<[a-z][\w:-]*(\s|>|\/|$)/i.test(line)
+    ) {
+      return { lang: 'html', commentState: commentState };
+    }
+
+    // Strong CSS signals (selector + brace, at-rule, property declaration)
+    if (
+      /^@(media|keyframes|import|charset|font-face|supports|layer|container)\b/i.test(line) ||
+      /^[.#]?[a-zA-Z_\-][\w\-]*\s*[,{>]/.test(line) ||
+      /^[a-zA-Z\-]+\s*:\s*[^;]+;?\s*$/.test(line) ||
+      /^\s*[{}]+\s*$/.test(line) && prevLang === 'css' ||
+      /\{[^}]*$/.test(line) && /[a-zA-Z.#\[]/.test(line)
+    ) {
+      // Avoid classifying pure JS object-like lines as CSS when prev is JS
+      if (prevLang === 'js' && /^(const|let|var|function|if|for|while|return|class|export|import)\b/.test(line)) {
+        return { lang: 'js', commentState: commentState };
+      }
+      if (prevLang === 'js' && /[{}();=]/.test(line) && !/:\s*[^;]+;/.test(line) && !/^[.#@]/.test(line)) {
+        return { lang: 'js', commentState: commentState };
+      }
+      return { lang: 'css', commentState: commentState };
+    }
+
+    // Strong JS signals
+    if (
+      /^(const|let|var|function|class|export|import|async|await|return|if|else|for|while|switch|try|catch|throw|new|typeof|instanceof)\b/.test(line) ||
+      /=>/.test(line) ||
+      /\b(console|document|window|Math|JSON|Promise|Array|Object)\b/.test(line) ||
+      /;\s*$/.test(line) && /[=(){}[\]]/.test(line)
+    ) {
+      return { lang: 'js', commentState: commentState };
+    }
+
+    // Stay in previous language for weak / ambiguous lines (keeps runs together)
+    if (prevLang) return { lang: prevLang, commentState: commentState };
+
+    // First non-empty line with no clear signal — guess from content
+    if (/[<>]/.test(line)) return { lang: 'html', commentState: commentState };
+    if (/[{}:;]/.test(line) && !/[=()]/.test(line)) return { lang: 'css', commentState: commentState };
+    return { lang: 'js', commentState: commentState };
+  }
+
+  function parseMixedTxt(text) {
+    var lines = String(text || '').split(/\r?\n/);
+    var buckets = { html: [], css: [], js: [] };
+    var current = null;
+    var commentState = { inBlock: false, blockType: null };
+
+    lines.forEach(function (rawLine) {
+      var det = detectLineLang(rawLine, current, commentState);
+      commentState = det.commentState;
+      if (det.lang) current = det.lang;
+      if (!current) {
+        // still unknown — hold in a temporary buffer attached later; treat as html fallback
+        buckets.html.push(rawLine);
+        return;
+      }
+      buckets[current].push(rawLine);
+    });
+
+    function join(arr) {
+      // trim leading/trailing blank lines only
+      while (arr.length && !arr[0].trim()) arr.shift();
+      while (arr.length && !arr[arr.length - 1].trim()) arr.pop();
+      return arr.join('\n');
+    }
+
+    return {
+      html: join(buckets.html),
+      css: join(buckets.css),
+      js: join(buckets.js)
+    };
+  }
+
+  function applyImport(parts) {
+    // parts: { html?, css?, js? } — only set keys that are present (non-null)
+    var changed = false;
+    ['html', 'css', 'js'].forEach(function (lang) {
+      if (parts[lang] != null) {
+        setEditorValue(lang, parts[lang]);
+        changed = true;
+      }
+    });
+    if (changed) {
+      syncHiddenInputs();
+      if (monacoReady) collectMarkers();
+      // Prefer showing the first non-empty imported language
+      if (parts.html) switchToTab('html');
+      else if (parts.css) switchToTab('css');
+      else if (parts.js) switchToTab('js');
+      triggerAutoSave();
+    }
+  }
+
+  function handleFiles(fileList) {
+    var files = Array.prototype.slice.call(fileList || []);
+    if (!files.length) return;
+
+    var allowed = { html: true, css: true, js: true, txt: true };
+    var byExt = { html: null, css: null, js: null };
+    var txtFiles = [];
+    var pending = 0;
+    var done = false;
+
+    function finish() {
+      if (done) return;
+      done = true;
+      var parts = {};
+      // discrete extension files win over txt for the same type
+      if (byExt.html != null) parts.html = byExt.html;
+      if (byExt.css != null) parts.css = byExt.css;
+      if (byExt.js != null) parts.js = byExt.js;
+
+      // merge txt parses for any type not already set by discrete files
+      txtFiles.forEach(function (parsed) {
+        ['html', 'css', 'js'].forEach(function (lang) {
+          if (parts[lang] == null && parsed[lang]) {
+            parts[lang] = parsed[lang];
+          } else if (parts[lang] == null && parsed[lang] === '') {
+            // keep empty only if explicitly the only content — skip
+          }
+        });
+      });
+
+      // If only txt and it produced content, use it
+      if (Object.keys(parts).length === 0 && txtFiles.length) {
+        var merged = { html: '', css: '', js: '' };
+        txtFiles.forEach(function (p) {
+          if (p.html) merged.html += (merged.html ? '\n' : '') + p.html;
+          if (p.css) merged.css += (merged.css ? '\n' : '') + p.css;
+          if (p.js) merged.js += (merged.js ? '\n' : '') + p.js;
+        });
+        parts = merged;
+      }
+
+      // Only override languages that were actually present in the upload
+      var toApply = {};
+      if (byExt.html != null || (txtFiles.length && parts.html)) toApply.html = parts.html != null ? parts.html : '';
+      if (byExt.css != null || (txtFiles.length && parts.css)) toApply.css = parts.css != null ? parts.css : '';
+      if (byExt.js != null || (txtFiles.length && parts.js)) toApply.js = parts.js != null ? parts.js : '';
+
+      // If discrete files only of one type, only override that type
+      if (!txtFiles.length) {
+        toApply = {};
+        if (byExt.html != null) toApply.html = byExt.html;
+        if (byExt.css != null) toApply.css = byExt.css;
+        if (byExt.js != null) toApply.js = byExt.js;
+      }
+
+      applyImport(toApply);
+    }
+
+    files.forEach(function (file) {
+      var name = (file.name || '').toLowerCase();
+      var ext = name.split('.').pop();
+      if (!allowed[ext]) return;
+      pending++;
+      var reader = new FileReader();
+      reader.onload = function (ev) {
+        var text = ev.target.result || '';
+        if (ext === 'txt') {
+          txtFiles.push(parseMixedTxt(text));
+        } else if (ext === 'html') {
+          byExt.html = text;
+        } else if (ext === 'css') {
+          byExt.css = text;
+        } else if (ext === 'js') {
+          byExt.js = text;
+        }
+        pending--;
+        if (pending === 0) finish();
+      };
+      reader.onerror = function () {
+        pending--;
+        if (pending === 0) finish();
+      };
+      reader.readAsText(file);
+    });
+
+    if (pending === 0) {
+      // no valid files
+      return;
+    }
+  }
+
+  var importBtn = document.getElementById('mova-dev-import-btn');
+  var exportBtn = document.getElementById('mova-dev-export-btn');
+  var importInput = document.getElementById('mova-dev-import-input');
+
+  if (importBtn && importInput) {
+    importBtn.addEventListener('click', function () {
+      importInput.value = '';
+      importInput.click();
+    });
+    importInput.addEventListener('change', function () {
+      handleFiles(importInput.files);
+    });
+  }
+  if (exportBtn) {
+    exportBtn.addEventListener('click', function () {
+      exportZip();
+    });
+  }
+
   setMode(cfg.mode === 'dev');
 })();

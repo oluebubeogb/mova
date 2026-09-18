@@ -47,6 +47,7 @@
 .mova-dev-panels { padding: 0; }
 .mova-dev-tabs {
   display: flex;
+  align-items: center;
   gap: 0;
   border-bottom: 1px solid var(--hq-border, #e2e8f0);
   background: var(--hq-muted-bg, #f8fafc);
@@ -67,6 +68,44 @@
 .mova-dev-tab.is-active {
   color: var(--hq-accent, #2563eb);
   border-bottom-color: var(--hq-accent, #2563eb);
+}
+.mova-dev-io-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 0.75rem 0 0.5rem;
+}
+.mova-dev-io-btn {
+  appearance: none;
+  border: 1px solid var(--hq-border, #e2e8f0);
+  background: var(--hq-card, #fff);
+  color: var(--hq-text, #0f172a);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.28rem 0.7rem;
+  border-radius: 6px;
+  cursor: pointer;
+  line-height: 1.3;
+  font-family: inherit;
+}
+.mova-dev-io-btn:hover {
+  background: var(--hq-muted-bg, #f1f5f9);
+  border-color: var(--hq-accent, #2563eb);
+  color: var(--hq-accent, #2563eb);
+}
+.mova-dev-io-btn:active {
+  transform: translateY(1px);
+}
+[data-theme="dark"] .mova-dev-io-btn {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+[data-theme="dark"] .mova-dev-io-btn:hover {
+  background: #334155;
+  border-color: var(--hq-accent, #3b82f6);
+  color: #93c5fd;
 }
 .mova-dev-panes { position: relative; }
 .mova-dev-pane { display: none; }
