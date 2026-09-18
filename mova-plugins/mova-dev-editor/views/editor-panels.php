@@ -29,6 +29,11 @@ $useSiteChrome = !empty($useSiteChrome);
             <button type="button" class="mova-dev-tab is-active" data-tab="html" role="tab">HTML</button>
             <button type="button" class="mova-dev-tab" data-tab="css" role="tab">CSS</button>
             <button type="button" class="mova-dev-tab" data-tab="js" role="tab">JavaScript</button>
+            <div class="mova-dev-io-actions">
+                <button type="button" class="mova-dev-io-btn" id="mova-dev-import-btn" title="Import HTML, CSS, JS, or mixed .txt">Import</button>
+                <button type="button" class="mova-dev-io-btn" id="mova-dev-export-btn" title="Download current HTML, CSS &amp; JS as a zip">Export</button>
+                <input type="file" id="mova-dev-import-input" accept=".html,.css,.js,.txt,text/html,text/css,text/javascript,text/plain" multiple hidden>
+            </div>
         </div>
         <div class="mova-dev-panes">
             <div class="mova-dev-pane is-active" data-pane="html">
@@ -51,6 +56,7 @@ $useSiteChrome = !empty($useSiteChrome);
         <p class="mova-dev-note">
             You can paste a full <code>index.html</code> (with &lt;style&gt; / &lt;script&gt; inside) into the HTML box —
             Mova extracts CSS/JS automatically. Or split into the three panels.
+            Use <strong>Import</strong> to load <code>.html</code> / <code>.css</code> / <code>.js</code> (multiple OK) or a mixed <code>.txt</code>; <strong>Export</strong> downloads a zip. Import auto-saves.
             Uncheck “Show site header &amp; footer” for a blank canvas.
         </p>
         <details class="mova-dev-note" style="margin-top:0.5rem;">
