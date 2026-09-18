@@ -1452,13 +1452,12 @@ if (!empty($content['published_at'])) {
             return;
         }
 
-        // Neutralize controls that live inside the body (e.g. contact form).
-        // Those belong to the published page, not HQ — they must not:
-        //  - participate in CMS validation (hidden + required → "not focusable")
-        //  - post into the HQ save payload under their own name attributes
-        var bodyRoots = [editor, document.getElementById('mova-dev-panels')].filter(Boolean);
-        bodyRoots.forEach(function (root) {
-            root.querySelectorAll('input, select, textarea, button').forEach(function (el) {
+        // Neutralize ONLY controls inside the visual contenteditable (#editor).
+        // Do NOT touch #mova-dev-panels — those textareas (body / raw_css / raw_js) must keep
+        // their name attributes or Dev Mode saves wipe HTML/CSS/JS.
+        // Nested page forms (e.g. contact) live in #editor and must not block HQ save.
+        if (editor) {
+            editor.querySelectorAll('input, select, textarea, button').forEach(function (el) {
                 el.removeAttribute('required');
                 el.removeAttribute('aria-required');
                 if (el.getAttribute('name')) {
@@ -1470,10 +1469,10 @@ if (!empty($content['published_at'])) {
                     el.disabled = false;
                 }
             });
-            root.querySelectorAll('form').forEach(function (nested) {
+            editor.querySelectorAll('form').forEach(function (nested) {
                 nested.setAttribute('novalidate', 'novalidate');
             });
-        });
+        }
 
         // Visual editor is source of truth unless Dev Mode owns name="body"
         var modeEl = document.getElementById('mova-editor-mode');

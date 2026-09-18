@@ -318,9 +318,10 @@
       const devHtml = document.getElementById('mova-dev-html-input');
       const visual = document.getElementById('editor');
 
-      // Body HTML may contain its own <form required> (e.g. contact page). Those
-      // controls are descendants of #content-form and can block HQ save when
-      // hidden (Dev Mode). Strip required so the CMS form always submits.
+      // Body HTML may contain its own <form required> (e.g. contact page) inside
+      // the visual contenteditable. Those controls are descendants of #content-form
+      // and can block HQ save when hidden. Only neutralize #editor — never
+      // #mova-dev-panels (raw_css / raw_js / html textareas must keep their names).
       function neutralizeBodyControls(root) {
         if (!root) return;
         root.querySelectorAll('input, select, textarea, button').forEach(function (el) {
@@ -336,7 +337,6 @@
         });
       }
       neutralizeBodyControls(visual);
-      neutralizeBodyControls(document.getElementById('mova-dev-panels'));
 
       if (modeInput && modeInput.value === 'dev') {
         // Dev Mode: Monaco/dev textarea is the source of truth for body
