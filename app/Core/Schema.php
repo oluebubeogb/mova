@@ -724,6 +724,7 @@ class Schema
         $db->exec("CREATE INDEX IF NOT EXISTS idx_assemblies_status ON assemblies(status)");
 
         self::migratePhase6($db);
+        self::migratePhase7($db);
     }
 
     /**
@@ -769,6 +770,52 @@ class Schema
         } catch (\Throwable $e) {
             // ignore
         }
+    }
+
+    /**
+     * Find & Replace actions + per-change log for unlimited bulk text replacements
+     * across content (title, excerpt, body) with full revert support.
+     */
+    private static function migratePhase7(\PDO $db): void
+    {
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS find_replace_actions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                find_text TEXT NOT NULL,
+                replace_text TEXT NOT NULL,
+                match_case INTEGER NOT NULL DEFAULT 0,
+                scope TEXT NOT NULL DEFAULT 'all',
+                status_filter TEXT,
+                content_ids TEXT,
+                fields TEXT NOT NULL DEFAULT 'title,excerpt,body',
+                match_count INTEGER NOT NULL DEFAULT 0,
+                content_count INTEGER NOT NULL DEFAULT 0,
+                status TEXT NOT NULL DEFAULT 'applied',
+                created_at TEXT NOT NULL,
+                reverted_at TEXT,
+                reverted_by INTEGER,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+                FOREIGN KEY (reverted_by) REFERENCES users(id) ON DELETE SET NULL
+            )
+        ");
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS find_replace_changes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                action_id INTEGER NOT NULL,
+                content_id INTEGER NOT NULL,
+                field_name TEXT NOT NULL,
+                old_value TEXT,
+                new_value TEXT,
+                occurrence_count INTEGER NOT NULL DEFAULT 1,
+                FOREIGN KEY (action_id) REFERENCES find_replace_actions(id) ON DELETE CASCADE,
+                FOREIGN KEY (content_id) REFERENCES content(id) ON DELETE CASCADE
+            )
+        ");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_fr_actions_created ON find_replace_actions(created_at)");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_fr_actions_status ON find_replace_actions(status)");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_fr_changes_action ON find_replace_changes(action_id)");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_fr_changes_content ON find_replace_changes(content_id)");
     }
 
     public static function isInstalled(): bool

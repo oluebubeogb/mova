@@ -510,3 +510,133 @@ $router->post('/content/upload', function (Request $req) {
     }
     return (new Response())->redirect('/hq/content?uploaded=' . count($created) . '&msg=' . urlencode($msg));
 });
+
+
+// ── Find & Replace ──────────────────────────────────────────────
+$router->get('/content/find-replace', function (Request $req) {
+    requireAuth();
+    $svc = new \Mova\Content\FindReplaceService();
+    $page = max(1, (int) $req->query('log_page', 1));
+    $perPage = 20;
+    $totalActions = $svc->countActions();
+    $totalPages = max(1, (int) ceil($totalActions / $perPage));
+    if ($page > $totalPages) {
+        $page = $totalPages;
+    }
+    $actions = $svc->listActions($perPage, ($page - 1) * $perPage);
+    $statuses = Bootstrap::config('content.statuses', [
+        'draft' => 'Draft',
+        'review' => 'In review',
+        'published' => 'Published',
+        'archived' => 'Archived',
+        'trash' => 'Trash',
+    ]);
+    $actionId = (int) $req->query('action', 0);
+    $actionDetail = $actionId > 0 ? $svc->getAction($actionId) : null;
+    return renderHq('content/find_replace', compact(
+        'actions', 'statuses', 'page', 'perPage', 'totalActions', 'totalPages', 'actionDetail'
+    ));
+});
+
+$router->post('/content/find-replace/preview', function (Request $req) {
+    requireAuth();
+    if (!Csrf::validate($req->input('_csrf'))) {
+        return (new Response())->json(['error' => 'Invalid CSRF token'], 403);
+    }
+    $svc = new \Mova\Content\FindReplaceService();
+    $opts = [
+        'find' => (string) $req->input('find', ''),
+        'match_case' => (bool) $req->input('match_case', false),
+        'fields' => $req->input('fields', ['title', 'excerpt', 'body']),
+        'statuses' => $req->input('statuses', []),
+        'content_ids' => $req->input('content_ids', []),
+        'content_search' => (string) $req->input('content_search', ''),
+        'limit' => (int) $req->input('limit', 5000),
+    ];
+    if (!is_array($opts['fields'])) {
+        $opts['fields'] = array_filter(array_map('trim', explode(',', (string) $opts['fields'])));
+    }
+    if (!is_array($opts['statuses'])) {
+        $opts['statuses'] = array_filter(array_map('trim', explode(',', (string) $opts['statuses'])));
+    }
+    if (!is_array($opts['content_ids'])) {
+        $opts['content_ids'] = array_filter(array_map('intval', explode(',', (string) $opts['content_ids'])));
+    }
+    try {
+        $result = $svc->preview($opts);
+        return (new Response())->json($result);
+    } catch (\Throwable $e) {
+        return (new Response())->json(['error' => $e->getMessage()], 400);
+    }
+});
+
+$router->post('/content/find-replace/apply', function (Request $req) {
+    requireAuth();
+    if (!Csrf::validate($req->input('_csrf'))) {
+        return (new Response())->json(['error' => 'Invalid CSRF token'], 403);
+    }
+    $svc = new \Mova\Content\FindReplaceService();
+    $opts = [
+        'find' => (string) $req->input('find', ''),
+        'replace' => (string) $req->input('replace', ''),
+        'match_case' => (bool) $req->input('match_case', false),
+        'fields' => $req->input('fields', ['title', 'excerpt', 'body']),
+        'statuses' => $req->input('statuses', []),
+        'content_ids' => $req->input('content_ids', []),
+        'content_search' => (string) $req->input('content_search', ''),
+        'limit' => 50000,
+    ];
+    if (!is_array($opts['fields'])) {
+        $opts['fields'] = array_filter(array_map('trim', explode(',', (string) $opts['fields'])));
+    }
+    if (!is_array($opts['statuses'])) {
+        $opts['statuses'] = array_filter(array_map('trim', explode(',', (string) $opts['statuses'])));
+    }
+    if (!is_array($opts['content_ids'])) {
+        $opts['content_ids'] = array_filter(array_map('intval', explode(',', (string) $opts['content_ids'])));
+    }
+    try {
+        $result = $svc->apply($opts);
+        return (new Response())->json(['ok' => true] + $result);
+    } catch (\Throwable $e) {
+        return (new Response())->json(['error' => $e->getMessage()], 400);
+    }
+});
+
+$router->post('/content/find-replace/revert', function (Request $req) {
+    requireAuth();
+    if (!Csrf::validate($req->input('_csrf'))) {
+        return (new Response())->json(['error' => 'Invalid CSRF token'], 403);
+    }
+    $actionId = (int) $req->input('action_id', 0);
+    if ($actionId < 1) {
+        return (new Response())->json(['error' => 'Missing action id'], 400);
+    }
+    $svc = new \Mova\Content\FindReplaceService();
+    $ok = $svc->revert($actionId);
+    if (!$ok) {
+        return (new Response())->json(['error' => 'Action not found or already reverted'], 404);
+    }
+    return (new Response())->json(['ok' => true, 'action_id' => $actionId]);
+});
+
+$router->get('/content/find-replace/search-content', function (Request $req) {
+    requireAuth();
+    $q = trim((string) $req->query('q', ''));
+    $repo = new ContentRepository();
+    if ($q === '') {
+        $items = $repo->all([], 30, 0);
+    } else {
+        $items = $repo->all(['search' => $q], 30, 0);
+    }
+    $out = array_map(static function ($item) {
+        return [
+            'id' => (int) $item['id'],
+            'title' => (string) $item['title'],
+            'slug' => (string) $item['slug'],
+            'status' => (string) $item['status'],
+            'type' => (string) ($item['type'] ?? ''),
+        ];
+    }, $items);
+    return (new Response())->json(['items' => $out]);
+});

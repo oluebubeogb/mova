@@ -31,6 +31,7 @@
                 { label: 'Categories',     href: '/hq/categories' },
                 { label: 'Tags',           href: '/hq/tags' },
                 { label: 'Assembly',       href: '/hq/assembly' },
+                { label: 'Find & Replace', href: '/hq/content/find-replace', match: { path: '/hq/content/find-replace' } },
                 { label: 'Upload Contents', href: '/hq/content/upload', match: { path: '/hq/content/upload' } }
             ]
         },
@@ -478,6 +479,7 @@
         { title: 'Categories',       href: '/hq/categories',      keywords: 'categories taxonomy', group: 'Content' },
         { title: 'Tags',             href: '/hq/tags',            keywords: 'tags taxonomy', group: 'Content' },
         { title: 'Assembly',         href: '/hq/assembly',        keywords: 'assembly component', group: 'Content' },
+        { title: 'Find & Replace',   href: '/hq/content/find-replace', keywords: 'find replace search text bulk', group: 'Content' },
         { title: 'Upload Contents',  href: '/hq/content/upload',  keywords: 'upload bulk html css js dev', group: 'Content' },
         { title: 'Audience',         href: '/hq/audience',        keywords: 'audience', group: 'Audience' },
         { title: 'People',           href: '/hq/people',          keywords: 'people contacts audience', group: 'Audience' },

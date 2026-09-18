@@ -26,6 +26,18 @@ class Request
         $this->files   = $_FILES ?? [];
         $this->cookies = $_COOKIE ?? [];
 
+        // Merge JSON body into post for API-style requests (Find & Replace, etc.)
+        $contentType = $this->server['CONTENT_TYPE'] ?? $this->server['HTTP_CONTENT_TYPE'] ?? '';
+        if (stripos($contentType, 'application/json') !== false && empty($this->post)) {
+            $raw = file_get_contents('php://input');
+            if ($raw !== false && $raw !== '') {
+                $decoded = json_decode($raw, true);
+                if (is_array($decoded)) {
+                    $this->post = $decoded;
+                }
+            }
+        }
+
         $path = parse_url($this->uri, PHP_URL_PATH) ?: '/';
         $path = rawurldecode($path);
         $path = '/' . trim($path, '/');
