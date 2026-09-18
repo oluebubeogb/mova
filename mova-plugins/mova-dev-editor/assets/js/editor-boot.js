@@ -427,10 +427,10 @@
   }
 
   /* Minimal ZIP writer (store only, no compression) — no external dependency */
-  function crc32(str) {
-    var table = crc32._t;
+  function crc32Bytes(bytes) {
+    var table = crc32Bytes._t;
     if (!table) {
-      table = crc32._t = new Uint32Array(256);
+      table = crc32Bytes._t = new Uint32Array(256);
       for (var n = 0; n < 256; n++) {
         var c = n;
         for (var k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
@@ -438,17 +438,32 @@
       }
     }
     var crc = 0 ^ (-1);
-    for (var i = 0; i < str.length; i++) {
-      crc = (crc >>> 8) ^ table[(crc ^ str.charCodeAt(i)) & 0xff];
+    for (var i = 0; i < bytes.length; i++) {
+      crc = (crc >>> 8) ^ table[(crc ^ bytes[i]) & 0xff];
     }
     return (crc ^ (-1)) >>> 0;
   }
 
   function strToU8(str) {
     if (typeof TextEncoder !== 'undefined') return new TextEncoder().encode(str);
-    var arr = new Uint8Array(str.length);
-    for (var i = 0; i < str.length; i++) arr[i] = str.charCodeAt(i) & 0xff;
-    return arr;
+    // Fallback: encode as UTF-8 manually (not just charCodeAt & 0xff)
+    var out = [];
+    for (var i = 0; i < str.length; i++) {
+      var c = str.charCodeAt(i);
+      if (c < 0x80) {
+        out.push(c);
+      } else if (c < 0x800) {
+        out.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f));
+      } else if (c >= 0xd800 && c <= 0xdbff && i + 1 < str.length) {
+        // surrogate pair
+        var c2 = str.charCodeAt(++i);
+        var u = 0x10000 + ((c & 0x3ff) << 10) + (c2 & 0x3ff);
+        out.push(0xf0 | (u >> 18), 0x80 | ((u >> 12) & 0x3f), 0x80 | ((u >> 6) & 0x3f), 0x80 | (u & 0x3f));
+      } else {
+        out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
+      }
+    }
+    return new Uint8Array(out);
   }
 
   function u32(n) {
@@ -466,7 +481,8 @@
     files.forEach(function (f) {
       var nameBytes = strToU8(f.name);
       var dataBytes = strToU8(f.data);
-      var crc = crc32(f.data);
+      // CRC must be over the exact UTF-8 bytes stored in the ZIP (not JS string code units)
+      var crc = crc32Bytes(dataBytes);
       var size = dataBytes.length;
 
       // Local file header
