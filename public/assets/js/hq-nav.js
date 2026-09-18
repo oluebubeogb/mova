@@ -29,7 +29,9 @@
                 { label: 'Media',          href: '/hq/media' },
                 { label: 'Types & fields', href: '/hq/types' },
                 { label: 'Categories',     href: '/hq/categories' },
-                { label: 'Tags',           href: '/hq/tags' }
+                { label: 'Tags',           href: '/hq/tags' },
+                { label: 'Assembly',       href: '/hq/assembly' },
+                { label: 'Upload Contents', href: '/hq/content/upload', match: { path: '/hq/content/upload' } }
             ]
         },
         'content.list': {
@@ -245,8 +247,9 @@
         if (path === '/hq/content') {
             return { key: 'content.list', params, status };
         }
-        if (path.startsWith('/hq/media') || path.startsWith('/hq/types')
-            || path.startsWith('/hq/categories') || path.startsWith('/hq/tags')) {
+        if (path === '/hq/content/upload' || path.startsWith('/hq/media') || path.startsWith('/hq/types')
+            || path.startsWith('/hq/categories') || path.startsWith('/hq/tags')
+            || path.startsWith('/hq/assembly')) {
             return { key: 'content', params, status };
         }
 
@@ -474,6 +477,8 @@
         { title: 'Types & fields',   href: '/hq/types',           keywords: 'types fields', group: 'Content' },
         { title: 'Categories',       href: '/hq/categories',      keywords: 'categories taxonomy', group: 'Content' },
         { title: 'Tags',             href: '/hq/tags',            keywords: 'tags taxonomy', group: 'Content' },
+        { title: 'Assembly',         href: '/hq/assembly',        keywords: 'assembly component', group: 'Content' },
+        { title: 'Upload Contents',  href: '/hq/content/upload',  keywords: 'upload bulk html css js dev', group: 'Content' },
         { title: 'Audience',         href: '/hq/audience',        keywords: 'audience', group: 'Audience' },
         { title: 'People',           href: '/hq/people',          keywords: 'people contacts audience', group: 'Audience' },
         { title: 'Mailbox',          href: '/hq/mailbox',         keywords: 'mailbox inbox email', group: 'Audience' },

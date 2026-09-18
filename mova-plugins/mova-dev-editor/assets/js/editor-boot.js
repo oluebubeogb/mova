@@ -216,7 +216,7 @@
       const input = document.getElementById('mova-dev-' + lang + '-input');
       if (!mount || !input) return;
       input.hidden = false;
-      input.classList.remove('mova-dev-fallback');
+      input.classList.add('mova-dev-fallback');
       input.style.width = '100%';
       input.style.height = '360px';
       input.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
@@ -224,9 +224,11 @@
       input.style.padding = '0.75rem';
       input.style.border = '0';
       input.style.boxSizing = 'border-box';
-      // Approximate line numbers via CSS counter for fallback
+      input.style.resize = 'vertical';
+      // Approximate line numbers via left gutter
       input.style.backgroundImage =
-        'linear-gradient(to right, #f1f5f9 3.5rem, transparent 3.5rem)';
+        'linear-gradient(to right, var(--hq-muted-bg, #f1f5f9) 3.5rem, transparent 3.5rem)';
+      input.style.backgroundAttachment = 'local';
       input.style.paddingLeft = '4rem';
       input.style.lineHeight = '1.5';
       mount.style.display = 'none';
@@ -240,14 +242,18 @@
       automaticLayout: true,
       minimap: { enabled: false },
       fontSize: 13,
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
       lineNumbers: 'on',              // always show line numbers
       lineNumbersMinChars: 3,
+      lineDecorationsWidth: 10,
       glyphMargin: true,              // room for error icons in gutter
       folding: true,
+      renderLineHighlight: 'line',
       renderValidationDecorations: 'on',
       scrollBeyondLastLine: false,
       wordWrap: 'on',
       tabSize: 2,
+      padding: { top: 8, bottom: 8 },
       theme: document.documentElement.getAttribute('data-theme') === 'dark' ? 'vs-dark' : 'vs'
     };
 

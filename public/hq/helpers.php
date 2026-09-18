@@ -179,3 +179,18 @@ HTML;
     <?php
     return ob_get_clean();
 }
+/**
+ * Check whether a plugin is currently active.
+ */
+function isPluginActive(string $slug): bool
+{
+    try {
+        $row = \Mova\Core\Database::fetch(
+            "SELECT status FROM plugins WHERE slug = :s",
+            ['s' => $slug]
+        );
+        return ($row['status'] ?? '') === 'active';
+    } catch (\Throwable $e) {
+        return false;
+    }
+}

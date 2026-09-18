@@ -393,3 +393,120 @@ $router->post('/content/bulk', function (Request $req) {
     $q = $redirectStatus !== '' ? '?status=' . urlencode($redirectStatus) : '';
     return (new Response())->redirect('/hq/content' . $q);
 });
+
+// Upload Contents (Dev Editor bulk import) — only when plugin is active
+$router->get('/content/upload', function () {
+    requireAuth();
+    if (!isPluginActive('mova-dev-editor')) {
+        return (new Response())->redirect('/hq/content-hub');
+    }
+    $typeSvc = new ContentTypeService();
+    $types = $typeSvc->typesMap() ?: Bootstrap::config('content.types', []);
+    $statuses = Bootstrap::config('content.statuses', []);
+    // Exclude trash from selectable statuses for new content
+    unset($statuses['trash']);
+    return renderHq('content/upload', [
+        'title' => 'Upload Contents',
+        'types' => $types,
+        'statuses' => $statuses,
+    ]);
+});
+
+$router->post('/content/upload', function (Request $req) {
+    requireAuth();
+    if (!isPluginActive('mova-dev-editor')) {
+        return (new Response())->status(403)->body('Dev Editor plugin is not active');
+    }
+    if (!Csrf::validate()) {
+        return (new Response())->status(403)->body('CSRF');
+    }
+
+    $repo = new ContentRepository();
+    $typeSvc = new ContentTypeService();
+    $types = $typeSvc->typesMap() ?: Bootstrap::config('content.types', []);
+    $statuses = Bootstrap::config('content.statuses', []);
+
+    $itemsJson = (string) $req->post('items', '[]');
+    $items = json_decode($itemsJson, true);
+    if (!is_array($items) || empty($items)) {
+        return (new Response())->redirect('/hq/content/upload?error=' . urlencode('No items to upload'));
+    }
+
+    $created = [];
+    $errors = [];
+
+    foreach ($items as $idx => $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $html = (string) ($item['html'] ?? '');
+        if (trim($html) === '') {
+            $errors[] = 'Item ' . ($idx + 1) . ': missing HTML';
+            continue;
+        }
+
+        $title = trim((string) ($item['title'] ?? ''));
+        $slug  = trim((string) ($item['slug'] ?? ''));
+        if ($title === '') {
+            $title = 'Untitled';
+        }
+        if ($slug === '') {
+            $slug = $repo->generateSlug($title);
+        } else {
+            $slug = $repo->generateSlug($slug);
+        }
+
+        $type = (string) ($item['type'] ?? Bootstrap::config('content.default_type', 'page'));
+        if (!isset($types[$type])) {
+            $type = array_key_first($types) ?: 'page';
+        }
+
+        $status = (string) ($item['status'] ?? 'draft');
+        if (!isset($statuses[$status]) || $status === 'trash') {
+            $status = 'draft';
+        }
+
+        $css = (string) ($item['css'] ?? '');
+        $js  = (string) ($item['js'] ?? '');
+
+        $data = [
+            'type'         => $type,
+            'title'        => $title,
+            'slug'         => $slug,
+            'excerpt'      => '',
+            'body'         => $html,
+            'status'       => $status,
+            'author_id'    => Auth::id(),
+            'featured_image' => '',
+            'published_at' => $status === 'published' ? date('c') : null,
+            'meta'         => [
+                'editor_mode'     => 'dev',
+                'raw_css'         => $css,
+                'raw_js'          => $js,
+                'use_site_chrome' => '0',
+                'seo_title'       => '',
+                'meta_description'=> '',
+                'robots'          => 'index, follow',
+            ],
+        ];
+
+        try {
+            $id = $repo->create($data);
+            $repo->createRevision($id, $data, Auth::id());
+            $created[] = ['id' => $id, 'title' => $title, 'slug' => $slug];
+            Audit::log('content.upload_dev', 'content', $id, ['slug' => $slug, 'type' => $type]);
+        } catch (\Throwable $e) {
+            $errors[] = $title . ': ' . $e->getMessage();
+        }
+    }
+
+    if (empty($created) && !empty($errors)) {
+        return (new Response())->redirect('/hq/content/upload?error=' . urlencode(implode('; ', array_slice($errors, 0, 3))));
+    }
+
+    $msg = count($created) . ' content item(s) created';
+    if (!empty($errors)) {
+        $msg .= ' (' . count($errors) . ' failed)';
+    }
+    return (new Response())->redirect('/hq/content?uploaded=' . count($created) . '&msg=' . urlencode($msg));
+});

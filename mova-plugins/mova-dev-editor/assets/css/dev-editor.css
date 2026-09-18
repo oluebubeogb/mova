@@ -145,20 +145,63 @@ body.mova-dev-mode-on .form-group:has(#editor) > label:first-child {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* Monaco mount: ensure gutter (line numbers) has space */
+/* Monaco mount: native code-editor feel with visible line numbers */
+.mova-monaco {
+  height: 360px;
+  width: 100%;
+  border: 0;
+  overflow: hidden;
+}
+.mova-monaco .monaco-editor,
+.mova-monaco .monaco-editor-background,
+.mova-monaco .margin-view-overlays {
+  background-color: transparent;
+}
 .mova-monaco .margin,
 .mova-monaco .monaco-editor .margin {
-  background: var(--hq-muted-bg, #f8fafc);
+  background: var(--hq-muted-bg, #f1f5f9) !important;
+  min-width: 3.25rem !important;
+}
+.mova-monaco .line-numbers {
+  color: #64748b !important;
+  font-variant-numeric: tabular-nums;
+  padding-right: 0.5rem !important;
+}
+.mova-monaco .current-line ~ .line-numbers,
+.mova-monaco .line-numbers.active-line-number {
+  color: #0f172a !important;
+  font-weight: 600;
+}
+[data-theme="dark"] .mova-monaco .margin,
+[data-theme="dark"] .mova-monaco .monaco-editor .margin {
+  background: #1e293b !important;
+}
+[data-theme="dark"] .mova-monaco .line-numbers {
+  color: #94a3b8 !important;
+}
+[data-theme="dark"] .mova-monaco .line-numbers.active-line-number {
+  color: #f8fafc !important;
+}
+/* Glyph / error gutter */
+.mova-monaco .glyph-margin {
+  background: transparent;
 }
 
 .mova-dev-toolbar { flex-wrap: wrap; }
 .mova-dev-chrome-toggle { margin-left: 0.5rem; }
 
-/* Isolate Dev Editor island from HQ chrome */
+/* Isolate Dev Editor island from HQ chrome — avoid contain:content which can clip gutter */
 .mova-dev-editor {
   isolation: isolate;
-  contain: content;
 }
 .mova-dev-panels {
   isolation: isolate;
+}
+/* Fallback textareas: visible line-number gutter */
+.mova-dev-fallback,
+textarea.mova-dev-fallback {
+  background-image: linear-gradient(to right, var(--hq-muted-bg, #f1f5f9) 3.5rem, transparent 3.5rem) !important;
+  padding-left: 4rem !important;
+  line-height: 1.5 !important;
+  background-attachment: local;
 }

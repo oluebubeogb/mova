@@ -95,5 +95,18 @@
       </div>
       <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
     </a>
+
+    <?php if (isPluginActive('mova-dev-editor')): ?>
+    <a class="hq-landing-card" href="/hq/content/upload">
+      <div class="hq-landing-card-inner">
+        <div class="hq-landing-icon is-green"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+        <div class="hq-landing-card-body">
+          <strong>Upload Contents</strong>
+          <span>Bulk import HTML / CSS / JS as Dev Mode pages</span>
+        </div>
+      </div>
+      <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
+    </a>
+    <?php endif; ?>
   </div>
 </section>
