@@ -22,7 +22,7 @@ if (!empty($content['published_at'])) {
     </div>
 <?php endif; ?>
 
-<form method="post" action="<?= $action ?>" class="content-form" id="content-form">
+<form method="post" action="<?= $action ?>" class="content-form" id="content-form" novalidate>
     <?= Csrf::field() ?>
 
     <div class="form-layout sidebar-closed" id="content-form-layout">
@@ -1442,7 +1442,39 @@ if (!empty($content['published_at'])) {
     editor.addEventListener('blur', updatePlaceholder);
     updatePlaceholder();
 
-    form.addEventListener('submit', function () {
+    form.addEventListener('submit', function (ev) {
+        // HQ-only title check (form has novalidate so nested content forms cannot block save)
+        var titleInput = form.querySelector('input[name="title"]');
+        if (titleInput && !String(titleInput.value || '').trim()) {
+            ev.preventDefault();
+            titleInput.focus();
+            titleInput.reportValidity && titleInput.reportValidity();
+            return;
+        }
+
+        // Neutralize controls that live inside the body (e.g. contact form).
+        // Those belong to the published page, not HQ — they must not:
+        //  - participate in CMS validation (hidden + required → "not focusable")
+        //  - post into the HQ save payload under their own name attributes
+        var bodyRoots = [editor, document.getElementById('mova-dev-panels')].filter(Boolean);
+        bodyRoots.forEach(function (root) {
+            root.querySelectorAll('input, select, textarea, button').forEach(function (el) {
+                el.removeAttribute('required');
+                el.removeAttribute('aria-required');
+                if (el.getAttribute('name')) {
+                    el.setAttribute('data-mova-name', el.getAttribute('name'));
+                    el.removeAttribute('name');
+                }
+                if (el.disabled) {
+                    el.dataset.movaWasDisabled = '1';
+                    el.disabled = false;
+                }
+            });
+            root.querySelectorAll('form').forEach(function (nested) {
+                nested.setAttribute('novalidate', 'novalidate');
+            });
+        });
+
         // Visual editor is source of truth unless Dev Mode owns name="body"
         var modeEl = document.getElementById('mova-editor-mode');
         var inDev = modeEl && modeEl.value === 'dev';
