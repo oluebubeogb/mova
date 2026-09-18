@@ -70,13 +70,16 @@ class Response
             $uri = $_SERVER['REQUEST_URI'] ?? '';
             $isHq = (strpos($uri, '/hq') === 0);
             if ($isHq) {
-                // HQ needs inline scripts for editors + optional Font Awesome CDN
+                // HQ: inline scripts for editors; Monaco from jsDelivr (loader + workers);
+                // Font Awesome / Google Fonts optional CDNs
                 $csp = "default-src 'self'; "
-                    . "script-src 'self' 'unsafe-inline'; "
-                    . "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; "
+                    . "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                    . "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
                     . "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; "
                     . "img-src 'self' data: https: blob:; "
-                    . "connect-src 'self'; "
+                    . "connect-src 'self' https://cdn.jsdelivr.net; "
+                    . "worker-src 'self' blob: https://cdn.jsdelivr.net; "
+                    . "child-src 'self' blob:; "
                     . "frame-ancestors 'self'; "
                     . "base-uri 'self'; "
                     . "form-action 'self'";

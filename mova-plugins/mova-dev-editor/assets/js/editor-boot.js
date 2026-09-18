@@ -307,6 +307,14 @@
       monaco.editor.setTheme(dark ? 'mova-dark' : 'mova-light');
     } catch (e) {}
 
+    // Force layout so line-number gutter is painted (can be 0-width until first layout)
+    Object.keys(editors).forEach(function (k) {
+      try {
+        editors[k].updateOptions({ lineNumbers: 'on', lineNumbersMinChars: 3, glyphMargin: true });
+        editors[k].layout();
+      } catch (e) {}
+    });
+
     monacoReady = true;
     collectMarkers();
     syncHiddenInputs();
