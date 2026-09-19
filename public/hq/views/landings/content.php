@@ -96,6 +96,17 @@
       <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
     </a>
 
+    <a class="hq-landing-card" href="/hq/studio">
+      <div class="hq-landing-card-inner">
+        <div class="hq-landing-icon is-green"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+        <div class="hq-landing-card-body">
+          <strong>Studio</strong>
+          <span>Structure, style, and code in one resizable workspace</span>
+        </div>
+      </div>
+      <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
+    </a>
+
     <a class="hq-landing-card" href="/hq/content/find-replace">
       <div class="hq-landing-card-inner">
         <div class="hq-landing-icon is-mix"><i class="fa-solid fa-magnifying-glass-arrow-right"></i></div>

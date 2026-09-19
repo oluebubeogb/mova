@@ -40,6 +40,7 @@ $routeFiles = [
     'docs',
     'landings',
     'content',
+    'studio',
     'assembly',
     'media',
     'taxonomy',

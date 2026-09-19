@@ -54,6 +54,7 @@ function hqLayout(string $view, string $content, array $data = []): string
     $workspace = 'overview';
     if (strpos($view, 'landings/content') === 0 || strpos($view, 'content') === 0 || strpos($view, 'media') === 0 || strpos($view, 'types') === 0
         || strpos($view, 'assembly') === 0
+        || strpos($view, 'studio') === 0
         || $view === 'taxonomy/categories' || $view === 'taxonomy/tags') {
         $workspace = 'content';
     } elseif (strpos($view, 'landings/audience') === 0 || strpos($view, 'people') === 0 || strpos($view, 'mail') === 0

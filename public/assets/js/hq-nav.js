@@ -31,6 +31,7 @@
                 { label: 'Categories',     href: '/hq/categories' },
                 { label: 'Tags',           href: '/hq/tags' },
                 { label: 'Assembly',       href: '/hq/assembly' },
+                { label: 'Studio',         href: '/hq/studio', match: { path: '/hq/studio' } },
                 { label: 'Find & Replace', href: '/hq/content/find-replace', match: { path: '/hq/content/find-replace' } },
                 { label: 'Upload Contents', href: '/hq/content/upload', match: { path: '/hq/content/upload' } }
             ]
