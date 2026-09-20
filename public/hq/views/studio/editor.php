@@ -19,9 +19,7 @@ $csrfToken = Csrf::token();
      data-content-id="<?= $id ?>"
      data-csrf="<?= htmlspecialchars($csrfToken) ?>"
      data-save-url="/hq/studio/<?= $id ?>/save"
-     data-monaco-cdn="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs"
-     data-site-css-vars="<?= htmlspecialchars($siteCssVars, ENT_QUOTES, 'UTF-8') ?>"
-     data-var-map="<?= htmlspecialchars(json_encode($varMap, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8') ?>">
+     data-monaco-cdn="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs">
 
   <!-- Global toolbar -->
   <div class="studio-toolbar" role="toolbar" aria-label="Studio actions">
@@ -153,10 +151,21 @@ $csrfToken = Csrf::token();
           <iframe id="studio-preview" title="Preview" sandbox="allow-scripts allow-same-origin"></iframe>
         </div>
       </div>
+      <div class="studio-edge-resize" id="studio-preview-edge" data-edge="preview-right" title="Drag to resize preview" role="separator" aria-orientation="vertical"></div>
     </div>
 
   </div>
 </div>
+
+<?php
+// Reliable variable delivery (avoid data-attribute size/encoding limits)
+$__studioVarMapJson = json_encode($varMap ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP);
+if ($__studioVarMapJson === false) { $__studioVarMapJson = '{}'; }
+$__studioCssVars = (string) ($siteCssVars ?? '');
+?>
+<script type="application/json" id="studio-var-map"><?= $__studioVarMapJson ?></script>
+<style type="text/css" id="studio-site-css-vars"><?= $__studioCssVars ?></style>
+
 
 <!-- Col2: Elements-style style panel -->
 <template id="studio-col2-style-template">

@@ -14,9 +14,17 @@
   var monacoCdn = app.getAttribute('data-monaco-cdn') || 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs';
 
   var siteCssVars = '';
-  try { siteCssVars = app.getAttribute('data-site-css-vars') || ''; } catch (e) {}
   var varMap = {};
-  try { varMap = JSON.parse(app.getAttribute('data-var-map') || '{}') || {}; } catch (e) { varMap = {}; }
+  (function loadSiteVars() {
+    try {
+      var styleEl = document.getElementById('studio-site-css-vars');
+      if (styleEl) siteCssVars = styleEl.textContent || '';
+    } catch (e) {}
+    try {
+      var mapEl = document.getElementById('studio-var-map');
+      if (mapEl) varMap = JSON.parse(mapEl.textContent || '{}') || {};
+    } catch (e) { varMap = {}; }
+  })();
 
 
   var htmlArea = document.getElementById('studio-html');
@@ -1192,6 +1200,56 @@
     initSplitters();
   }
 
+  /** Right edge of Preview — drag to grow/shrink preview (takes space from Code) */
+  function initPreviewEdge() {
+    var edge = document.getElementById('studio-preview-edge');
+    var previewCol = document.getElementById('studio-col-preview');
+    var codeCol = document.getElementById('studio-col-code');
+    if (!edge || !previewCol || !codeCol) return;
+    if (edge._studioWired) return;
+    edge._studioWired = true;
+
+    var edgeDrag = null;
+    edge.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (previewCol.classList.contains('is-hidden') || codeCol.classList.contains('is-hidden')) return;
+      edgeDrag = {
+        startX: e.clientX,
+        wPreview: previewCol.getBoundingClientRect().width,
+        wCode: codeCol.getBoundingClientRect().width
+      };
+      try { edge.setPointerCapture(e.pointerId); } catch (err) {}
+      document.body.classList.add('studio-resizing');
+    });
+    edge.addEventListener('pointermove', function (e) {
+      if (!edgeDrag) return;
+      // Dragging the RIGHT edge to the right → grow preview, shrink code
+      var dx = e.clientX - edgeDrag.startX;
+      var minP = 140, minC = 140;
+      var wP = edgeDrag.wPreview + dx;
+      var wC = edgeDrag.wCode - dx;
+      if (wP < minP) { wC -= (minP - wP); wP = minP; }
+      if (wC < minC) { wP -= (minC - wC); wC = minC; }
+      if (wP < minP || wC < minC) return;
+      applyColWidth(previewCol, wP);
+      applyColWidth(codeCol, wC);
+    });
+    function endEdge() {
+      if (!edgeDrag) return;
+      edgeDrag = null;
+      document.body.classList.remove('studio-resizing');
+      persistLayout();
+      if (useMonaco) {
+        Object.keys(editors).forEach(function (k) { if (editors[k]) editors[k].layout(); });
+      }
+    }
+    edge.addEventListener('pointerup', endEdge);
+    edge.addEventListener('pointercancel', endEdge);
+  }
+
+
+
 
   function persistLayout() {
     try {
@@ -1334,6 +1392,7 @@
     initCodeTabs();
     initColumnChrome();
     initSplitters();
+    initPreviewEdge();
     initPreviewTools();
     initInputs();
     initKeys();

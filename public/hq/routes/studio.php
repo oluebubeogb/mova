@@ -80,6 +80,23 @@ $router->get('/studio/{id}', function (Request $req, array $params) {
     } catch (\Throwable $e) {
         $varMap = [];
     }
+    // Ensure every VariableService entry is also a CSS custom property in preview
+    try {
+        $extra = [':root {'];
+        foreach (\Mova\Theme\VariableService::all() as $row) {
+            $name = (string) ($row['name'] ?? '');
+            $val = (string) ($row['value'] ?? '');
+            if ($name === '') {
+                continue;
+            }
+            $cssName = \Mova\Theme\VariableService::toCssName($name);
+            $extra[] = '  ' . $cssName . ': ' . \Mova\Theme\VariableService::cssSafe($val) . ';';
+        }
+        $extra[] = '}';
+        $siteCssVars .= "\n" . implode("\n", $extra);
+    } catch (\Throwable $e) {
+        // ignore
+    }
 
     return renderHq('studio/editor', [
         'content'     => $content,
