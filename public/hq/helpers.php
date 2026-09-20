@@ -108,7 +108,7 @@ HTML;
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="/assets/css/hq.css?v=20260828b">
-    <link rel="stylesheet" href="/assets/css/hq-vnext.css">
+    <link rel="stylesheet" href="/assets/css/hq-vnext.css?v=20260920studio">
     <link rel="stylesheet" href="/assets/css/hq-landings.css">
 </head>
 <body class="hq hq-vnext <?= $isAuth ? 'hq-authenticated' : 'hq-guest' ?>" data-workspace="<?= htmlspecialchars($workspace) ?>">
@@ -172,8 +172,8 @@ HTML;
 <?php endif; ?>
 
     <script src="/assets/js/theme.js" defer></script>
-    <script src="/assets/js/hq-search-index.js"></script>
-    <script src="/assets/js/hq-nav.js" defer></script>
+    <script src="/assets/js/hq-search-index.js?v=20260920studio"></script>
+    <script src="/assets/js/hq-nav.js?v=20260920studio" defer></script>
     <script src="/assets/js/hq-layers.js" defer></script>
 </body>
 </html>

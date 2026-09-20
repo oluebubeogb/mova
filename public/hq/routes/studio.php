@@ -8,6 +8,8 @@ use Mova\Security\Csrf;
 use Mova\Security\Audit;
 use Mova\Content\ContentRepository;
 use Mova\Auth\Auth;
+use Mova\Theme\VariableService;
+use Mova\Theme\DesignConfig;
 
 /** @var \Mova\Core\Router $router */
 
@@ -65,13 +67,29 @@ $router->get('/studio/{id}', function (Request $req, array $params) {
     $css  = (string) ($meta['raw_css'] ?? '');
     $js   = (string) ($meta['raw_js'] ?? '');
 
+    // Site design variables for preview parity with public site
+    $siteCssVars = '';
+    $varMap = [];
+    try {
+        $siteCssVars = \Mova\Theme\DesignConfig::cssVariables();
+    } catch (\Throwable $e) {
+        $siteCssVars = '';
+    }
+    try {
+        $varMap = \Mova\Theme\VariableService::map();
+    } catch (\Throwable $e) {
+        $varMap = [];
+    }
+
     return renderHq('studio/editor', [
-        'content' => $content,
-        'body'    => $body,
-        'css'     => $css,
-        'js'      => $js,
-        'meta'    => $meta,
-        'title'   => 'Studio — ' . ($content['title'] ?? 'Untitled'),
+        'content'     => $content,
+        'body'        => $body,
+        'css'         => $css,
+        'js'          => $js,
+        'meta'        => $meta,
+        'siteCssVars' => $siteCssVars,
+        'varMap'      => $varMap,
+        'title'       => 'Studio — ' . ($content['title'] ?? 'Untitled'),
     ]);
 });
 

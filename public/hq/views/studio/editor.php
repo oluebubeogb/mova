@@ -19,7 +19,9 @@ $csrfToken = Csrf::token();
      data-content-id="<?= $id ?>"
      data-csrf="<?= htmlspecialchars($csrfToken) ?>"
      data-save-url="/hq/studio/<?= $id ?>/save"
-     data-monaco-cdn="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs">
+     data-monaco-cdn="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs"
+     data-site-css-vars="<?= htmlspecialchars($siteCssVars, ENT_QUOTES, 'UTF-8') ?>"
+     data-var-map="<?= htmlspecialchars(json_encode($varMap, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8') ?>">
 
   <!-- Global toolbar -->
   <div class="studio-toolbar" role="toolbar" aria-label="Studio actions">
@@ -45,6 +47,9 @@ $csrfToken = Csrf::token();
       </button>
     </div>
     <div class="studio-toolbar-right">
+      <button type="button" class="studio-btn studio-btn-ghost" id="studio-fullscreen" title="Fullscreen" aria-label="Toggle fullscreen">
+        <i class="fa-solid fa-expand"></i> <span class="studio-fs-label">Fullscreen</span>
+      </button>
       <a href="/hq/content/edit/<?= $id ?>" class="studio-btn studio-btn-ghost" title="Open in classic editor">
         <i class="fa-solid fa-pen-to-square"></i> Classic
       </a>

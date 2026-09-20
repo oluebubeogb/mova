@@ -480,6 +480,7 @@
         { title: 'Categories',       href: '/hq/categories',      keywords: 'categories taxonomy', group: 'Content' },
         { title: 'Tags',             href: '/hq/tags',            keywords: 'tags taxonomy', group: 'Content' },
         { title: 'Assembly',         href: '/hq/assembly',        keywords: 'assembly component', group: 'Content' },
+        { title: 'Studio', href: '/hq/studio', keywords: 'studio editor elements dev html css js preview structure style code', group: 'Content' },
         { title: 'Find & Replace',   href: '/hq/content/find-replace', keywords: 'find replace search text bulk', group: 'Content' },
         { title: 'Upload Contents',  href: '/hq/content/upload',  keywords: 'upload bulk html css js dev', group: 'Content' },
         { title: 'Audience',         href: '/hq/audience',        keywords: 'audience', group: 'Audience' },

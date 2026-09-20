@@ -13,6 +13,12 @@
   var saveUrl = app.getAttribute('data-save-url');
   var monacoCdn = app.getAttribute('data-monaco-cdn') || 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs';
 
+  var siteCssVars = '';
+  try { siteCssVars = app.getAttribute('data-site-css-vars') || ''; } catch (e) {}
+  var varMap = {};
+  try { varMap = JSON.parse(app.getAttribute('data-var-map') || '{}') || {}; } catch (e) { varMap = {}; }
+
+
   var htmlArea = document.getElementById('studio-html');
   var cssArea = document.getElementById('studio-css');
   var jsArea = document.getElementById('studio-js');
@@ -931,20 +937,39 @@
   }
 
   // ── Preview ──────────────────────────────────────────────────────────────
+  function applyVarTokens(html) {
+    if (!html) return '';
+    // {{var:name}}
+    html = html.replace(/\{\{\s*var:([a-zA-Z0-9_\-]+)\s*\}\}/g, function (_, key) {
+      var v = varMap[key];
+      return v != null ? String(v) : '';
+    });
+    // short forms
+    html = html.replace(/\{\{\s*site_name\s*\}\}/g, varMap.site_name != null ? String(varMap.site_name) : 'Mova');
+    html = html.replace(/\{\{\s*site_description\s*\}\}/g, varMap.site_description != null ? String(varMap.site_description) : '');
+    html = html.replace(/\{\{\s*year\s*\}\}/g, String(new Date().getFullYear()));
+    return html;
+  }
+
   function updatePreview() {
     if (!preview) return;
-    var html = getHtml();
+    var html = applyVarTokens(getHtml());
     var css = getCss();
     var js = getJs();
     var theme = previewWrap ? previewWrap.getAttribute('data-theme') : 'light';
     var bg = theme === 'dark' ? '#0f172a' : '#ffffff';
     var fg = theme === 'dark' ? '#e2e8f0' : '#111827';
+    var themeAttr = theme === 'dark' ? 'dark' : 'light';
     var doc =
-      '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+      '<!DOCTYPE html><html data-theme="' + themeAttr + '"><head><meta charset="utf-8">' +
       '<meta name="viewport" content="width=device-width,initial-scale=1">' +
-      '<style>html,body{margin:0;padding:1rem;font-family:system-ui,sans-serif;background:' + bg + ';color:' + fg + ';}' +
-      css + '</style></head><body>' + html +
-      '<script>(function(){try{' + js + '}catch(e){console.error(e);}})();<\/script></body></html>';
+      '<style>' +
+      (siteCssVars || '') + '\n' +
+      'html,body{margin:0;padding:1rem;font-family:system-ui,sans-serif;background:' + bg + ';color:' + fg + ';}' +
+      '\n' + css +
+      '</style></head><body>' + html +
+      '<script>window.MovaVars=' + JSON.stringify(varMap || {}) + ';' +
+      '(function(){try{' + js + '}catch(e){console.error(e);}})();<\/script></body></html>';
     try {
       var blob = new Blob([doc], { type: 'text/html' });
       var url = URL.createObjectURL(blob);
@@ -954,6 +979,7 @@
       preview.srcdoc = doc;
     }
   }
+
 
   function schedulePreview() {
     clearTimeout(previewTimer);
@@ -1060,34 +1086,76 @@
   // ── Resize ───────────────────────────────────────────────────────────────
   var drag = null;
 
+  function nearestCol(el, dir) {
+    // Walk siblings to find a .studio-col that is visible
+    var cur = el;
+    while (cur) {
+      if (cur.classList && cur.classList.contains('studio-col') && !cur.classList.contains('is-hidden')) {
+        return cur;
+      }
+      if (cur.classList && cur.classList.contains('studio-col2-host')) {
+        // pick first/last visible detail col inside host
+        var kids = cur.querySelectorAll('.studio-col');
+        if (dir === 'left') {
+          for (var i = kids.length - 1; i >= 0; i--) {
+            if (!kids[i].classList.contains('is-hidden')) return kids[i];
+          }
+        } else {
+          for (var j = 0; j < kids.length; j++) {
+            if (!kids[j].classList.contains('is-hidden')) return kids[j];
+          }
+        }
+      }
+      cur = dir === 'left' ? cur.previousElementSibling : cur.nextElementSibling;
+    }
+    return null;
+  }
+
   function wireSplitter(sp) {
     sp.addEventListener('pointerdown', function (e) {
       e.preventDefault();
-      var left = sp.previousElementSibling;
-      var right = sp.nextElementSibling;
-      if (right && right.classList.contains('studio-col2-host')) right = right.firstElementChild;
-      if (left && left.classList.contains('studio-col2-host')) left = left.lastElementChild;
-      if (!left || !right || !left.classList || !right.classList) return;
-      if (!left.classList.contains('studio-col') || !right.classList.contains('studio-col')) return;
+      e.stopPropagation();
+      var left = nearestCol(sp.previousElementSibling, 'left');
+      var right = nearestCol(sp.nextElementSibling, 'right');
+      if (!left || !right) return;
       if (left.classList.contains('is-collapsed') || right.classList.contains('is-collapsed')) return;
+
       drag = {
-        left: left, right: right, startX: e.clientX,
+        left: left,
+        right: right,
+        startX: e.clientX,
         wL: left.getBoundingClientRect().width,
-        wR: right.getBoundingClientRect().width
+        wR: right.getBoundingClientRect().width,
+        pointerId: e.pointerId
       };
       try { sp.setPointerCapture(e.pointerId); } catch (err) {}
       document.body.classList.add('studio-resizing');
     });
+
     sp.addEventListener('pointermove', function (e) {
       if (!drag) return;
       var dx = e.clientX - drag.startX;
-      var min = 120;
-      var wL = drag.wL + dx, wR = drag.wR - dx;
-      if (wL < min) { wR -= (min - wL); wL = min; }
-      if (wR < min) { wL -= (min - wR); wR = min; }
-      drag.left.style.flex = '0 0 ' + wL + 'px';
-      drag.right.style.flex = '0 0 ' + wR + 'px';
+      var minL = drag.left.classList.contains('studio-col-nav') ? 44 : 160;
+      var minR = drag.right.classList.contains('studio-col-nav') ? 44 : 160;
+      // Preview and code should be allowed to grow/shrink freely
+      if (drag.left.classList.contains('studio-col-preview') || drag.left.classList.contains('studio-col-code')) minL = 140;
+      if (drag.right.classList.contains('studio-col-preview') || drag.right.classList.contains('studio-col-code')) minR = 140;
+
+      var wL = drag.wL + dx;
+      var wR = drag.wR - dx;
+      if (wL < minL) { wR -= (minL - wL); wL = minL; }
+      if (wR < minR) { wL -= (minR - wR); wR = minR; }
+      if (wL < minL || wR < minR) return;
+
+      // Use fixed flex basis so both can grow and shrink
+      drag.left.style.flex = '0 0 ' + Math.round(wL) + 'px';
+      drag.left.style.width = Math.round(wL) + 'px';
+      drag.left.style.maxWidth = 'none';
+      drag.right.style.flex = '0 0 ' + Math.round(wR) + 'px';
+      drag.right.style.width = Math.round(wR) + 'px';
+      drag.right.style.maxWidth = 'none';
     });
+
     function endDrag() {
       if (!drag) return;
       drag = null;
@@ -1104,6 +1172,7 @@
   function initSplitters() {
     colsRoot.querySelectorAll('.studio-splitter').forEach(wireSplitter);
   }
+
 
   function persistLayout() {
     try {
@@ -1161,9 +1230,9 @@
     var openBtn = document.getElementById('studio-open-tab');
     if (openBtn) {
       openBtn.addEventListener('click', function () {
-        var doc = '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
-          '<style>' + getCss() + '</style></head><body>' + getHtml() +
-          '<script>' + getJs() + '<\/script></body></html>';
+        var doc = '<!DOCTYPE html><html data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+          '<style>' + (siteCssVars || '') + '\n' + getCss() + '</style></head><body>' + applyVarTokens(getHtml()) +
+          '<script>window.MovaVars=' + JSON.stringify(varMap || {}) + ';' + getJs() + '<\/script></body></html>';
         var w = window.open('', '_blank');
         if (w) { w.document.open(); w.document.write(doc); w.document.close(); }
       });
@@ -1213,6 +1282,29 @@
     if (undoBtn) undoBtn.addEventListener('click', function (e) { e.preventDefault(); undo(); });
     var redoBtn = document.getElementById('studio-redo');
     if (redoBtn) redoBtn.addEventListener('click', function (e) { e.preventDefault(); redo(); });
+
+    var fsBtn = document.getElementById('studio-fullscreen');
+    if (fsBtn) {
+      fsBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        var on = document.body.classList.toggle('studio-is-fullscreen');
+        app.classList.toggle('is-fullscreen', on);
+        var icon = fsBtn.querySelector('i');
+        var label = fsBtn.querySelector('.studio-fs-label');
+        if (icon) icon.className = on ? 'fa-solid fa-compress' : 'fa-solid fa-expand';
+        if (label) label.textContent = on ? 'Exit' : 'Fullscreen';
+        if (useMonaco) {
+          setTimeout(function () {
+            Object.keys(editors).forEach(function (k) { if (editors[k]) editors[k].layout(); });
+          }, 50);
+        }
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && document.body.classList.contains('studio-is-fullscreen')) {
+          fsBtn.click();
+        }
+      });
+    }
   }
 
   // ── Parse existing managed CSS on load (best-effort empty — styleMap starts fresh) ──

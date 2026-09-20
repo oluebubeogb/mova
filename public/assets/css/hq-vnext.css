@@ -103,11 +103,23 @@ body.hq-vnext .hq-sidebar-backdrop {
 }
 
 .hq-line1-center {
-    flex: 1;
+    flex: 1 1 auto;
     display: flex;
     justify-content: center;
-    max-width: 460px;
+    max-width: min(720px, 55vw);
+    width: 100%;
     margin: 0 auto;
+    min-width: 0;
+}
+@media (min-width: 1200px) {
+    .hq-line1-center {
+        max-width: min(820px, 50vw);
+    }
+}
+@media (min-width: 1600px) {
+    .hq-line1-center {
+        max-width: min(960px, 48vw);
+    }
 }
 
 .hq-search {
