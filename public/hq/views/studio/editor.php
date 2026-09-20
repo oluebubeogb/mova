@@ -97,6 +97,8 @@ $csrfToken = Csrf::token();
 
     <div class="studio-col2-host" id="studio-col2-host"></div>
 
+    <div class="studio-splitter" data-split="host-code" role="separator" aria-orientation="vertical"></div>
+
     <!-- CODE -->
     <div class="studio-col studio-col-code" id="studio-col-code" data-col="code">
       <div class="studio-col-head">

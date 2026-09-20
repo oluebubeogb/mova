@@ -518,6 +518,7 @@
       wireSplitter(sp);
     }
     col2Host.appendChild(col);
+    ensureSplitters();
     persistLayout();
   }
 
@@ -689,6 +690,7 @@
     }
     col2Host.appendChild(col);
     if (prefill) loadAttributes(col);
+    ensureSplitters();
     persistLayout();
   }
 
@@ -1086,16 +1088,23 @@
   // ── Resize ───────────────────────────────────────────────────────────────
   var drag = null;
 
+  function minWidthFor(col) {
+    if (!col) return 140;
+    if (col.classList.contains('is-collapsed')) return 44;
+    if (col.classList.contains('studio-col-nav')) return 120;
+    // Nav, detail, code, preview — all resizable with the same floor
+    return 140;
+  }
+
   function nearestCol(el, dir) {
-    // Walk siblings to find a .studio-col that is visible
+    // Walk siblings to find a visible .studio-col (including detail panels inside host)
     var cur = el;
     while (cur) {
       if (cur.classList && cur.classList.contains('studio-col') && !cur.classList.contains('is-hidden')) {
         return cur;
       }
       if (cur.classList && cur.classList.contains('studio-col2-host')) {
-        // pick first/last visible detail col inside host
-        var kids = cur.querySelectorAll('.studio-col');
+        var kids = cur.querySelectorAll(':scope > .studio-col, .studio-col');
         if (dir === 'left') {
           for (var i = kids.length - 1; i >= 0; i--) {
             if (!kids[i].classList.contains('is-hidden')) return kids[i];
@@ -1105,13 +1114,26 @@
             if (!kids[j].classList.contains('is-hidden')) return kids[j];
           }
         }
+        // empty host — skip past it
       }
       cur = dir === 'left' ? cur.previousElementSibling : cur.nextElementSibling;
     }
     return null;
   }
 
+  function applyColWidth(col, px) {
+    if (!col) return;
+    var w = Math.round(px);
+    col.style.flex = '0 0 ' + w + 'px';
+    col.style.width = w + 'px';
+    col.style.minWidth = w + 'px';
+    col.style.maxWidth = 'none';
+  }
+
   function wireSplitter(sp) {
+    if (sp._studioWired) return;
+    sp._studioWired = true;
+
     sp.addEventListener('pointerdown', function (e) {
       e.preventDefault();
       e.stopPropagation();
@@ -1125,8 +1147,7 @@
         right: right,
         startX: e.clientX,
         wL: left.getBoundingClientRect().width,
-        wR: right.getBoundingClientRect().width,
-        pointerId: e.pointerId
+        wR: right.getBoundingClientRect().width
       };
       try { sp.setPointerCapture(e.pointerId); } catch (err) {}
       document.body.classList.add('studio-resizing');
@@ -1135,25 +1156,17 @@
     sp.addEventListener('pointermove', function (e) {
       if (!drag) return;
       var dx = e.clientX - drag.startX;
-      var minL = drag.left.classList.contains('studio-col-nav') ? 44 : 160;
-      var minR = drag.right.classList.contains('studio-col-nav') ? 44 : 160;
-      // Preview and code should be allowed to grow/shrink freely
-      if (drag.left.classList.contains('studio-col-preview') || drag.left.classList.contains('studio-col-code')) minL = 140;
-      if (drag.right.classList.contains('studio-col-preview') || drag.right.classList.contains('studio-col-code')) minR = 140;
-
+      var minL = minWidthFor(drag.left);
+      var minR = minWidthFor(drag.right);
       var wL = drag.wL + dx;
       var wR = drag.wR - dx;
       if (wL < minL) { wR -= (minL - wL); wL = minL; }
       if (wR < minR) { wL -= (minR - wR); wR = minR; }
       if (wL < minL || wR < minR) return;
 
-      // Use fixed flex basis so both can grow and shrink
-      drag.left.style.flex = '0 0 ' + Math.round(wL) + 'px';
-      drag.left.style.width = Math.round(wL) + 'px';
-      drag.left.style.maxWidth = 'none';
-      drag.right.style.flex = '0 0 ' + Math.round(wR) + 'px';
-      drag.right.style.width = Math.round(wR) + 'px';
-      drag.right.style.maxWidth = 'none';
+      // Every column type (nav, detail, code, preview) grows and shrinks the same way
+      applyColWidth(drag.left, wL);
+      applyColWidth(drag.right, wR);
     });
 
     function endDrag() {
@@ -1170,7 +1183,13 @@
   }
 
   function initSplitters() {
+    if (!colsRoot) return;
     colsRoot.querySelectorAll('.studio-splitter').forEach(wireSplitter);
+  }
+
+  /** Re-bind any new splitters created when Col2 panels open */
+  function ensureSplitters() {
+    initSplitters();
   }
 
 
