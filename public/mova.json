@@ -2,7 +2,7 @@
   "name": "mova",
   "title": "Mova CMS",
   "tagline": "Content that moves.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "php": ">=8.1",
   "channel": "stable",
   "homepage": "",
