@@ -26,6 +26,7 @@ use Mova\SEO\SeoService;
 use Mova\Cache\PageCache;
 use Mova\Auth\Auth;
 use Mova\Core\PlaceholderCleanup;
+use Mova\Core\MovaManifest;
 
 Bootstrap::init();
 
@@ -56,7 +57,7 @@ try {
 
 // Page cache for anonymous GET (skip search, HQ, and system XML/text endpoints)
 // System routes must not be cached as bare body — they need correct Content-Type
-$systemPaths = ['/search', '/robots.txt', '/sitemap.xml', '/feed.xml', '/llms.txt', '/unsubscribe'];
+$systemPaths = ['/search', '/robots.txt', '/sitemap.xml', '/feed.xml', '/llms.txt', '/unsubscribe', '/mova.json'];
 $cacheable = $request->isGet()
     && !Auth::check()
     && !in_array($path, $systemPaths, true)
@@ -83,6 +84,15 @@ $router->get('/robots.txt', function () {
     $body = "User-agent: *\nAllow: /\nDisallow: /hq/\n\nSitemap: " . Bootstrap::baseUrl() . "/sitemap.xml\n";
     return (new Response())->header('Content-Type', 'text/plain')->body($body);
 });
+
+
+$router->get('/mova.json', function () {
+    return (new Response())
+        ->header('Content-Type', 'application/json; charset=utf-8')
+        ->header('Cache-Control', 'public, max-age=60')
+        ->body(MovaManifest::toJson());
+});
+
 
 $router->get('/sitemap.xml', function () use ($seo) {
     return (new Response())
