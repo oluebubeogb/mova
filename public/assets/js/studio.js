@@ -961,8 +961,7 @@
     return html;
   }
 
-  function updatePreview() {
-    if (!preview) return;
+  function buildPreviewDocument() {
     var html = applyVarTokens(getHtml());
     var css = getCss();
     var js = getJs();
@@ -970,26 +969,62 @@
     var bg = theme === 'dark' ? '#0f172a' : '#ffffff';
     var fg = theme === 'dark' ? '#e2e8f0' : '#111827';
     var themeAttr = theme === 'dark' ? 'dark' : 'light';
-    var doc =
-      '<!DOCTYPE html><html data-theme="' + themeAttr + '"><head><meta charset="utf-8">' +
+
+    // Keep the site variable stylesheet as the source of truth. The small
+    // bootstrap below also exposes the current variable map to JS and copies
+    // any plain custom variables into :root, which makes custom variables
+    // available even when a browser/parser has trouble with a complex rule.
+    var varBootstrap = '';
+    try {
+      varBootstrap = '(function(){try{' +
+        'var m=' + JSON.stringify(varMap || {}) + ';' +
+        'var r=document.documentElement;' +
+        'Object.keys(m).forEach(function(k){' +
+          'var base=k;' +
+          'if(/^color-(primary|secondary|accent|bg|surface|text|muted|border)$/.test(k)) {' +
+            'var source=("' + themeAttr + '"==="dark")?k+"-dark":k;' +
+            'if(m[source]!=null) r.style.setProperty("--"+k,String(m[source]));' +
+            'return;' +
+          '}' +
+          'if(/-dark$/.test(k)) return;' +
+          'var n=(/^color-|^radius-|^space-|^font-|^shadow-|^mova-/.test(k)||k==="max-width")?"--"+k:"--mova-"+k;' +
+          'if(!r.style.getPropertyValue(n)) r.style.setProperty(n,String(m[k]));' +
+        '});' +
+      '}catch(e){console.error(e);}})();';
+    } catch (e) {}
+
+    return '<!DOCTYPE html><html data-theme="' + themeAttr + '"><head><meta charset="utf-8">' +
       '<meta name="viewport" content="width=device-width,initial-scale=1">' +
-      '<style>' +
-      (siteCssVars || '') + '\n' +
+      '<style id="mova-site-vars">' + (siteCssVars || '') + '\n' +
       'html,body{margin:0;padding:1rem;font-family:system-ui,sans-serif;background:' + bg + ';color:' + fg + ';}' +
       '\n' + css +
       '</style></head><body>' + html +
       '<script>window.MovaVars=' + JSON.stringify(varMap || {}) + ';' +
+      varBootstrap +
       '(function(){try{' + js + '}catch(e){console.error(e);}})();<\/script></body></html>';
+  }
+
+  function updatePreview() {
+    if (!preview) return;
+    var doc = buildPreviewDocument();
     try {
       var blob = new Blob([doc], { type: 'text/html' });
       var url = URL.createObjectURL(blob);
-      preview.onload = function () { try { URL.revokeObjectURL(url); } catch (e) {} };
+      preview.onload = function () {
+        try {
+          // Force a layout after the iframe has parsed its variable sheet.
+          // This also makes Monaco/style changes immediately visible.
+          if (preview.contentDocument && preview.contentDocument.documentElement) {
+            void preview.contentDocument.documentElement.offsetHeight;
+          }
+        } catch (e) {}
+        try { URL.revokeObjectURL(url); } catch (e) {}
+      };
       preview.src = url;
     } catch (e) {
       preview.srcdoc = doc;
     }
   }
-
 
   function schedulePreview() {
     clearTimeout(previewTimer);
@@ -1142,6 +1177,36 @@
     if (sp._studioWired) return;
     sp._studioWired = true;
 
+    var active = null;
+
+    function move(e) {
+      if (!active || e.pointerId !== active.pointerId) return;
+      var dx = e.clientX - active.startX;
+      var minL = minWidthFor(active.left);
+      var minR = minWidthFor(active.right);
+      var wL = active.wL + dx;
+      var wR = active.wR - dx;
+      if (wL < minL) { wR -= (minL - wL); wL = minL; }
+      if (wR < minR) { wL -= (minR - wR); wR = minR; }
+      if (wL < minL || wR < minR) return;
+      applyColWidth(active.left, wL);
+      applyColWidth(active.right, wR);
+    }
+
+    function end(e) {
+      if (!active || (e && e.pointerId !== active.pointerId)) return;
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', end);
+      document.removeEventListener('pointercancel', end);
+      active = null;
+      drag = null;
+      document.body.classList.remove('studio-resizing');
+      persistLayout();
+      if (useMonaco) {
+        Object.keys(editors).forEach(function (k) { if (editors[k]) editors[k].layout(); });
+      }
+    }
+
     sp.addEventListener('pointerdown', function (e) {
       e.preventDefault();
       e.stopPropagation();
@@ -1150,44 +1215,20 @@
       if (!left || !right) return;
       if (left.classList.contains('is-collapsed') || right.classList.contains('is-collapsed')) return;
 
-      drag = {
+      active = {
         left: left,
         right: right,
+        pointerId: e.pointerId,
         startX: e.clientX,
         wL: left.getBoundingClientRect().width,
         wR: right.getBoundingClientRect().width
       };
-      try { sp.setPointerCapture(e.pointerId); } catch (err) {}
+      drag = active;
       document.body.classList.add('studio-resizing');
+      document.addEventListener('pointermove', move);
+      document.addEventListener('pointerup', end);
+      document.addEventListener('pointercancel', end);
     });
-
-    sp.addEventListener('pointermove', function (e) {
-      if (!drag) return;
-      var dx = e.clientX - drag.startX;
-      var minL = minWidthFor(drag.left);
-      var minR = minWidthFor(drag.right);
-      var wL = drag.wL + dx;
-      var wR = drag.wR - dx;
-      if (wL < minL) { wR -= (minL - wL); wL = minL; }
-      if (wR < minR) { wL -= (minR - wR); wR = minR; }
-      if (wL < minL || wR < minR) return;
-
-      // Every column type (nav, detail, code, preview) grows and shrinks the same way
-      applyColWidth(drag.left, wL);
-      applyColWidth(drag.right, wR);
-    });
-
-    function endDrag() {
-      if (!drag) return;
-      drag = null;
-      document.body.classList.remove('studio-resizing');
-      persistLayout();
-      if (useMonaco) {
-        Object.keys(editors).forEach(function (k) { if (editors[k]) editors[k].layout(); });
-      }
-    }
-    sp.addEventListener('pointerup', endDrag);
-    sp.addEventListener('pointercancel', endDrag);
   }
 
   function initSplitters() {
@@ -1209,45 +1250,50 @@
     if (edge._studioWired) return;
     edge._studioWired = true;
 
-    var edgeDrag = null;
-    edge.addEventListener('pointerdown', function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (previewCol.classList.contains('is-hidden') || codeCol.classList.contains('is-hidden')) return;
-      edgeDrag = {
-        startX: e.clientX,
-        wPreview: previewCol.getBoundingClientRect().width,
-        wCode: codeCol.getBoundingClientRect().width
-      };
-      try { edge.setPointerCapture(e.pointerId); } catch (err) {}
-      document.body.classList.add('studio-resizing');
-    });
-    edge.addEventListener('pointermove', function (e) {
-      if (!edgeDrag) return;
-      // Dragging the RIGHT edge to the right → grow preview, shrink code
-      var dx = e.clientX - edgeDrag.startX;
+    var active = null;
+
+    function move(e) {
+      if (!active || e.pointerId !== active.pointerId) return;
+      var dx = e.clientX - active.startX;
       var minP = 140, minC = 140;
-      var wP = edgeDrag.wPreview + dx;
-      var wC = edgeDrag.wCode - dx;
+      var wP = active.wPreview + dx;
+      var wC = active.wCode - dx;
       if (wP < minP) { wC -= (minP - wP); wP = minP; }
       if (wC < minC) { wP -= (minC - wC); wC = minC; }
       if (wP < minP || wC < minC) return;
       applyColWidth(previewCol, wP);
       applyColWidth(codeCol, wC);
-    });
-    function endEdge() {
-      if (!edgeDrag) return;
-      edgeDrag = null;
+    }
+
+    function end(e) {
+      if (!active || (e && e.pointerId !== active.pointerId)) return;
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', end);
+      document.removeEventListener('pointercancel', end);
+      active = null;
       document.body.classList.remove('studio-resizing');
       persistLayout();
       if (useMonaco) {
         Object.keys(editors).forEach(function (k) { if (editors[k]) editors[k].layout(); });
       }
     }
-    edge.addEventListener('pointerup', endEdge);
-    edge.addEventListener('pointercancel', endEdge);
-  }
 
+    edge.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (previewCol.classList.contains('is-hidden') || codeCol.classList.contains('is-hidden')) return;
+      active = {
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        wPreview: previewCol.getBoundingClientRect().width,
+        wCode: codeCol.getBoundingClientRect().width
+      };
+      document.body.classList.add('studio-resizing');
+      document.addEventListener('pointermove', move);
+      document.addEventListener('pointerup', end);
+      document.addEventListener('pointercancel', end);
+    });
+  }
 
 
 
@@ -1307,9 +1353,7 @@
     var openBtn = document.getElementById('studio-open-tab');
     if (openBtn) {
       openBtn.addEventListener('click', function () {
-        var doc = '<!DOCTYPE html><html data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
-          '<style>' + (siteCssVars || '') + '\n' + getCss() + '</style></head><body>' + applyVarTokens(getHtml()) +
-          '<script>window.MovaVars=' + JSON.stringify(varMap || {}) + ';' + getJs() + '<\/script></body></html>';
+        var doc = buildPreviewDocument();
         var w = window.open('', '_blank');
         if (w) { w.document.open(); w.document.write(doc); w.document.close(); }
       });
@@ -1377,53 +1421,20 @@
         }
       }
 
-      function enterFullscreen() {
-        setFullscreenUi(true);
-        var el = app;
-        var req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
-        if (req) {
-          try {
-            var p = req.call(el);
-            if (p && p.catch) p.catch(function () { /* CSS-only fallback already applied */ });
-          } catch (err) { /* CSS-only */ }
-        }
-      }
-
-      function exitFullscreen() {
-        setFullscreenUi(false);
-        var doc = document;
-        var exit = doc.exitFullscreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
-        if (exit && (doc.fullscreenElement || doc.webkitFullscreenElement)) {
-          try { exit.call(doc); } catch (err) {}
-        }
-      }
-
       function isFs() {
-        return document.body.classList.contains('studio-is-fullscreen')
-          || !!(document.fullscreenElement || document.webkitFullscreenElement);
+        return document.body.classList.contains('studio-is-fullscreen');
       }
 
       fsBtn.addEventListener('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
-        if (isFs()) exitFullscreen();
-        else enterFullscreen();
-      });
-
-      document.addEventListener('fullscreenchange', function () {
-        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-          setFullscreenUi(false);
-        }
-      });
-      document.addEventListener('webkitfullscreenchange', function () {
-        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-          setFullscreenUi(false);
-        }
+        setFullscreenUi(!isFs());
       });
 
       document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && document.body.classList.contains('studio-is-fullscreen')) {
-          exitFullscreen();
+        if (e.key === 'Escape' && isFs()) {
+          e.preventDefault();
+          setFullscreenUi(false);
         }
       });
     }
