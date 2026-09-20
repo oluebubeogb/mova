@@ -1362,9 +1362,9 @@
 
     var fsBtn = document.getElementById('studio-fullscreen');
     if (fsBtn) {
-      fsBtn.addEventListener('click', function (e) {
-        e.preventDefault();
-        var on = document.body.classList.toggle('studio-is-fullscreen');
+      function setFullscreenUi(on) {
+        document.body.classList.toggle('studio-is-fullscreen', on);
+        document.documentElement.classList.toggle('studio-is-fullscreen', on);
         app.classList.toggle('is-fullscreen', on);
         var icon = fsBtn.querySelector('i');
         var label = fsBtn.querySelector('.studio-fs-label');
@@ -1373,12 +1373,57 @@
         if (useMonaco) {
           setTimeout(function () {
             Object.keys(editors).forEach(function (k) { if (editors[k]) editors[k].layout(); });
-          }, 50);
+          }, 80);
+        }
+      }
+
+      function enterFullscreen() {
+        setFullscreenUi(true);
+        var el = app;
+        var req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+        if (req) {
+          try {
+            var p = req.call(el);
+            if (p && p.catch) p.catch(function () { /* CSS-only fallback already applied */ });
+          } catch (err) { /* CSS-only */ }
+        }
+      }
+
+      function exitFullscreen() {
+        setFullscreenUi(false);
+        var doc = document;
+        var exit = doc.exitFullscreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+        if (exit && (doc.fullscreenElement || doc.webkitFullscreenElement)) {
+          try { exit.call(doc); } catch (err) {}
+        }
+      }
+
+      function isFs() {
+        return document.body.classList.contains('studio-is-fullscreen')
+          || !!(document.fullscreenElement || document.webkitFullscreenElement);
+      }
+
+      fsBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isFs()) exitFullscreen();
+        else enterFullscreen();
+      });
+
+      document.addEventListener('fullscreenchange', function () {
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+          setFullscreenUi(false);
         }
       });
+      document.addEventListener('webkitfullscreenchange', function () {
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+          setFullscreenUi(false);
+        }
+      });
+
       document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape' && document.body.classList.contains('studio-is-fullscreen')) {
-          fsBtn.click();
+          exitFullscreen();
         }
       });
     }

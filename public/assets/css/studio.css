@@ -876,23 +876,49 @@ body[data-theme="dark"] .studio-custom-css {
 }
 
 
-/* Fullscreen Studio */
+/* Fullscreen Studio (CSS shell + optional native Fullscreen API) */
+html.studio-is-fullscreen,
+body.studio-is-fullscreen {
+  overflow: hidden !important;
+  height: 100% !important;
+}
 body.studio-is-fullscreen .hq-line1,
-body.studio-is-fullscreen .hq-line2 {
+body.studio-is-fullscreen .hq-line2,
+html.studio-is-fullscreen .hq-line1,
+html.studio-is-fullscreen .hq-line2 {
   display: none !important;
 }
-body.studio-is-fullscreen .hq-content {
+body.studio-is-fullscreen .hq-content,
+html.studio-is-fullscreen .hq-content {
   padding: 0 !important;
   margin: 0 !important;
   max-width: none !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
 }
 body.studio-is-fullscreen .studio-app,
+html.studio-is-fullscreen .studio-app,
 .studio-app.is-fullscreen {
-  position: fixed;
-  inset: 0;
-  z-index: 2000;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  width: 100vw !important;
   height: 100vh !important;
+  max-height: 100vh !important;
   margin: 0 !important;
+  padding: 0 !important;
+  background: var(--hq-bg, #f1f5f9);
+  border-radius: 0 !important;
+}
+.studio-app.is-fullscreen:fullscreen,
+.studio-app.is-fullscreen:-webkit-full-screen {
+  width: 100% !important;
+  height: 100% !important;
   background: var(--hq-bg, #f1f5f9);
 }
 

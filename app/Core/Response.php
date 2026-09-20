@@ -73,11 +73,11 @@ class Response
                 // HQ: inline scripts for editors; Monaco from jsDelivr (loader + workers);
                 // Font Awesome / Google Fonts optional CDNs
                 $csp = "default-src 'self'; "
-                    . "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                    . "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; "
                     . "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
-                    . "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; "
+                    . "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net data:; "
                     . "img-src 'self' data: https: blob:; "
-                    . "connect-src 'self' https://cdn.jsdelivr.net; "
+                    . "connect-src 'self' https://cdn.jsdelivr.net https://cloudflareinsights.com; "
                     . "worker-src 'self' blob: https://cdn.jsdelivr.net; "
                     . "child-src 'self' blob:; "
                     . "frame-ancestors 'self'; "
