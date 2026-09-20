@@ -966,44 +966,76 @@
     var css = getCss();
     var js = getJs();
     var theme = previewWrap ? previewWrap.getAttribute('data-theme') : 'light';
+    if (theme !== 'dark') theme = 'light';
     var bg = theme === 'dark' ? '#0f172a' : '#ffffff';
     var fg = theme === 'dark' ? '#e2e8f0' : '#111827';
-    var themeAttr = theme === 'dark' ? 'dark' : 'light';
+    var themeAttr = theme;
 
-    // Keep the site variable stylesheet as the source of truth. The small
-    // bootstrap below also exposes the current variable map to JS and copies
-    // any plain custom variables into :root, which makes custom variables
-    // available even when a browser/parser has trouble with a complex rule.
+    // Inline :root overrides — guaranteed even if the sheet fails to parse
+    var rootOverrides = [];
+    try {
+      Object.keys(varMap || {}).forEach(function (k) {
+        if (/-dark$/.test(k)) return;
+        var val = varMap[k];
+        if (/^color-(primary|secondary|accent|bg|surface|text|muted|border)$/.test(k) && themeAttr === 'dark') {
+          if (varMap[k + '-dark'] != null) val = varMap[k + '-dark'];
+        }
+        if (val == null) return;
+        var n = (/^color-|^radius-|^space-|^font-|^shadow-|^mova-/.test(k) || k === 'max-width')
+          ? '--' + k
+          : '--mova-' + k;
+        rootOverrides.push(n + ':' + String(val));
+      });
+      // Explicit aliases content uses (e.g. color: var(--color-text))
+      var aliasKeys = ['color-primary', 'color-secondary', 'color-accent', 'color-bg', 'color-surface', 'color-text', 'color-muted', 'color-border'];
+      aliasKeys.forEach(function (k) {
+        var val = varMap[k];
+        if (themeAttr === 'dark' && varMap[k + '-dark'] != null) val = varMap[k + '-dark'];
+        if (val != null) rootOverrides.push('--' + k + ':' + String(val));
+      });
+      if (varMap['color-bg'] != null || varMap['color-bg-dark'] != null) {
+        var bgVal = themeAttr === 'dark'
+          ? (varMap['color-bg-dark'] || varMap['color-bg'])
+          : varMap['color-bg'];
+        if (bgVal != null) rootOverrides.push('--color-background:' + String(bgVal));
+      }
+    } catch (e) {}
+
+    var rootInline = rootOverrides.length
+      ? ':root{' + rootOverrides.join(';') + ';}'
+      : '';
+
+    // Bootstrap still useful for JS consumers
     var varBootstrap = '';
     try {
       varBootstrap = '(function(){try{' +
         'var m=' + JSON.stringify(varMap || {}) + ';' +
         'var r=document.documentElement;' +
+        'r.setAttribute("data-theme","' + themeAttr + '");' +
         'Object.keys(m).forEach(function(k){' +
-          'var base=k;' +
-          'if(/^color-(primary|secondary|accent|bg|surface|text|muted|border)$/.test(k)) {' +
-            'var source=("' + themeAttr + '"==="dark")?k+"-dark":k;' +
-            'if(m[source]!=null) r.style.setProperty("--"+k,String(m[source]));' +
-            'return;' +
-          '}' +
           'if(/-dark$/.test(k)) return;' +
+          'var val=m[k];' +
+          'if(/^color-(primary|secondary|accent|bg|surface|text|muted|border)$/.test(k)&&"' + themeAttr + '"==="dark"&&m[k+"-dark"]!=null) val=m[k+"-dark"];' +
           'var n=(/^color-|^radius-|^space-|^font-|^shadow-|^mova-/.test(k)||k==="max-width")?"--"+k:"--mova-"+k;' +
-          'if(!r.style.getPropertyValue(n)) r.style.setProperty(n,String(m[k]));' +
+          'r.style.setProperty(n,String(val));' +
         '});' +
       '}catch(e){console.error(e);}})();';
     } catch (e) {}
 
+    // Separate style tags: site vars first, then content CSS (parse errors in
+    // content CSS cannot wipe the design tokens)
     return '<!DOCTYPE html><html data-theme="' + themeAttr + '"><head><meta charset="utf-8">' +
       '<meta name="viewport" content="width=device-width,initial-scale=1">' +
-      '<style id="mova-site-vars">' + (siteCssVars || '') + '\n' +
-      'html,body{margin:0;padding:1rem;font-family:system-ui,sans-serif;background:' + bg + ';color:' + fg + ';}' +
-      '\n' + css +
+      '<style id="mova-site-vars">' + (siteCssVars || '') + '\n' + rootInline + '</style>' +
+      '<style id="mova-content-css">' +
+        'html,body{margin:0;padding:1rem;font-family:system-ui,sans-serif;background:' + bg + ';color:' + fg + ';}' +
+        '\n' + css +
       '</style></head><body>' + html +
       '<script>window.MovaVars=' + JSON.stringify(varMap || {}) + ';' +
       varBootstrap +
       '(function(){try{' + js + '}catch(e){console.error(e);}})();<\/script></body></html>';
   }
-
+  
   function updatePreview() {
     if (!preview) return;
     var doc = buildPreviewDocument();
@@ -1445,20 +1477,21 @@
   // compiled CSS is the source of truth in the CSS document after first edit.
 
   function boot() {
-    initCodeTabs();
-    initColumnChrome();
-    initSplitters();
-    initPreviewEdge();
-    initPreviewTools();
-    initInputs();
-    initKeys();
-    initButtons();
-    restoreLayout();
-    loadMonaco();
-    rebuildNav();
-    updatePreview();
-    pushHistory();
-    setDirty(false);
+    // Wire critical UI first so a later throw does not kill Fullscreen / Save
+    try { initButtons(); } catch (e) { console.error('studio initButtons', e); }
+    try { initKeys(); } catch (e) { console.error('studio initKeys', e); }
+    try { initInputs(); } catch (e) { console.error('studio initInputs', e); }
+    try { initCodeTabs(); } catch (e) { console.error('studio initCodeTabs', e); }
+    try { initColumnChrome(); } catch (e) { console.error('studio initColumnChrome', e); }
+    try { initSplitters(); } catch (e) { console.error('studio initSplitters', e); }
+    try { initPreviewEdge(); } catch (e) { console.error('studio initPreviewEdge', e); }
+    try { initPreviewTools(); } catch (e) { console.error('studio initPreviewTools', e); }
+    try { restoreLayout(); } catch (e) { console.error('studio restoreLayout', e); }
+    try { loadMonaco(); } catch (e) { console.error('studio loadMonaco', e); }
+    try { rebuildNav(); } catch (e) { console.error('studio rebuildNav', e); }
+    try { updatePreview(); } catch (e) { console.error('studio updatePreview', e); }
+    try { pushHistory(); } catch (e) { console.error('studio pushHistory', e); }
+    try { setDirty(false); } catch (e) {}
   }
 
   if (document.readyState === 'loading') {
