@@ -270,6 +270,7 @@
     }
 
     function buildGroups() {
+      ensureElColorVarDatalist();
       if (!groupsEl) return;
       groupsEl.innerHTML = '';
       GROUPS.forEach(function (g) {
@@ -315,16 +316,35 @@
             color.type = 'color';
             color.setAttribute('data-prop', f.prop);
             color.value = '#000000';
+            color.title = 'Pick a solid color (hex). Use the text field for CSS variables.';
             var text = document.createElement('input');
             text.type = 'text';
             text.id = 'el-prop-' + f.prop;
             text.setAttribute('data-prop', f.prop);
-            text.placeholder = '#000000 or var(--color-text)';
+            text.placeholder = '#hex, rgb(), or var(--color-text)';
+            text.setAttribute('list', 'el-color-vars');
+            text.title = 'Accepts hex, rgb/rgba, hsl, or theme vars e.g. var(--color-text)';
+            function syncColorUi() {
+              var v = (text.value || '').trim();
+              var isVar = /^var\s*\(/i.test(v) || v.indexOf('--') === 0;
+              color.style.opacity = isVar ? '0.45' : '1';
+              color.title = isVar
+                ? 'Value is a CSS variable — pick a color to replace with a solid hex'
+                : 'Pick a solid color (hex). Use the text field for CSS variables.';
+              if (/^#[0-9a-fA-F]{6}$/i.test(v)) color.value = v;
+              else if (/^#[0-9a-fA-F]{3}$/i.test(v)) {
+                color.value = '#' + v[1] + v[1] + v[2] + v[2] + v[3] + v[3];
+              }
+            }
             color.addEventListener('input', function () {
               text.value = color.value;
+              syncColorUi();
               onPropChange({ target: text });
             });
-            text.addEventListener('input', onPropChange);
+            text.addEventListener('input', function () {
+              syncColorUi();
+              onPropChange({ target: text });
+            });
             wrap.appendChild(color);
             wrap.appendChild(text);
             row.appendChild(wrap);
@@ -454,6 +474,31 @@
       return ta ? ta.value : '';
     }
 
+    function ensureElColorVarDatalist() {
+      if (document.getElementById('el-color-vars')) return;
+      var dl = document.createElement('datalist');
+      dl.id = 'el-color-vars';
+      [
+        'var(--color-text)',
+        'var(--color-muted)',
+        'var(--color-bg)',
+        'var(--color-background)',
+        'var(--color-surface)',
+        'var(--color-primary)',
+        'var(--color-secondary)',
+        'var(--color-accent)',
+        'var(--color-border)',
+        'var(--color-brand-accent)',
+        'transparent',
+        'currentColor'
+      ].forEach(function (v) {
+        var o = document.createElement('option');
+        o.value = v;
+        dl.appendChild(o);
+      });
+      document.body.appendChild(dl);
+    }
+
     function onPropChange(e) {
       var el = e.target;
       var prop = el.getAttribute('data-prop');
@@ -462,15 +507,23 @@
       var slice = activeSlice();
       if (val === '') delete slice.props[prop];
       else slice.props[prop] = val;
-      if (el.type === 'text' && /^#[0-9a-fA-F]{6}$/.test(val)) {
+      if (el.type === 'text') {
         var colorInput = el.parentElement && el.parentElement.querySelector('input[type="color"]');
-        if (colorInput) colorInput.value = val;
+        if (colorInput) {
+          if (/^#[0-9a-fA-F]{6}$/i.test(val)) colorInput.value = val;
+          else if (/^#[0-9a-fA-F]{3}$/i.test(val)) {
+            colorInput.value = '#' + val[1] + val[1] + val[2] + val[2] + val[3] + val[3];
+          }
+          var isVar = /^var\s*\(/i.test(val) || val.indexOf('--') === 0;
+          colorInput.style.opacity = isVar ? '0.45' : '1';
+        }
       }
       setDirty(true);
       updatePreview();
     }
 
     function fillForm() {
+      ensureElColorVarDatalist();
       var slice = activeSlice();
       var props = slice.props || {};
       GROUPS.forEach(function (g) {
@@ -480,8 +533,16 @@
             var text = document.getElementById('el-prop-' + f.prop);
             if (text) text.value = val;
             var color = text && text.parentElement && text.parentElement.querySelector('input[type="color"]');
-            if (color && /^#[0-9a-fA-F]{6}$/.test(val)) color.value = val;
-            else if (color) color.value = '#000000';
+            if (color) {
+              if (/^#[0-9a-fA-F]{6}$/i.test(val)) color.value = val;
+              else if (/^#[0-9a-fA-F]{3}$/i.test(val)) {
+                color.value = '#' + val[1] + val[1] + val[2] + val[2] + val[3] + val[3];
+              } else {
+                color.value = '#000000';
+              }
+              var isVar = /^var\s*\(/i.test(val) || (val || '').indexOf('--') === 0;
+              color.style.opacity = isVar ? '0.45' : '1';
+            }
           } else {
             var input = document.getElementById('el-prop-' + f.prop);
             if (input) input.value = val;

@@ -531,6 +531,7 @@
   }
 
   function buildStyleGroups(col) {
+    ensureColorVarDatalist();
     var host = col.querySelector('.studio-style-groups');
     if (!host) return;
     host.innerHTML = '';
@@ -571,17 +572,33 @@
           color.value = '#000000';
           color.className = 'studio-prop-color';
           color.setAttribute('data-prop', f.prop);
+          color.title = 'Pick a solid color (hex). Use the text field for CSS variables.';
           var text = document.createElement('input');
           text.type = 'text';
           text.className = 'input studio-prop';
           text.setAttribute('data-prop', f.prop);
-          text.placeholder = '#000 or rgb()';
+          text.placeholder = '#hex, rgb(), or var(--color-text)';
+          text.setAttribute('list', 'studio-color-vars');
+          text.title = 'Accepts hex, rgb/rgba, hsl, or theme vars e.g. var(--color-text)';
+          function syncColorUi() {
+            var v = (text.value || '').trim();
+            var isVar = /^var\s*\(/i.test(v) || v.indexOf('--') === 0;
+            color.style.opacity = isVar ? '0.45' : '1';
+            color.title = isVar
+              ? 'Value is a CSS variable — pick a color to replace with a solid hex'
+              : 'Pick a solid color (hex). Use the text field for CSS variables.';
+            if (/^#[0-9a-fA-F]{6}$/i.test(v)) color.value = v;
+            else if (/^#[0-9a-fA-F]{3}$/i.test(v)) {
+              color.value = '#' + v[1] + v[1] + v[2] + v[2] + v[3] + v[3];
+            }
+          }
           color.addEventListener('input', function () {
             text.value = color.value;
+            syncColorUi();
             propChanged(col, f.prop, color.value);
           });
           text.addEventListener('input', function () {
-            if (/^#[0-9a-fA-F]{6}$/.test(text.value)) color.value = text.value;
+            syncColorUi();
             propChanged(col, f.prop, text.value);
           });
           wrap.appendChild(color);
@@ -603,6 +620,31 @@
     });
   }
 
+  function ensureColorVarDatalist() {
+    if (document.getElementById('studio-color-vars')) return;
+    var dl = document.createElement('datalist');
+    dl.id = 'studio-color-vars';
+    [
+      'var(--color-text)',
+      'var(--color-muted)',
+      'var(--color-bg)',
+      'var(--color-background)',
+      'var(--color-surface)',
+      'var(--color-primary)',
+      'var(--color-secondary)',
+      'var(--color-accent)',
+      'var(--color-border)',
+      'var(--color-brand-accent)',
+      'transparent',
+      'currentColor'
+    ].forEach(function (v) {
+      var o = document.createElement('option');
+      o.value = v;
+      dl.appendChild(o);
+    });
+    document.body.appendChild(dl);
+  }
+
   function propChanged(col, prop, value) {
     var st = col._studio;
     var entry = ensureStyle(st.kind, st.name);
@@ -614,6 +656,7 @@
   }
 
   function fillStyleForm(col) {
+    ensureColorVarDatalist();
     var st = col._studio;
     var entry = ensureStyle(st.kind, st.name);
     var slice = entry[st.bp][st.pseudo] || { props: {}, custom_css: '' };
@@ -625,13 +668,25 @@
       el.value = val;
       if (el.classList.contains('studio-prop') && el.type !== 'color') {
         var colorSibling = el.parentElement && el.parentElement.querySelector('.studio-prop-color[data-prop="' + prop + '"]');
-        if (colorSibling && /^#[0-9a-fA-F]{6}$/.test(val)) colorSibling.value = val;
+        if (colorSibling) {
+          if (/^#[0-9a-fA-F]{6}$/i.test(val)) colorSibling.value = val;
+          else if (/^#[0-9a-fA-F]{3}$/i.test(val)) {
+            colorSibling.value = '#' + val[1] + val[1] + val[2] + val[2] + val[3] + val[3];
+          }
+          var isVar = /^var\s*\(/i.test(val) || (val || '').indexOf('--') === 0;
+          colorSibling.style.opacity = isVar ? '0.45' : '1';
+        }
       }
     });
     col.querySelectorAll('.studio-prop-color').forEach(function (el) {
       var prop = el.getAttribute('data-prop');
       var val = props[prop] || '';
-      if (/^#[0-9a-fA-F]{6}$/.test(val)) el.value = val;
+      if (/^#[0-9a-fA-F]{6}$/i.test(val)) el.value = val;
+      else if (/^#[0-9a-fA-F]{3}$/i.test(val)) {
+        el.value = '#' + val[1] + val[1] + val[2] + val[2] + val[3] + val[3];
+      }
+      var isVar = /^var\s*\(/i.test(val) || (val || '').indexOf('--') === 0;
+      el.style.opacity = isVar ? '0.45' : '1';
     });
     var customTa = col.querySelector('.studio-custom-css');
     if (customTa) customTa.value = slice.custom_css || '';

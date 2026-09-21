@@ -321,7 +321,24 @@ $router->post('/layout', function (Request $req) {
         return (new Response())->status(403)->body('CSRF');
     }
     $layout = DesignConfig::layout();
-    $layout['container_width'] = (string) $req->post('container_width', '720px');
+    $cw = trim((string) $req->post('container_width', '720px'));
+    // Allow CSS lengths: px, %, vw/vh/vmin/vmax, rem/em/ch, and simple min()/max()/clamp()
+    if ($cw === '' || !preg_match(
+        '/^(?:\d+(?:\.\d+)?(?:px|%|vw|vh|vmin|vmax|rem|em|ch)|min\s*\([^)]+\)|max\s*\([^)]+\)|clamp\s*\([^)]+\)|100%)$/i',
+        $cw
+    )) {
+        // Keep previous value if invalid; fall back to default
+        $cw = (string) ($layout['container_width'] ?? '720px');
+        if ($cw === '' || !preg_match(
+            '/^(?:\d+(?:\.\d+)?(?:px|%|vw|vh|vmin|vmax|rem|em|ch)|min\s*\([^)]+\)|max\s*\([^)]+\)|clamp\s*\([^)]+\)|100%)$/i',
+            $cw
+        )) {
+            $cw = '720px';
+        }
+    }
+    // Strip characters that cssVal would reject anyway
+    $cw = str_replace([';', '{', '}', '<', '>'], '', $cw);
+    $layout['container_width'] = $cw !== '' ? $cw : '720px';
     $layout['header']['type'] = (string) $req->post('header_type', 'sticky');
     $layout['header']['logo_position'] = (string) $req->post('logo_position', 'left');
     $layout['header']['nav_align'] = (string) $req->post('nav_align', 'right');

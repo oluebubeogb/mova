@@ -219,6 +219,6 @@ if ($initialTag === '') {
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
-<script src="/assets/js/elements-editor.js" defer></script>
+<script src="/assets/js/elements-editor.js?v=20260921vars" defer></script>
 <script src="/assets/js/hq-layers.js" defer></script>
 <?php include __DIR__ . '/_design_styles.php'; ?>

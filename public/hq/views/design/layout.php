@@ -43,12 +43,22 @@ $mobileIconPresets = $mobileIconPresets ?? [];
                 <h3>Container</h3>
                 <div class="form-group">
                     <label>Max width</label>
-                    <select name="container_width">
-                        <?php $cw = $layout['container_width'] ?? '720px';
-                        foreach (['640px' => 'Narrow', '720px' => 'Default', '960px' => 'Wide', '1200px' => 'Extra wide', '100%' => 'Full'] as $v => $lab): ?>
-                        <option value="<?= $v ?>" <?= $cw === $v ? 'selected' : '' ?>><?= $lab ?> (<?= $v ?>)</option>
-                        <?php endforeach; ?>
-                    </select>
+                    <?php $cw = $layout['container_width'] ?? '720px'; ?>
+                    <input type="text" name="container_width" value="<?= htmlspecialchars($cw) ?>"
+                           placeholder="720px, 100%, 90vw, min(960px, 90%)"
+                           pattern=".*"
+                           list="container-width-suggestions"
+                           class="input">
+                    <datalist id="container-width-suggestions">
+                        <option value="640px">Narrow</option>
+                        <option value="720px">Default</option>
+                        <option value="960px">Wide</option>
+                        <option value="1200px">Extra wide</option>
+                        <option value="100%">Full width</option>
+                        <option value="90vw">90vw</option>
+                        <option value="min(960px, 90%)">Fluid max 960px</option>
+                    </datalist>
+                    <p class="field-hint">Any CSS length: <code>px</code>, <code>%</code>, <code>vw</code>, <code>rem</code>, <code>ch</code>, or functions like <code>min()</code> / <code>max()</code> / <code>clamp()</code>. Used as <code>--max-width</code> on the public site.</p>
                 </div>
             </div>
 
