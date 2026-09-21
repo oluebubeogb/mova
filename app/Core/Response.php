@@ -83,21 +83,20 @@ class Response
                     . "frame-ancestors 'self'; "
                     . "base-uri 'self'; "
                     . "form-action 'self'";
-            } else {
-                // Public site: tighter than HQ (no third-party fonts/CDNs; block plugins/objects)
-                // unsafe-inline still needed for theme boot + optional inline element JS
-                $csp = "default-src 'self'; "
-                    . "script-src 'self' 'unsafe-inline'; "
-                    . "style-src 'self' 'unsafe-inline'; "
-                    . "font-src 'self' data:; "
-                    . "img-src 'self' data: https: blob:; "
-                    . "connect-src 'self'; "
-                    . "frame-ancestors 'self'; "
-                    . "base-uri 'self'; "
-                    . "form-action 'self'; "
-                    . "object-src 'none'; "
-                    . "upgrade-insecure-requests";
-            }
+			} else {
+				// Public site: allow Font Awesome (cdnjs) + Cloudflare Insights while keeping the rest tight
+				$csp = "default-src 'self'; "
+					. "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; "
+					. "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
+					. "font-src 'self' data: https://cdnjs.cloudflare.com; "
+					. "img-src 'self' data: https: blob:; "
+					. "connect-src 'self' https://cloudflareinsights.com; "
+					. "frame-ancestors 'self'; "
+					. "base-uri 'self'; "
+					. "form-action 'self'; "
+					. "object-src 'none'; "
+					. "upgrade-insecure-requests";
+			}
             header('Content-Security-Policy: ' . $csp);
         }
 
