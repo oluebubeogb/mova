@@ -10,7 +10,7 @@ $statuses = $statuses ?? [];
 $error = $_GET['error'] ?? '';
 ?>
 <style>
-.mova-upload-page { max-width: 720px; margin: 0 auto; }
+.mova-upload-page { max-width: 100%; margin: 0 auto; }
 .mova-upload-drop {
   border: 2px dashed var(--hq-border, #cbd5e1);
   border-radius: 14px;

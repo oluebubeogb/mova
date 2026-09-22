@@ -182,7 +182,7 @@ $csrfToken = Csrf::token();
 </section>
 
 <style>
-.fr-page { max-width: 1280px; margin: 0 auto; padding: 0 1rem 2rem; }
+.fr-page { max-width: 100%; margin: 0 auto; padding: 0 1rem 2rem; }
 .fr-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }
 .fr-title { font-size: 1.5rem; margin: 0.15rem 0; }
 .fr-desc { color: var(--hq-muted, #6b7280); margin: 0; max-width: 42rem; }

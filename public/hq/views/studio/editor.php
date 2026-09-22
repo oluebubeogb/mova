@@ -235,5 +235,5 @@ $__studioCssVars = (string) ($siteCssVars ?? '');
   </div>
 </template>
 
-<link rel="stylesheet" href="/assets/css/studio.css">
+<link rel="stylesheet" href="/assets/css/studio.css?v=20260922fullwidth2">
 <script src="/assets/js/studio.js?v=20260921vars" defer></script>

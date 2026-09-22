@@ -1615,7 +1615,7 @@ body.hq-sidebar-open {
 
 
 /* —— Settings grid cards —— */
-.settings-form { max-width: 1100px; }
+.settings-form { max-width: 100%; }
 .settings-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -1686,7 +1686,7 @@ body.hq-sidebar-open {
 
 /* ---------- HQ layer tabs (icon + text → panel under rule) ---------- */
 .hq-layers {
-    max-width: 960px;
+    max-width: 100%;
 }
 
 .hq-layer-tabs {

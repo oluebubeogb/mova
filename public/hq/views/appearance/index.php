@@ -109,7 +109,7 @@
 </form>
 
 <style>
-.appearance-form { max-width: 640px; }
+.appearance-form { max-width: 100%; }
 .form-section-title {
     margin: 1.75rem 0 0.75rem;
     font-size: 0.8rem;

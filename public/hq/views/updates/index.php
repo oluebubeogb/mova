@@ -8,7 +8,7 @@ $siteName = htmlspecialchars($meta['site']['name'] ?? 'Mova');
 $created = htmlspecialchars(substr((string)($meta['site']['created_at'] ?? ''), 0, 10));
 $updated = htmlspecialchars(substr((string)($meta['site']['updated_at'] ?? ''), 0, 10));
 ?>
-<section class="hq-landing" style="max-width:720px">
+<section class="hq-landing">
   <header class="hq-landing-header">
     <p class="hq-landing-kicker"><i class="fa-solid fa-arrows-rotate"></i> Updates</p>
     <h1 class="hq-landing-title">Core updates & identity</h1>

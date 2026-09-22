@@ -9,7 +9,7 @@ $isOwner = !$isNew && ($user['role'] ?? '') === 'owner';
     <div class="alert alert-error"><?= htmlspecialchars($error) ?></div>
 <?php endif; ?>
 
-<form method="post" action="<?= $action ?>" class="panel" style="max-width:520px;">
+<form method="post" action="<?= $action ?>" class="panel">
     <?= Csrf::field() ?>
     <div class="form-group">
         <label>Name</label>

@@ -11,7 +11,7 @@
   --lp-mix-soft: color-mix(in srgb, var(--lp-purple) 45%, var(--lp-green) 25%);
 
   position: relative;
-  max-width: 1100px;
+  max-width: 100%;
   margin: 0 auto;
   padding: 0.25rem 0 2.5rem;
   isolation: isolate;
