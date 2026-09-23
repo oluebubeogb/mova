@@ -159,3 +159,34 @@ $router->post('/media/delete/{id}', function (Request $req, array $params) {
         ->header('Content-Type', 'application/json')
         ->body(json_encode(['success' => (bool) $ok]));
 });
+
+
+$router->post('/media/gallery-exclude/{id}', function (Request $req, array $params) {
+    requireAuth();
+    if (!Csrf::validate()) {
+        return (new Response())
+            ->header('Content-Type', 'application/json')
+            ->status(403)
+            ->body(json_encode(['success' => false, 'error' => 'Forbidden']));
+    }
+    $id = (int) ($params['id'] ?? 0);
+    $exclude = filter_var($req->input('exclude', '1'), FILTER_VALIDATE_BOOLEAN)
+        || $req->input('exclude') === '1'
+        || $req->input('exclude') === 1;
+    // Explicit 0/false
+    $raw = $req->input('exclude', '1');
+    if ($raw === '0' || $raw === 0 || $raw === false || $raw === 'false') {
+        $exclude = false;
+    } else {
+        $exclude = true;
+    }
+    $svc = new MediaService();
+    $ok = $svc->setExcludeFromGallery($id, $exclude);
+    $row = $svc->find($id);
+    return (new Response())
+        ->header('Content-Type', 'application/json')
+        ->body(json_encode([
+            'success' => (bool) $ok,
+            'exclude_from_gallery' => (int) ($row['exclude_from_gallery'] ?? ($exclude ? 1 : 0)),
+        ]));
+});

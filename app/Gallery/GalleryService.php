@@ -202,7 +202,8 @@ class GalleryService
     public function streamImages(int $targetCount = 48, int $hardMax = 72, ?string $before = null): array
     {
         $params = [];
-        $sql = "SELECT * FROM media WHERE mime_type LIKE 'image/%'";
+        $sql = "SELECT * FROM media WHERE mime_type LIKE 'image/%'
+                AND COALESCE(exclude_from_gallery, 0) = 0";
         if ($before !== null && $before !== '') {
             $sql .= ' AND created_at < :before';
             $params['before'] = $before;
@@ -240,7 +241,8 @@ class GalleryService
             // More exist if we stopped early or DB returned hardMax and we used all
             if (count($rows) > count($out) || count($rows) >= $hardMax) {
                 $check = Database::fetch(
-                    "SELECT 1 AS ok FROM media WHERE mime_type LIKE 'image/%' AND created_at < :b LIMIT 1",
+                    "SELECT 1 AS ok FROM media WHERE mime_type LIKE 'image/%'
+                     AND COALESCE(exclude_from_gallery, 0) = 0 AND created_at < :b LIMIT 1",
                     ['b' => $nextBefore]
                 );
                 $hasMore = $check !== null;
@@ -276,6 +278,7 @@ class GalleryService
              LEFT JOIN gallery_items gi ON gi.media_id = m.id
              LEFT JOIN galleries g ON g.id = gi.gallery_id AND g.status = 'published'
              WHERE m.mime_type LIKE 'image/%'
+               AND COALESCE(m.exclude_from_gallery, 0) = 0
                AND (
                    m.alt_text LIKE :q OR m.original_name LIKE :q2 OR m.filename LIKE :q3
                    OR gi.caption LIKE :q4 OR m.created_at LIKE :q5

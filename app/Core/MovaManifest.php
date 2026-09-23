@@ -131,7 +131,7 @@ class MovaManifest
             'name'    => 'mova',
             'title'   => 'Mova CMS',
             'tagline' => 'Content that moves.',
-            'version' => '1.1.1',
+            'version' => '1.1.3',
             'php'     => '>=8.1',
             'channel' => 'stable',
             'site'    => ['name' => 'Mova', 'created_at' => '', 'updated_at' => ''],

@@ -4,7 +4,7 @@
  */
 window.MOVA_HQ_SEARCH_INDEX = [
   { title: 'Overview', href: '/hq', group: 'Overview', keywords: 'overview dashboard home start', body: 'Mova HQ home. Jump into content, audience, design, extend, and operations workspaces.' },
-  { title: 'Content hub', href: '/hq/content-hub', group: 'Content', keywords: 'content hub workspace', body: 'Create, organize, and manage posts, media, types, taxonomy, and assemblies.' },
+  { title: 'Content hub', href: '/hq/content-hub', group: 'Content', keywords: 'content hub workspace', body: 'Create, organize, and manage posts, media, galleries, types, taxonomy, and assemblies.' },
   { title: 'All content', href: '/hq/content', group: 'Content', keywords: 'posts pages articles list draft published', body: 'Browse and filter all content by status: draft, review, published, archived, trash.' },
   { title: 'New content', href: '/hq/content/new', group: 'Content', keywords: 'create write post page', body: 'Start a new piece of content with the visual or Dev Mode editor.' },
   { title: 'Assembly', href: '/hq/assembly', group: 'Content', keywords: 'assembly component shortcode html css synced embed', body: 'Build reusable HTML and CSS components. Embed with [assembly slug="…"] and edit once to update everywhere.' },
@@ -15,6 +15,8 @@ window.MOVA_HQ_SEARCH_INDEX = [
   { title: 'Find & Replace', href: '/hq/content/find-replace', group: 'Content', keywords: 'find replace search text bulk edit match case changelog revert', body: 'Find and replace text across published, draft, or selected content. Match case, preview matches, full change log, and one-click revert.' },
   { title: 'Upload Contents', href: '/hq/content/upload', group: 'Content', keywords: 'upload bulk import html css js dev editor multi file', body: 'Bulk upload HTML, CSS and JS files as Dev Mode content. Group related files by name (e.g. home.html + home.css) and create pages in one step.' },
   { title: 'Media', href: '/hq/media', group: 'Content', keywords: 'images files uploads media library', body: 'Upload and manage images and files for your site.' },
+  { title: 'Galleries', href: '/hq/galleries', group: 'Content', keywords: 'gallery galleries images collections album slideshow explore', body: 'Create image collections for the public /gallery page. Manage saved galleries, covers, and membership.' },
+  { title: 'New gallery', href: '/hq/galleries/new', group: 'Content', keywords: 'gallery create new collection album', body: 'Start a new public gallery collection and pick images from the media library.' },
   { title: 'Types & fields', href: '/hq/types', group: 'Content', keywords: 'content types custom fields schema', body: 'Define content types and custom fields for structured content.' },
   { title: 'Categories', href: '/hq/categories', group: 'Content', keywords: 'categories taxonomy organize', body: 'Organize content by category.' },
   { title: 'Tags', href: '/hq/tags', group: 'Content', keywords: 'tags taxonomy filter', body: 'Tag and filter content.' },

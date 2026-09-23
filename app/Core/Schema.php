@@ -726,6 +726,7 @@ class Schema
         self::migratePhase6($db);
         self::migratePhase7($db);
         self::migratePhase8($db);
+        self::migratePhase9($db);
     }
 
     /**
@@ -851,6 +852,24 @@ class Schema
         $db->exec("CREATE INDEX IF NOT EXISTS idx_gallery_items_gallery ON gallery_items(gallery_id, sort_order)");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_galleries_status ON galleries(status)");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_galleries_updated ON galleries(updated_at)");
+    }
+
+
+    private static function migratePhase9(\PDO $db): void
+    {
+        try {
+            $cols = $db->query("PRAGMA table_info(media)")->fetchAll(\PDO::FETCH_ASSOC);
+            $names = array_map(static fn($c) => $c['name'] ?? '', $cols);
+            if (!in_array('exclude_from_gallery', $names, true)) {
+                $db->exec("ALTER TABLE media ADD COLUMN exclude_from_gallery INTEGER NOT NULL DEFAULT 0");
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+        try {
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_media_gallery_exclude ON media(exclude_from_gallery)");
+        } catch (\Throwable $e) {
+        }
     }
 
     public static function isInstalled(): bool

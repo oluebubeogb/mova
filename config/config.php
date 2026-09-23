@@ -18,7 +18,7 @@ return [
     // Application
     'app_name'       => 'Mova',
     'app_tagline'    => 'Content that moves.',
-    'app_version'    => '1.1.1',
+    'app_version'    => '1.1.3',
     'app_url'        => '', // Auto-detected if empty
     'timezone'       => 'UTC',
     'debug'          => false,

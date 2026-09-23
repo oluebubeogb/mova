@@ -44,8 +44,9 @@ $selectedMap = array_flip($selectedIds);
 
     <div class="form-group">
         <label for="g-slug">Slug</label>
-        <input type="text" id="g-slug" name="slug" value="<?= htmlspecialchars((string)$slugVal) ?>" placeholder="summer-collection">
-        <p class="field-hint">Public URL: /gallery/<em>slug</em>. Cannot be “gallery”.</p>
+        <input type="text" id="g-slug" name="slug" value="<?= htmlspecialchars((string)$slugVal) ?>" placeholder="auto from title"
+               data-auto-slug="<?= $gallery ? '0' : '1' ?>">
+        <p class="field-hint">Public URL: /gallery/<em>slug</em>. Auto-filled from the title (cannot be “gallery”). Edit anytime to override.</p>
     </div>
 
     <div class="form-group">
@@ -102,3 +103,36 @@ $selectedMap = array_flip($selectedIds);
         <?php endif; ?>
     </div>
 </form>
+
+<script>
+(function () {
+  var title = document.getElementById('g-title');
+  var slug = document.getElementById('g-slug');
+  if (!title || !slug) return;
+  var auto = slug.getAttribute('data-auto-slug') === '1';
+  function slugify(s) {
+    s = (s || '').toLowerCase().trim();
+    s = s.replace(/[^a-z0-9\s-]/g, '').replace(/[\s-]+/g, '-').replace(/^-+|-+$/g, '');
+    if (!s || s === 'gallery') s = 'gallery-collection';
+    return s;
+  }
+  title.addEventListener('input', function () {
+    if (!auto) return;
+    slug.value = slugify(title.value);
+  });
+  slug.addEventListener('input', function () {
+    // user edited slug manually — stop auto unless empty
+    if (slug.value.trim() !== '') {
+      auto = false;
+      slug.setAttribute('data-auto-slug', '0');
+    } else {
+      auto = true;
+      slug.setAttribute('data-auto-slug', '1');
+    }
+  });
+  // On new gallery with empty slug, seed once from title
+  if (auto && !slug.value.trim() && title.value.trim()) {
+    slug.value = slugify(title.value);
+  }
+})();
+</script>

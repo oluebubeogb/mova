@@ -52,7 +52,8 @@ function hqLayout(string $view, string $content, array $data = []): string
 
     // Determine current workspace for Line 1 section name + Line 2 items
     $workspace = 'overview';
-    if (strpos($view, 'landings/content') === 0 || strpos($view, 'content') === 0 || strpos($view, 'media') === 0 || strpos($view, 'types') === 0
+    if (strpos($view, 'landings/content') === 0 || strpos($view, 'content') === 0 || strpos($view, 'media') === 0
+        || strpos($view, 'galleries') === 0 || strpos($view, 'types') === 0
         || strpos($view, 'assembly') === 0
         || strpos($view, 'studio') === 0
         || $view === 'taxonomy/categories' || $view === 'taxonomy/tags') {

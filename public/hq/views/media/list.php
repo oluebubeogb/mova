@@ -41,7 +41,7 @@
             $isImage = strpos((string)($item['mime_type'] ?? ''), 'image/') === 0
                 || str_ends_with(strtolower((string)$imgPath), '.webp');
             ?>
-            <div class="media-card" data-id="<?= $id ?>">
+            <div class="media-card<?= !empty($item['exclude_from_gallery']) ? ' is-gallery-excluded' : '' ?>" data-id="<?= $id ?>">
                 <?php if ($isImage && $thumbPublic): ?>
                     <img src="<?= htmlspecialchars($thumbPublic) ?>" alt="<?= htmlspecialchars($item['alt_text'] ?? '') ?>" loading="lazy" decoding="async" class="mova-img" onload="this.classList.add('is-loaded')" onerror="this.style.opacity=0.3" width="150" height="150" style="object-fit:cover;">
                 <?php else: ?>
@@ -61,6 +61,14 @@
                         </button>
                         <button type="button" class="btn-ghost btn-sm media-copy-html" data-src="<?= htmlspecialchars($fullPublic) ?>" data-alt="<?= htmlspecialchars($item['alt_text'] ?? '') ?>" title="Copy responsive &lt;img&gt; HTML">
                             HTML
+                        </button>
+                        <?php $excluded = !empty($item['exclude_from_gallery']); ?>
+                        <button type="button" class="btn-ghost btn-sm media-gallery-exclude"
+                                data-id="<?= $id ?>"
+                                data-excluded="<?= $excluded ? '1' : '0' ?>"
+                                title="<?= $excluded ? 'Include in public gallery stream' : 'Exclude from public gallery stream' ?>"
+                                style="<?= $excluded ? 'color:var(--hq-warning,#b45309);' : '' ?>">
+                            <i class="fa-solid <?= $excluded ? 'fa-eye-slash' : 'fa-eye' ?>"></i>
                         </button>
                         <button type="button" class="btn-ghost btn-sm media-delete" data-id="<?= $id ?>" style="color:var(--hq-danger,#b91c1c);" title="Delete">
                             <i class="fa-solid fa-trash"></i>
@@ -246,6 +254,42 @@
             } else {
                 prompt('Copy URL', url);
             }
+        });
+    });
+
+    document.querySelectorAll('.media-gallery-exclude').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+            var id = btn.getAttribute('data-id');
+            if (!id) return;
+            var currently = btn.getAttribute('data-excluded') === '1';
+            var next = currently ? '0' : '1';
+            btn.disabled = true;
+            try {
+                var fd = new FormData();
+                fd.append('_mova_csrf', csrfToken);
+                fd.append('exclude', next);
+                var res = await fetch('/hq/media/gallery-exclude/' + id, { method: 'POST', body: fd });
+                var data = await res.json().catch(function () { return { success: false }; });
+                if (data.success) {
+                    var excluded = String(data.exclude_from_gallery) === '1' || next === '1';
+                    btn.setAttribute('data-excluded', excluded ? '1' : '0');
+                    btn.title = excluded ? 'Include in public gallery stream' : 'Exclude from public gallery stream';
+                    btn.style.color = excluded ? 'var(--hq-warning,#b45309)' : '';
+                    var icon = btn.querySelector('i');
+                    if (icon) {
+                        icon.className = 'fa-solid ' + (excluded ? 'fa-eye-slash' : 'fa-eye');
+                    }
+                    var card = btn.closest('.media-card');
+                    if (card) {
+                        card.classList.toggle('is-gallery-excluded', excluded);
+                    }
+                } else {
+                    alert(data.error || 'Could not update gallery visibility');
+                }
+            } catch (e) {
+                alert('Could not update gallery visibility');
+            }
+            btn.disabled = false;
         });
     });
 

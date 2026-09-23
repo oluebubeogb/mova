@@ -164,6 +164,26 @@ class MediaService
         return (int) ($row['c'] ?? 0);
     }
 
+
+    public function setExcludeFromGallery(int $id, bool $exclude): bool
+    {
+        $media = $this->find($id);
+        if (!$media) {
+            return false;
+        }
+        try {
+            Database::update(
+                'media',
+                ['exclude_from_gallery' => $exclude ? 1 : 0],
+                'id = :id',
+                ['id' => $id]
+            );
+        } catch (\Throwable $e) {
+            return false;
+        }
+        return true;
+    }
+
     public function delete(int $id): bool
     {
         $media = $this->find($id);

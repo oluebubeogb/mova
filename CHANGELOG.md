@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Planned
+- Further Studio panel refinements
+- Additional content-type and assembly tooling
+
+---
+
+## [1.1.3] - 2026-09-23
+
+### Added
+- Media library **Exclude from gallery** control — hide individual images from the public `/gallery` explore stream and search (saved gallery membership is unchanged)
+- HQ search and Content workspace Line 2 nav entries for **Galleries**
+
+### Fixed
+- Galleries reachable from content-hub contextual nav and global HQ search
+- Gallery slug auto-fills from title on create (editable override)
+
+### Changed
+- Version bumped to **1.1.3**
+
+---
+## [1.1.2] - 2026-09-23
+
 ### Added
 - **Public Gallery** (`/gallery`): reserved system route with sidebar of saved galleries, explore view (4 recent gallery cards + month-grouped image stream with “See more”), single-gallery pages, search, lightbox (next/prev), and slideshow
 - HQ Galleries CRUD under Content hub (`/hq/galleries`) with media picker; schema tables `galleries` / `gallery_items`
@@ -15,13 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Desktop header nav no longer overflows into the site title: nav limited to ~70% width and wraps to a second line when needed
 
-
-### Planned
-- Further Studio panel refinements
-- Additional content-type and assembly tooling
+### Changed
+- Version bumped to **1.1.2** (`public/mova.json`, `config/config.php`)
 
 ---
-
 ## [1.1.0] - 2026-09-20
 
 ### Added
@@ -57,6 +76,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/oluebubeogb/mova/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/oluebubeogb/mova/compare/v1.1.3...HEAD
+[1.1.3]: https://github.com/oluebubeogb/mova/releases/tag/v1.1.3
+[1.1.2]: https://github.com/oluebubeogb/mova/releases/tag/v1.1.2
 [1.1.0]: https://github.com/oluebubeogb/mova/releases/tag/v1.1.0
 [1.0.0]: https://github.com/oluebubeogb/mova/releases/tag/v1.0.0

@@ -27,6 +27,7 @@
             items: [
                 { label: 'All content',    href: '/hq/content' },
                 { label: 'Media',          href: '/hq/media' },
+                { label: 'Galleries',      href: '/hq/galleries', match: { path: '/hq/galleries' } },
                 { label: 'Types & fields', href: '/hq/types' },
                 { label: 'Categories',     href: '/hq/categories' },
                 { label: 'Tags',           href: '/hq/tags' },
@@ -249,7 +250,8 @@
         if (path === '/hq/content') {
             return { key: 'content.list', params, status };
         }
-        if (path === '/hq/content/upload' || path.startsWith('/hq/media') || path.startsWith('/hq/types')
+        if (path === '/hq/content/upload' || path.startsWith('/hq/media') || path.startsWith('/hq/galleries')
+            || path.startsWith('/hq/types')
             || path.startsWith('/hq/categories') || path.startsWith('/hq/tags')
             || path.startsWith('/hq/assembly')) {
             return { key: 'content', params, status };
@@ -476,6 +478,7 @@
         { title: 'All content',      href: '/hq/content',         keywords: 'posts pages articles content list', group: 'Content' },
         { title: 'New content',      href: '/hq/content/new',     keywords: 'new create add content post page', group: 'Content' },
         { title: 'Media library',    href: '/hq/media',           keywords: 'media images files upload', group: 'Content' },
+        { title: 'Galleries',        href: '/hq/galleries',       keywords: 'gallery galleries images collections album', group: 'Content' },
         { title: 'Types & fields',   href: '/hq/types',           keywords: 'types fields', group: 'Content' },
         { title: 'Categories',       href: '/hq/categories',      keywords: 'categories taxonomy', group: 'Content' },
         { title: 'Tags',             href: '/hq/tags',            keywords: 'tags taxonomy', group: 'Content' },
