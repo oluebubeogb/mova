@@ -27,7 +27,7 @@
             items: [
                 { label: 'All content',    href: '/hq/content' },
                 { label: 'Media',          href: '/hq/media' },
-                { label: 'Galleries',      href: '/hq/galleries', match: { path: '/hq/galleries' } },
+                { label: 'Galleries',      href: '/hq/galleries', prefixMatch: true, match: { path: '/hq/galleries' } },
                 { label: 'Types & fields', href: '/hq/types' },
                 { label: 'Categories',     href: '/hq/categories' },
                 { label: 'Tags',           href: '/hq/tags' },
