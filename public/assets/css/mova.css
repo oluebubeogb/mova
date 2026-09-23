@@ -197,7 +197,7 @@ body {
     flex: 1 1 auto;
     flex-wrap: wrap;
     justify-content: flex-end;
-    max-width: min(70vw, 70%);
+    max-width: min(85vw, 85%);
     min-width: 0;
 }
 
@@ -1330,7 +1330,7 @@ body.hero-fullscreen .hero {
 @media (min-width: 769px) {
     .site-header .nav {
         flex-wrap: wrap;
-        max-width: min(70vw, 70%);
+        max-width: min(85vw, 85%);
     }
 }
 
