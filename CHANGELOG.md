@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Public Gallery** (`/gallery`): reserved system route with sidebar of saved galleries, explore view (4 recent gallery cards + month-grouped image stream with “See more”), single-gallery pages, search, lightbox (next/prev), and slideshow
+- HQ Galleries CRUD under Content hub (`/hq/galleries`) with media picker; schema tables `galleries` / `gallery_items`
+- Gallery slug `gallery` reserved (cannot be used for content pages)
+
+### Fixed
+- Desktop header nav no longer overflows into the site title: nav limited to ~70% width and wraps to a second line when needed
+
+
 ### Planned
 - Further Studio panel refinements
 - Additional content-type and assembly tooling

@@ -57,11 +57,12 @@ try {
 
 // Page cache for anonymous GET (skip search, HQ, and system XML/text endpoints)
 // System routes must not be cached as bare body — they need correct Content-Type
-$systemPaths = ['/search', '/robots.txt', '/sitemap.xml', '/feed.xml', '/llms.txt', '/unsubscribe', '/mova.json'];
+$systemPaths = ['/search', '/gallery', '/robots.txt', '/sitemap.xml', '/feed.xml', '/llms.txt', '/unsubscribe', '/mova.json'];
 $cacheable = $request->isGet()
     && !Auth::check()
     && !in_array($path, $systemPaths, true)
-    && strpos($path, '/hq') !== 0;
+    && strpos($path, '/hq') !== 0
+    && strpos($path, '/gallery') !== 0;
 
 $cacheKey = 'page_' . md5($path . '?' . ($_SERVER['QUERY_STRING'] ?? ''));
 
@@ -143,6 +144,70 @@ $router->get('/search', function (Request $req) use ($contentRepo, $seo) {
         'title'   => $q ? "Search: {$q}" : 'Search',
     ]);
 });
+
+
+$router->get('/gallery', function (Request $req) use ($seo) {
+    $svc = new \Mova\Gallery\GalleryService();
+    $q = trim((string) $req->query('q', ''));
+    $sidebar = $svc->all(true, 50, 0);
+    $recent = $svc->recent(4, true);
+    $stream = $svc->streamImages(48, 72, null);
+    $searchResults = $q !== '' ? $svc->search($q, 40) : null;
+    return renderTheme('gallery', [
+        'seo' => $seo,
+        'title' => $q !== '' ? ('Gallery search: ' . $q) : 'Gallery',
+        'mode' => $q !== '' ? 'search' : 'explore',
+        'query' => $q,
+        'sidebar' => $sidebar,
+        'recent' => $recent,
+        'stream' => $stream,
+        'gallery' => null,
+        'items' => [],
+        'searchResults' => $searchResults,
+    ]);
+});
+
+$router->get('/gallery/api/stream', function (Request $req) {
+    $svc = new \Mova\Gallery\GalleryService();
+    $before = trim((string) $req->query('before', ''));
+    $stream = $svc->streamImages(48, 72, $before !== '' ? $before : null);
+    return (new Response())
+        ->header('Content-Type', 'application/json; charset=utf-8')
+        ->body(json_encode($stream));
+});
+
+$router->get('/gallery/api/search', function (Request $req) {
+    $svc = new \Mova\Gallery\GalleryService();
+    $q = trim((string) $req->query('q', ''));
+    $results = $svc->search($q, 40);
+    return (new Response())
+        ->header('Content-Type', 'application/json; charset=utf-8')
+        ->body(json_encode($results));
+});
+
+$router->get('/gallery/{slug}', function (Request $req, array $params) use ($seo) {
+    $svc = new \Mova\Gallery\GalleryService();
+    $slug = $params['slug'] ?? '';
+    $gallery = $svc->findBySlug($slug, true);
+    if (!$gallery) {
+        return renderTheme('404', ['seo' => $seo], 404);
+    }
+    $items = $svc->items((int) $gallery['id']);
+    $sidebar = $svc->all(true, 50, 0);
+    return renderTheme('gallery', [
+        'seo' => $seo,
+        'title' => $gallery['title'],
+        'mode' => 'gallery',
+        'query' => '',
+        'sidebar' => $sidebar,
+        'recent' => [],
+        'stream' => ['items' => [], 'has_more' => false, 'next_before' => null],
+        'gallery' => $gallery,
+        'items' => $items,
+        'searchResults' => null,
+    ]);
+});
+
 
 // Homepage — optional fixed content from Brand → Identity
 // Browser title is always "Sitename | site description" on the homepage.

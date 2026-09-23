@@ -123,7 +123,7 @@ return [
     // Reserved routes (cannot be used as content slugs)
     'reserved_routes' => [
         'hq', 'api', 'assets', 'mova-uploads', 'mova-plugins', 'mova-themes', 'search',
-        'sitemap.xml', 'robots.txt', 'feed.xml', 'llms.txt',
+        'gallery', 'sitemap.xml', 'robots.txt', 'feed.xml', 'llms.txt',
     ],
 
     // Roles

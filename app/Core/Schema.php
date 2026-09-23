@@ -725,6 +725,7 @@ class Schema
 
         self::migratePhase6($db);
         self::migratePhase7($db);
+        self::migratePhase8($db);
     }
 
     /**
@@ -816,6 +817,40 @@ class Schema
         $db->exec("CREATE INDEX IF NOT EXISTS idx_fr_actions_status ON find_replace_actions(status)");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_fr_changes_action ON find_replace_changes(action_id)");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_fr_changes_content ON find_replace_changes(content_id)");
+    }
+
+
+    private static function migratePhase8(\PDO $db): void
+    {
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS galleries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                slug TEXT NOT NULL UNIQUE,
+                description TEXT,
+                cover_media_id INTEGER,
+                status TEXT NOT NULL DEFAULT 'published',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (cover_media_id) REFERENCES media(id) ON DELETE SET NULL
+            )
+        ");
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS gallery_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                gallery_id INTEGER NOT NULL,
+                media_id INTEGER NOT NULL,
+                caption TEXT,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (gallery_id) REFERENCES galleries(id) ON DELETE CASCADE,
+                FOREIGN KEY (media_id) REFERENCES media(id) ON DELETE CASCADE
+            )
+        ");
+        $db->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_gallery_items_unique ON gallery_items(gallery_id, media_id)");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_gallery_items_gallery ON gallery_items(gallery_id, sort_order)");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_galleries_status ON galleries(status)");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_galleries_updated ON galleries(updated_at)");
     }
 
     public static function isInstalled(): bool

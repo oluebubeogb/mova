@@ -52,6 +52,17 @@
       <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
     </a>
 
+    <a class="hq-landing-card" href="/hq/galleries">
+      <div class="hq-landing-card-inner">
+        <div class="hq-landing-icon"><i class="fa-solid fa-panorama"></i></div>
+        <div class="hq-landing-card-body">
+          <strong>Galleries</strong>
+          <span>Image collections for the public /gallery page</span>
+        </div>
+      </div>
+      <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
+    </a>
+
     <a class="hq-landing-card" href="/hq/types">
       <div class="hq-landing-card-inner">
         <div class="hq-landing-icon"><i class="fa-solid fa-shapes"></i></div>

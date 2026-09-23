@@ -43,6 +43,7 @@ $routeFiles = [
     'studio',
     'assembly',
     'media',
+    'galleries',
     'taxonomy',
     'types',
     'people',

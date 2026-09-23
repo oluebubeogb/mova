@@ -154,10 +154,11 @@ body {
 .site-header .container {
     display: flex;
     flex-direction: row;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
+    row-gap: 0.5rem;
     width: 100%;
     box-sizing: border-box;
 }
@@ -193,7 +194,11 @@ body {
     display: flex;
     align-items: center;
     gap: 0.15rem;
-    flex-wrap: nowrap;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: min(70vw, 70%);
+    min-width: 0;
 }
 
 .nav a {
@@ -1310,13 +1315,23 @@ body.hero-fullscreen .hero {
     align-items: center;
     gap: 0.35rem;
     flex-wrap: nowrap;
+    flex-shrink: 0;
 }
 .site-header .container {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
 }
-.logo {
+.site-header .logo {
     white-space: nowrap;
     min-width: 0;
+    flex-shrink: 0;
+}
+/* Nav may wrap under logo instead of colliding with title */
+@media (min-width: 769px) {
+    .site-header .nav {
+        flex-wrap: wrap;
+        max-width: min(70vw, 70%);
+    }
 }
 
 /* Icon-only header controls (desktop) */
