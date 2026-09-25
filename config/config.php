@@ -120,6 +120,15 @@ return [
         'from_name'  => 'Mova',
     ],
 
+    // Mova AI (self-hosted OpenAI-compatible endpoint)
+    // Override in HQ → Settings → Mova AI, or via the settings table.
+    'ai' => [
+        'ai_api_url'  => 'https://movaai.collab.name.ng/v1',
+        'ai_api_key'  => 'mova-ai-key',
+        'ai_model'    => 'qwen2.5:7b',
+        'ai_provider' => 'Mova AI',
+    ],
+
     // Reserved routes (cannot be used as content slugs)
     'reserved_routes' => [
         'hq', 'api', 'assets', 'mova-uploads', 'mova-plugins', 'mova-themes', 'search',

@@ -99,6 +99,11 @@ $router->post('/install', function (Request $req) {
             'site_name'        => 'Mova',
             'site_description' => 'Content that moves.',
             'comments_enabled' => '0',
+            // Mova AI — self-hosted defaults (override in HQ → Settings → Mova AI)
+            'ai_api_url'       => 'https://movaai.collab.name.ng/v1',
+            'ai_api_key'       => 'mova-ai-key',
+            'ai_model'         => 'qwen2.5:7b',
+            'ai_provider'      => 'Mova AI',
         ];
         foreach ($defaults as $k => $v) {
             Database::insert('settings', [
