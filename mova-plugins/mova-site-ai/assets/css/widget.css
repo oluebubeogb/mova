@@ -3,7 +3,8 @@
   --msa-primary: var(--color-primary, #2563eb);
   --msa-accent: var(--color-brand-accent, var(--color-primary, #7c3aed));
   --msa-bg: var(--color-bg, var(--color-background, #f8f9fb));
-  --msa-surface: var(--color-primary, #ffffff);
+  --msa-surface: var(--color-surface, #ffffff);
+  --msa-bg: var(--color-surface, #ffffff);
   --msa-text: var(--color-text, #111827);
   --msa-muted: var(--color-muted, #6b7280);
   --msa-border: var(--color-border, #e5e7eb);
