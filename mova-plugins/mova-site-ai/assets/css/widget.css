@@ -1,16 +1,16 @@
-/* Site AI widget — fully bound to site design tokens (light/dark) */
+/* Site AI — 100% site design tokens (no forced white) */
 #mova-site-ai-root {
-  --msa-primary: var(--color-primary, #2563eb);
-  --msa-accent: var(--color-brand-accent, var(--color-primary, #7c3aed));
-  --msa-bg: var(--color-bg, var(--color-background, #f8f9fb));
-  --msa-surface: var(--color-surface, #ffffff);
-  --msa-text: var(--color-text, #111827);
-  --msa-muted: var(--color-muted, #6b7280);
-  --msa-border: var(--color-border, #e5e7eb);
+  --msa-primary: var(--color-primary);
+  --msa-accent: var(--color-brand-accent, var(--color-primary));
+  --msa-bg: var(--color-bg, var(--color-background));
+  --msa-surface: var(--color-surface);
+  --msa-text: var(--color-text);
+  --msa-muted: var(--color-muted);
+  --msa-border: var(--color-border);
   --msa-radius: var(--radius-md, 12px);
-  --msa-shadow: var(--shadow-md, 0 12px 40px rgba(0,0,0,.18));
+  --msa-shadow: var(--shadow-md, 0 12px 40px rgba(0, 0, 0, 0.18));
   --msa-font: var(--font-sans, system-ui, -apple-system, sans-serif);
-  --msa-on-primary: #ffffff;
+  --msa-on-primary: var(--color-on-primary);
 }
 
 .msa-fab {
@@ -61,18 +61,16 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  border-bottom: 1px solid transparent;
 }
 .msa-head strong {
   flex: 1;
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--msa-on-primary);
-  letter-spacing: 0.01em;
 }
 .msa-head button {
-  background: rgba(255,255,255,0.14);
-  border: 1px solid rgba(255,255,255,0.22);
+  background: color-mix(in srgb, var(--msa-on-primary) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--msa-on-primary) 22%, transparent);
   color: var(--msa-on-primary);
   cursor: pointer;
   font-size: 1.15rem;
@@ -84,7 +82,9 @@
   align-items: center;
   justify-content: center;
 }
-.msa-head button:hover { background: rgba(255,255,255,0.24); }
+.msa-head button:hover {
+  background: color-mix(in srgb, var(--msa-on-primary) 24%, transparent);
+}
 
 .msa-msgs {
   flex: 1;
@@ -133,9 +133,6 @@
   background: color-mix(in srgb, var(--msa-primary) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--msa-primary) 25%, transparent);
 }
-.msa-links a:hover {
-  background: color-mix(in srgb, var(--msa-primary) 20%, transparent);
-}
 
 .msa-compose {
   display: flex;
@@ -168,7 +165,6 @@
   font-weight: 600;
   cursor: pointer;
 }
-.msa-compose button:hover { filter: brightness(1.06); }
 
 .msa-greet {
   text-align: center;

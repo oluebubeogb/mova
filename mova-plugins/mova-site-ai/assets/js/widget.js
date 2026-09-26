@@ -3,10 +3,10 @@
   if (!root) return;
   var name = root.getAttribute('data-name') || 'Assistant';
   var api = root.getAttribute('data-api') || '/api/site-ai/chat';
-  var primary = root.getAttribute('data-primary');
-  var accent = root.getAttribute('data-accent');
-  if (primary) root.style.setProperty('--msa-primary', primary);
-  if (accent) root.style.setProperty('--msa-accent', accent);
+  var primaryOverride = root.getAttribute('data-primary');
+  var accentOverride = root.getAttribute('data-accent');
+  if (primaryOverride) root.style.setProperty('--msa-primary', primaryOverride);
+  if (accentOverride) root.style.setProperty('--msa-accent', accentOverride);
 
   function hourGreet() {
     var h = new Date().getHours();
@@ -23,9 +23,9 @@
   var panel = document.createElement('div');
   panel.className = 'msa-panel';
   panel.innerHTML =
-    '<div class="msa-head"><strong>' + name + '</strong><button type="button" data-close>&times;</button></div>' +
+    '<div class="msa-head"><strong>' + name + '</strong><button type="button" data-close aria-label="Close">&times;</button></div>' +
     '<div class="msa-msgs" data-msgs><div class="msa-greet">' + hourGreet() + '</div></div>' +
-    '<div class="msa-compose"><input type="text" placeholder="Ask anything…" data-input><button type="button" data-send>Send</button></div>';
+    '<div class="msa-compose"><input type="text" placeholder="Ask anything…" data-input autocomplete="off"><button type="button" data-send>Send</button></div>';
   document.body.appendChild(fab);
   document.body.appendChild(panel);
 
@@ -65,7 +65,11 @@
     var body = new URLSearchParams();
     body.set('message', text);
     body.set('page', location.pathname);
-    fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() })
+    fetch(api, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString()
+    })
       .then(function (r) { return r.json(); })
       .then(function (data) {
         add('bot', data.reply || 'Sorry, try again.', data.links || []);
@@ -76,6 +80,9 @@
   }
   panel.querySelector('[data-send]').addEventListener('click', send);
   input.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') { e.preventDefault(); send(); }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      send();
+    }
   });
 })();

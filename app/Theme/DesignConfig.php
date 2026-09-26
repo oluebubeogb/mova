@@ -262,6 +262,7 @@ class DesignConfig
         $lines[] = '  --color-muted: ' . $L['muted'] . ';';
         $lines[] = '  --color-border: ' . $L['border'] . ';';
         $lines[] = '  --color-quote-border: ' . $L['primary'] . ';';
+        $lines[] = '  --color-on-primary: ' . self::contrastOn($L['primary']) . ';';
         $lines[] = '}';
 
         $lines[] = 'html[data-theme="dark"] {';
@@ -277,6 +278,7 @@ class DesignConfig
         $lines[] = '  --color-muted: ' . $D['muted'] . ';';
         $lines[] = '  --color-border: ' . $D['border'] . ';';
         $lines[] = '  --color-quote-border: ' . $D['primary'] . ';';
+        $lines[] = '  --color-on-primary: ' . self::contrastOn($D['primary']) . ';';
         $lines[] = '}';
 
         // User-defined custom colors (Style → custom swatches)
@@ -346,6 +348,30 @@ class DesignConfig
     }
 
     /** Safe CSS value for colors / lengths (no braces, semicolons) */
+    /**
+     * Text/icon color that contrasts with a background hex (for primary buttons, headers).
+     */
+    public static function contrastOn(string $hex): string
+    {
+        $hex = trim($hex);
+        if (preg_match('/^#([0-9A-Fa-f]{3})$/', $hex, $m)) {
+            $h = $m[1];
+            $hex = '#' . $h[0] . $h[0] . $h[1] . $h[1] . $h[2] . $h[2];
+        }
+        if (!preg_match('/^#([0-9A-Fa-f]{6})$/', $hex, $m)) {
+            return '#ffffff';
+        }
+        $n = $m[1];
+        $r = hexdec(substr($n, 0, 2)) / 255;
+        $g = hexdec(substr($n, 2, 2)) / 255;
+        $b = hexdec(substr($n, 4, 2)) / 255;
+        $lin = static function (float $v): float {
+            return $v <= 0.03928 ? $v / 12.92 : (($v + 0.055) / 1.055) ** 2.4;
+        };
+        $L = 0.2126 * $lin($r) + 0.7152 * $lin($g) + 0.0722 * $lin($b);
+        return $L > 0.55 ? '#111827' : '#ffffff';
+    }
+
     private static function cssVal(string $v): string
     {
         $v = trim($v);
