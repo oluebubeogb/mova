@@ -21,6 +21,7 @@ class AiActionService
         $type = (string) ($action['type'] ?? '');
         return match ($type) {
             'create_content' => $this->createContent($action['payload'] ?? [], $userId),
+            'update_content' => $this->updateContent($action['payload'] ?? [], $userId),
             'update_design_tokens' => $this->updateDesignTokens($action['payload'] ?? []),
             'navigate' => [
                 'ok' => true,
@@ -118,10 +119,102 @@ class AiActionService
 
         DesignConfig::saveTokens($tokens);
 
+        // CSS vars for seamless client-side apply (no full reload)
+        $cssVars = [];
+        foreach ($changed as $path => $hex) {
+            // path like colors.primary or colors_dark.primary
+            if (str_starts_with($path, 'colors_dark.')) {
+                $key = substr($path, strlen('colors_dark.'));
+                $cssKey = $key === 'background' ? 'background' : $key;
+                $cssVars['--color-' . ($cssKey === 'background' ? 'bg' : $cssKey) . '-dark'] = $hex;
+                if ($cssKey === 'background') {
+                    $cssVars['--color-background-dark'] = $hex;
+                }
+            } elseif (str_starts_with($path, 'colors.')) {
+                $key = substr($path, strlen('colors.'));
+                $cssKey = $key === 'background' ? 'bg' : $key;
+                $cssVars['--color-' . $cssKey . '-light'] = $hex;
+                if ($key === 'background') {
+                    $cssVars['--color-background-light'] = $hex;
+                }
+            }
+        }
+
         return [
             'ok' => true,
             'message' => 'Design tokens updated',
-            'result' => ['changed' => $changed, 'path' => '/hq/style'],
+            'result' => [
+                'changed' => $changed,
+                'path' => '/hq/style',
+                'css_vars' => $cssVars,
+                'soft' => true,
+            ],
+        ];
+    }
+
+    /**
+     * Expand / rewrite an existing draft (preferred when user is on content edit).
+     *
+     * @param array<string,mixed> $payload
+     * @return array{ok:bool,message?:string,result?:array,error?:string}
+     */
+    private function updateContent(array $payload, int $userId): array
+    {
+        $id = (int) ($payload['id'] ?? 0);
+        if ($id <= 0) {
+            return ['ok' => false, 'error' => 'Content id is required'];
+        }
+
+        $repo = new ContentRepository();
+        $existing = $repo->find($id);
+        if (!$existing) {
+            return ['ok' => false, 'error' => 'Content not found'];
+        }
+
+        $mode = (string) ($payload['mode'] ?? 'append'); // append | replace
+        $newBody = (string) ($payload['body'] ?? '');
+        $title = trim((string) ($payload['title'] ?? ''));
+        $excerpt = trim((string) ($payload['excerpt'] ?? ''));
+
+        $data = [];
+        if ($newBody !== '') {
+            if ($mode === 'replace') {
+                $data['body'] = $newBody;
+            } else {
+                $old = (string) ($existing['body'] ?? '');
+                $data['body'] = rtrim($old) . "\n\n" . ltrim($newBody);
+            }
+        }
+        if ($title !== '') {
+            $data['title'] = $title;
+        }
+        if ($excerpt !== '') {
+            $data['excerpt'] = $excerpt;
+        }
+
+        // Keep as draft unless already published — never auto-publish
+        if (($existing['status'] ?? '') !== 'published') {
+            $data['status'] = 'draft';
+        }
+
+        if ($data === []) {
+            return ['ok' => false, 'error' => 'Nothing to update'];
+        }
+
+        $repo->update($id, $data);
+        $fresh = $repo->find($id) ?: $existing;
+
+        return [
+            'ok' => true,
+            'message' => 'Draft updated',
+            'result' => [
+                'id' => $id,
+                'title' => (string) ($fresh['title'] ?? $title),
+                'body' => (string) ($fresh['body'] ?? ''),
+                'excerpt' => (string) ($fresh['excerpt'] ?? ''),
+                'path' => '/hq/content/edit/' . $id,
+                'soft' => true,
+            ],
         ];
     }
 

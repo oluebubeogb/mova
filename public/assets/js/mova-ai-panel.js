@@ -26,12 +26,59 @@
 
   function pageContext() {
     var ctx = window.MovaAiContext || {};
+    var entityId = ctx.entityId || 0;
+    if (!entityId) {
+      var m = (window.location.pathname || '').match(/\/hq\/content\/edit\/(\d+)/);
+      if (m) entityId = parseInt(m[1], 10) || 0;
+    }
     return {
       route: ctx.route || window.location.pathname + window.location.search,
       area: ctx.area || (document.body && document.body.getAttribute('data-workspace')) || '',
       layer: ctx.layer || new URLSearchParams(window.location.search).get('layer') || '',
-      entity_id: ctx.entityId || 0
+      entity_id: entityId
     };
+  }
+
+  function applyCssVars(vars) {
+    if (!vars || typeof vars !== 'object') return;
+    var root = document.documentElement;
+    Object.keys(vars).forEach(function (k) {
+      try { root.style.setProperty(k, vars[k]); } catch (e) {}
+    });
+  }
+
+  function softFillEditor(action) {
+    if (!action || !action.soft) return;
+    var m = (action.path || '').match(/\/hq\/content\/edit\/(\d+)/);
+    if (!m) return;
+    var here = (window.location.pathname || '').match(/\/hq\/content\/edit\/(\d+)/);
+    if (!here || here[1] !== m[1]) return;
+    var form = document.getElementById('content-form');
+    if (!form) return;
+    if (action.title_text) {
+      var title = form.querySelector('input[name="title"]');
+      if (title) title.value = action.title_text;
+    }
+    if (action.excerpt) {
+      var ex = form.querySelector('textarea[name="excerpt"], input[name="excerpt"]');
+      if (ex) ex.value = action.excerpt;
+    }
+    if (action.body) {
+      var body = form.querySelector('textarea[name="body"]');
+      if (body) {
+        body.value = action.body;
+        body.dispatchEvent(new Event('input', { bubbles: true }));
+        body.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      // Monaco / Studio hooks if present
+      if (window.movaStudioSetBody && typeof window.movaStudioSetBody === 'function') {
+        try { window.movaStudioSetBody(action.body); } catch (e) {}
+      }
+    }
+  }
+
+  function softReloadEditorIfNeeded(path) {
+    // legacy no-op; softFillEditor handles same-page updates
   }
 
   function el(id) {
@@ -128,13 +175,27 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (data.ok) {
-          var path = (data.result && data.result.path) || '/hq/style';
-          appendMessage(
-            'assistant',
-            'Colors applied. Open Style to review.',
-            [{ type: 'navigate', label: 'Open Style', path: path }],
-            null
-          );
+          var result = data.result || {};
+          if (result.css_vars) {
+            applyCssVars(result.css_vars);
+          }
+          var path = result.path || '/hq/style';
+          var onStyle = (window.location.pathname || '').indexOf('/hq/style') === 0;
+          if (onStyle) {
+            appendMessage(
+              'assistant',
+              'Colors applied live on this page — no reload needed. Palette keys used: primary, secondary, accent, background, surface, text, muted, border.',
+              null,
+              null
+            );
+          } else {
+            appendMessage(
+              'assistant',
+              'Colors applied. Preview updated here without a full reload. Optional: open Style to see the form fields.',
+              [{ type: 'navigate', label: 'Open Style (optional)', path: path }],
+              null
+            );
+          }
         } else {
           appendMessage('assistant', data.error || 'Could not apply design changes.', null, null);
         }
@@ -302,10 +363,17 @@
             localStorage.setItem(STORAGE_SESSION, String(data.session_id));
           } catch (e) {}
         }
+        var acts = data.actions || [];
+        // If we updated the draft you're already editing, try a gentle editor refresh
+        acts.forEach(function (a) {
+          if (a && a.type === 'navigate' && a.soft) {
+            softFillEditor(a);
+          }
+        });
         appendMessage(
           'assistant',
           data.reply || data.error || 'No response',
-          data.actions || [],
+          acts,
           data.provider || null
         );
         loadSessions();

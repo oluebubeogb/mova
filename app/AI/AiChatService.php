@@ -113,8 +113,15 @@ class AiChatService
         $actions = $llm['actions'] ?? [];
         $provider = $llm['provider'] ?? 'heuristic';
 
-        // Heuristic: create content intent when LLM missed it
-        if (!$this->hasActionType($actions, 'create_content') && $this->looksLikeCreateContent($message)) {
+        $entityId = (int) ($pageContext['entityId'] ?? 0);
+
+        // Prefer updating the open draft over creating a new one
+        if ($entityId > 0 && !$this->hasActionType($actions, 'update_content')
+            && ($this->looksLikeContinueContent($message) || $this->looksLikeCreateContent($message))) {
+            $actions = array_values(array_filter($actions, static fn($a) => ($a['type'] ?? '') !== 'create_content'));
+            $actions[] = $this->buildUpdateContentAction($message, $entityId);
+        } elseif (!$this->hasActionType($actions, 'create_content') && !$this->hasActionType($actions, 'update_content')
+            && $this->looksLikeCreateContent($message)) {
             $actions[] = $this->buildCreateContentAction($message);
         }
 
@@ -131,17 +138,25 @@ class AiChatService
         $finalActions = [];
         foreach ($actions as $action) {
             $type = (string) ($action['type'] ?? '');
-            if ($type === 'create_content') {
+            if ($type === 'create_content' || $type === 'update_content') {
                 $exec = $executor->execute($action, $userId);
                 if (!empty($exec['ok']) && !empty($exec['result']['path'])) {
                     $path = (string) $exec['result']['path'];
                     $title = (string) ($exec['result']['title'] ?? 'Draft');
+                    $isUpdate = $type === 'update_content';
                     $finalActions[] = [
                         'type' => 'navigate',
-                        'label' => 'Open draft: ' . $title,
+                        'label' => ($isUpdate ? 'View updated draft: ' : 'Open draft: ') . $title,
                         'path' => $path,
+                        'soft' => !empty($exec['result']['soft']),
+                        'body' => $isUpdate ? (string) ($exec['result']['body'] ?? '') : '',
+                        'title_text' => $title,
+                        'excerpt' => $isUpdate ? (string) ($exec['result']['excerpt'] ?? '') : '',
                     ];
-                    if ($reply === '' || str_contains(mb_strtolower($reply), 'create')) {
+                    if ($isUpdate) {
+                        $reply = ($reply !== '' ? $reply . "\n\n" : '')
+                            . "Updated the **current draft** «{$title}». Refresh the editor or open the link if the body looks stale — nothing was published.";
+                    } elseif ($reply === '' || str_contains(mb_strtolower($reply), 'create')) {
                         $reply = ($reply !== '' ? $reply . "\n\n" : '')
                             . "Created a **draft** «{$title}». Open it to review — nothing was published.";
                     } else {
@@ -150,7 +165,7 @@ class AiChatService
                 } else {
                     $finalActions[] = $action;
                     if (empty($exec['ok'])) {
-                        $reply .= "\n\nCould not create content: " . ($exec['error'] ?? 'unknown error');
+                        $reply .= "\n\nCould not " . ($type === 'update_content' ? 'update' : 'create') . " content: " . ($exec['error'] ?? 'unknown error');
                     }
                 }
                 continue;
@@ -230,22 +245,32 @@ class AiChatService
             $matchLines[] = "{$m['label']} → {$m['path']}";
         }
 
+        $entityId = (int) ($pageContext['entityId'] ?? 0);
+        $paletteHelp = "Mova Style palette keys (ONLY these — do not invent 'link' or other keys): "
+            . "primary, secondary, accent, background, surface, text, muted, border. "
+            . "Links on the public site typically use primary (or accent for emphasis). "
+            . "If the user says 'link color', map it to primary and say so in the reply.";
+
+        $contentHelp = $entityId > 0
+            ? "The user is editing content id={$entityId}. If they ask to add, expand, continue, or revise the article, use update_content with payload id={$entityId}, mode=append (or replace), and body HTML — do NOT create_content."
+            : "When creating new pages use create_content (draft only).";
+
         $system = "You are Mova AI, the assistant inside Mova CMS HQ. "
-            . "Help users navigate HQ, create draft content, and adjust design colors. Be concise. "
+            . "Help users navigate HQ, create/update draft content, and adjust design colors. Be concise. "
             . "Never publish content. Never invent HQ URLs — use the map. "
-            . "When the user should open a screen, include navigate actions. "
-            . "When they ask to create a page/post, include create_content with title, type (page|article), body HTML or markdown, optional slug. "
-            . "When they ask to change site colors, include update_design_tokens with colors object (hex values for primary, accent, etc.).\n\n"
+            . "{$paletteHelp} {$contentHelp} "
+            . "When the user should open a screen, include navigate actions.\n\n"
             . HqMap::asPromptBlock(35) . "\n\n"
-            . "Current page: route={$route} area={$area} layer={$layer}\n"
+            . "Current page: route={$route} area={$area} layer={$layer} entityId={$entityId}\n"
             . "Top map matches for this message:\n" . ($matchLines ? implode("\n", $matchLines) : "(none)") . "\n\n"
             . "Respond with ONLY valid JSON (no markdown fences):\n"
             . '{"reply":"string","actions":[ '
             . '{"type":"navigate","label":"Open …","path":"/hq/..."}, '
-            . '{"type":"create_content","label":"Create draft","payload":{"title":"…","type":"page","body":"…","slug":"optional"}}, '
-            . '{"type":"update_design_tokens","label":"Apply colors","payload":{"colors":{"primary":"#2563eb"}}} '
+            . '{"type":"create_content","label":"Create draft","payload":{"title":"…","type":"page","body":"…"}}, '
+            . '{"type":"update_content","label":"Update draft","payload":{"id":' . max($entityId, 0) . ',"mode":"append","body":"…"}}, '
+            . '{"type":"update_design_tokens","label":"Apply colors","payload":{"colors":{"primary":"#2563eb","accent":"#7c3aed"}}} '
             . "]}\n"
-            . "Use 0–4 actions. navigate paths must start with /hq.";
+            . "Use 0–4 actions. navigate paths must start with /hq. Only use palette keys listed above.";
 
         $messages = [['role' => 'system', 'content' => $system]];
         foreach (array_slice($history, -12) as $row) {
@@ -364,14 +389,26 @@ class AiChatService
                         'payload' => $payload,
                     ];
                 }
+            } elseif ($type === 'update_content') {
+                $payload = is_array($a['payload'] ?? null) ? $a['payload'] : [];
+                if ((int) ($payload['id'] ?? 0) > 0 && trim((string) ($payload['body'] ?? '')) !== '') {
+                    $actions[] = [
+                        'type' => 'update_content',
+                        'label' => $label !== '' ? $label : 'Update draft',
+                        'payload' => $payload,
+                    ];
+                }
             } elseif ($type === 'update_design_tokens') {
                 $payload = is_array($a['payload'] ?? null) ? $a['payload'] : [];
-                $actions[] = [
-                    'type' => 'update_design_tokens',
-                    'label' => $label !== '' ? $label : 'Apply colors',
-                    'payload' => $payload,
-                    'confirm' => true,
-                ];
+                $payload = self::normalizePalettePayload($payload);
+                if ($payload !== []) {
+                    $actions[] = [
+                        'type' => 'update_design_tokens',
+                        'label' => $label !== '' ? $label : 'Apply colors',
+                        'payload' => $payload,
+                        'confirm' => true,
+                    ];
+                }
             }
         }
         return ['reply' => $reply, 'actions' => array_slice($actions, 0, 6)];
@@ -468,6 +505,18 @@ class AiChatService
             $key = 'accent';
         } elseif (preg_match('/\bsecondary\b/i', $message)) {
             $key = 'secondary';
+        } elseif (preg_match('/\b(link|links)\b/i', $message)) {
+            $key = 'primary'; // Mova has no separate link token; links use primary
+        } elseif (preg_match('/\b(muted|subtle)\b/i', $message)) {
+            $key = 'muted';
+        } elseif (preg_match('/\b(background|bg)\b/i', $message)) {
+            $key = 'background';
+        } elseif (preg_match('/\b(surface|card)\b/i', $message)) {
+            $key = 'surface';
+        } elseif (preg_match('/\b(text|foreground)\b/i', $message)) {
+            $key = 'text';
+        } elseif (preg_match('/\bborder\b/i', $message)) {
+            $key = 'border';
         }
 
         return [
@@ -476,5 +525,78 @@ class AiChatService
             'payload' => ['colors' => [$key => $hex]],
             'confirm' => true,
         ];
+    }
+
+    private function looksLikeContinueContent(string $message): bool
+    {
+        $m = mb_strtolower($message);
+        return (bool) preg_match('/\b(add|expand|continue|extend|append|improve|rewrite|update|include|advantages|more\s+on|section)\b/i', $m);
+    }
+
+    /** @return array{type:string,label:string,payload:array} */
+    private function buildUpdateContentAction(string $message, int $entityId): array
+    {
+        $body = '<h2>Further points</h2><p>Expanded content generated by Mova AI. Edit as needed.</p>';
+        if (preg_match('/advantage/i', $message) && preg_match('/nigeria|nigerian/i', $message)) {
+            $body = '<h2>Advantages for Nigerian education</h2>'
+                . '<ul>'
+                . '<li><strong>Human capital:</strong> Stronger literacy and skills raise employability and entrepreneurship.</li>'
+                . '<li><strong>National development:</strong> Educated citizens support better governance, health outcomes, and innovation.</li>'
+                . '<li><strong>Equity and mobility:</strong> Access to quality schooling helps reduce poverty across regions.</li>'
+                . '<li><strong>Digital readiness:</strong> STEM and digital skills prepare youth for a modern economy.</li>'
+                . '<li><strong>Social cohesion:</strong> Shared learning experiences can strengthen community and civic trust.</li>'
+                . '</ul>';
+        } elseif (preg_match('/advantage/i', $message)) {
+            $body = '<h2>Key advantages</h2><ul><li>Point one — expand with your research.</li><li>Point two.</li><li>Point three.</li></ul>';
+        }
+
+        return [
+            'type' => 'update_content',
+            'label' => 'Update current draft',
+            'payload' => [
+                'id' => $entityId,
+                'mode' => 'append',
+                'body' => $body,
+            ],
+        ];
+    }
+
+    /**
+     * Map invented keys (e.g. link) onto real Mova Style palette keys.
+     *
+     * @param array<string,mixed> $payload
+     * @return array<string,mixed>
+     */
+    private static function normalizePalettePayload(array $payload): array
+    {
+        $allowed = ['primary', 'secondary', 'accent', 'background', 'surface', 'text', 'muted', 'border'];
+        $aliases = [
+            'link' => 'primary',
+            'links' => 'primary',
+            'brand' => 'primary',
+            'cta' => 'accent',
+            'highlight' => 'accent',
+            'bg' => 'background',
+            'foreground' => 'text',
+            'body' => 'text',
+            'card' => 'surface',
+        ];
+        foreach (['colors', 'colors_dark'] as $bucket) {
+            if (!isset($payload[$bucket]) || !is_array($payload[$bucket])) {
+                continue;
+            }
+            $out = [];
+            foreach ($payload[$bucket] as $k => $v) {
+                $k = strtolower((string) $k);
+                if (isset($aliases[$k])) {
+                    $k = $aliases[$k];
+                }
+                if (in_array($k, $allowed, true)) {
+                    $out[$k] = $v;
+                }
+            }
+            $payload[$bucket] = $out;
+        }
+        return $payload;
     }
 }

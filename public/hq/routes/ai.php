@@ -106,7 +106,7 @@ $router->post('/ai/action', function (Request $req) {
     }
     $type = (string) ($action['type'] ?? '');
     // Safety: create_content is auto-run from chat; allow re-run. Design requires this endpoint.
-    if (!in_array($type, ['create_content', 'update_design_tokens', 'navigate'], true)) {
+    if (!in_array($type, ['create_content', 'update_content', 'update_design_tokens', 'navigate'], true)) {
         return (new Response())->json(['error' => 'Action not allowed'], 400);
     }
     $svc = new AiActionService();
