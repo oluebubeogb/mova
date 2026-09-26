@@ -14,6 +14,15 @@ $mobileIconPresets = $mobileIconPresets ?? [];
     <div class="alert alert-success">Layout saved. Public cache cleared.</div>
 <?php endif; ?>
 
+<?php if (!empty($_GET['reset'])): ?>
+    <div class="alert alert-success">Restored Mova defaults. Public cache cleared.</div>
+<?php endif; ?>
+<form method="post" action="/hq/layout/reset" class="design-reset-form" style="margin:0 0 1rem;" onsubmit="return confirm('Reset layout to Mova defaults? This overwrites your current layout settings.');">
+    <?= Csrf::field() ?>
+    <button type="submit" class="btn btn-secondary" style="font-size:0.85rem;">
+        <i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Reset layout to defaults
+    </button>
+</form>
 <p class="design-intro">Header, navigation, containers, and mobile menu.</p>
 
 <form method="post" action="/hq/layout" class="design-form">

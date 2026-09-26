@@ -20,11 +20,11 @@
     </div>
     <div class="form-row" style="display:flex;gap:1rem;flex-wrap:wrap;">
       <div class="form-group">
-        <label>Button primary (blank = site palette)</label>
+        <label>Override primary (blank = full site palette / theme)</label>
         <input type="text" name="primary" class="input" placeholder="<?= htmlspecialchars($palette['primary'] ?? '#2563eb') ?>" value="<?= htmlspecialchars($cfg['primary'] ?? '') ?>">
       </div>
       <div class="form-group">
-        <label>Accent</label>
+        <label>Override accent (blank = site accent)</label>
         <input type="text" name="accent" class="input" placeholder="<?= htmlspecialchars($palette['accent'] ?? '#7c3aed') ?>" value="<?= htmlspecialchars($cfg['accent'] ?? '') ?>">
       </div>
     </div>
