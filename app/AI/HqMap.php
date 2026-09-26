@@ -174,6 +174,14 @@ class HqMap
                 'description' => 'Install and manage plugins',
             ],
             [
+                'id' => 'site_ai',
+                'label' => 'Site AI Engine',
+                'path' => '/hq/site-ai',
+                'workspace' => 'extend',
+                'keywords' => ['site ai', 'frontend ai', 'visitor assistant', 'knowledge bank', 'chatbot', 'public ai', 'widget'],
+                'description' => 'Public site assistant, knowledge bank, and visitor chat widget',
+            ],
+            [
                 'id' => 'integrations',
                 'label' => 'Integrations',
                 'path' => '/hq/integrations',

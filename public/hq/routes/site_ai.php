@@ -40,13 +40,21 @@ $router->post('/site-ai', function (Request $req) {
     }
     $action = (string) $req->post('action', 'save');
     if ($action === 'save') {
+        $enabled = $req->post('enabled') === '1';
         \MovaSiteAi\SiteAiService::saveConfig([
-            'enabled' => $req->post('enabled') === '1',
+            'enabled' => $enabled,
             'name' => trim((string) $req->post('name', 'Site Assistant')),
             'welcome' => trim((string) $req->post('welcome', '')),
             'primary' => trim((string) $req->post('primary', '')),
             'accent' => trim((string) $req->post('accent', '')),
         ]);
+        // Ensure plugin is active so the public widget hook boots
+        if ($enabled && class_exists(\Mova\Plugin\PluginManager::class)) {
+            (new \Mova\Plugin\PluginManager())->activate('mova-site-ai');
+        }
+        if (class_exists(\Mova\Cache\PageCache::class)) {
+            \Mova\Cache\PageCache::flush();
+        }
     } elseif ($action === 'add_text') {
         $title = trim((string) $req->post('source_title', 'Note'));
         $text = trim((string) $req->post('source_text', ''));

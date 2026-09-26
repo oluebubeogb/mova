@@ -325,6 +325,45 @@ if ($cacheable && $response->getStatus() >= 200 && $response->getStatus() < 400)
 $response->send();
 
 // --- Theme helper ---
+
+/**
+ * Inject public Site AI widget when enabled (works even if plugin hook missed).
+ */
+function mova_inject_site_ai_widget(string $html): string
+{
+    $svc = dirname(__DIR__) . '/mova-plugins/mova-site-ai/src/SiteAiService.php';
+    $kb = dirname(__DIR__) . '/mova-plugins/mova-site-ai/src/KnowledgeBank.php';
+    if (!is_file($svc) || !is_file($kb)) {
+        return $html;
+    }
+    require_once $kb;
+    require_once $svc;
+    try {
+        $cfg = \MovaSiteAi\SiteAiService::config();
+    } catch (\Throwable $e) {
+        return $html;
+    }
+    if (empty($cfg['enabled'])) {
+        return $html;
+    }
+    if (str_contains($html, 'mova-site-ai-root')) {
+        return $html;
+    }
+    $name = htmlspecialchars((string) ($cfg['name'] ?? 'Assistant'), ENT_QUOTES, 'UTF-8');
+    $primary = htmlspecialchars((string) ($cfg['primary'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $accent = htmlspecialchars((string) ($cfg['accent'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $snippet = '<link rel="stylesheet" href="/mova-plugins/mova-site-ai/assets/css/widget.css?v=2">'
+        . '<div id="mova-site-ai-root" data-name="' . $name . '"'
+        . ($primary !== '' ? ' data-primary="' . $primary . '"' : '')
+        . ($accent !== '' ? ' data-accent="' . $accent . '"' : '')
+        . ' data-api="/api/site-ai/chat"></div>'
+        . '<script src="/mova-plugins/mova-site-ai/assets/js/widget.js?v=2" defer></script>';
+    if (stripos($html, '</body>') !== false) {
+        return preg_replace('/<\/body>/i', $snippet . '</body>', $html, 1) ?? ($html . $snippet);
+    }
+    return $html . $snippet;
+}
+
 function renderTheme(string $view, array $data = [], int $status = 200): Response
 {
     $mgr = new \Mova\Theme\ThemeManager();
@@ -345,6 +384,7 @@ function renderTheme(string $view, array $data = [], int $status = 200): Respons
     ob_start();
     include $themePath . '/layout.php';
     $html = ob_get_clean();
+    $html = mova_inject_site_ai_widget($html);
 
     return (new Response())->status($status)->body($html);
 }

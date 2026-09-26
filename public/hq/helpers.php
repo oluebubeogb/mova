@@ -210,8 +210,8 @@ HTML;
 <?php endif; ?>
 
     <script src="/assets/js/theme.js" defer></script>
-    <script src="/assets/js/hq-search-index.js?v=20260923gallery"></script>
-    <script src="/assets/js/hq-nav.js?v=20260923gallery" defer></script>
+    <script src="/assets/js/hq-search-index.js?v=20260926siteai"></script>
+    <script src="/assets/js/hq-nav.js?v=20260926siteai" defer></script>
     <script src="/assets/js/hq-layers.js" defer></script>
     <?php if ($isAuth): ?>
     <script>

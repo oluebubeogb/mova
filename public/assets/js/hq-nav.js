@@ -173,6 +173,7 @@
             sectionName: 'Extend',
             items: [
                 { label: 'Plugins',      href: '/hq/plugins' },
+                { label: 'Site AI',      href: '/hq/site-ai' },
                 { label: 'Integrations', href: '/hq/integrations' },
                 { label: 'API keys',     href: '/hq/api-keys' },
                 { label: 'Webhooks',     href: '/hq/webhooks' }
@@ -182,6 +183,7 @@
             sectionName: 'Extend',
             items: [
                 { label: 'Plugins',      href: '/hq/plugins' },
+                { label: 'Site AI',      href: '/hq/site-ai' },
                 { label: 'Installed',    href: '/hq/plugins' },
                 { label: 'Add new',      href: '/hq/plugins/#', primary: true }
             ]
@@ -275,6 +277,7 @@
 
         // Extend
         if (path.startsWith('/hq/integrations')) return { key: 'integrations', params };
+        if (path.startsWith('/hq/site-ai')) return { key: 'plugins', params };
         if (path.startsWith('/hq/plugins')) return { key: 'plugins', params };
         if (path.startsWith('/hq/api-keys') || path.startsWith('/hq/webhooks')) return { key: 'extend', params };
 
@@ -504,6 +507,7 @@
         { title: 'Export variables', href: '/hq/variables/export', keywords: 'export variables copy download', group: 'Design' },
         { title: 'Extend',           href: '/hq/extend',          keywords: 'extend', group: 'Extend' },
         { title: 'Plugins',          href: '/hq/plugins',         keywords: 'plugins modules', group: 'Extend' },
+        { title: 'Site AI Engine',   href: '/hq/site-ai',         keywords: 'site ai assistant chatbot knowledge bank widget frontend', group: 'Extend' },
         { title: 'Integrations',     href: '/hq/integrations',    keywords: 'integrations', group: 'Extend' },
         { title: 'API keys',         href: '/hq/api-keys',             keywords: 'api keys', group: 'Extend' },
         { title: 'Webhooks',         href: '/hq/webhooks',        keywords: 'webhooks', group: 'Extend' },

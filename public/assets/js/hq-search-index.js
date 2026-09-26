@@ -50,6 +50,7 @@ window.MOVA_HQ_SEARCH_INDEX = [
   { title: 'Security', href: '/hq/security', group: 'Operations', keywords: 'security 2fa login audit', body: 'Security center and account protection.' },
   { title: 'Backups', href: '/hq/backups', group: 'Operations', keywords: 'backups export restore', body: 'Create and download site backups.' },
   { title: 'Updates', href: '/hq/updates', group: 'Operations', keywords: 'updates version release', body: 'Mova updates and release information.' },
+  { title: 'Site AI Engine', href: '/hq/site-ai', group: 'Extend', keywords: 'site ai assistant chatbot knowledge bank widget frontend public ai engine', body: 'Public-facing site AI assistant with knowledge bank. Enable widget for visitors.' },
   { title: 'Settings', href: '/hq/settings', group: 'Settings', keywords: 'settings site configuration', body: 'Site settings and configuration.' },
   { title: 'Sites', href: '/hq/sites', group: 'Settings', keywords: 'sites multisite domains', body: 'Multi-site management when enabled.' }
 ];
