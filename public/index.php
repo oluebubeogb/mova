@@ -352,12 +352,27 @@ function mova_inject_site_ai_widget(string $html): string
     $name = htmlspecialchars((string) ($cfg['name'] ?? 'Assistant'), ENT_QUOTES, 'UTF-8');
     $primary = htmlspecialchars((string) ($cfg['primary'] ?? ''), ENT_QUOTES, 'UTF-8');
     $accent = htmlspecialchars((string) ($cfg['accent'] ?? ''), ENT_QUOTES, 'UTF-8');
-    $snippet = '<link rel="stylesheet" href="/assets/site-ai/widget.css?v=5">'
+    $cssFile = (isset($_SERVER['DOCUMENT_ROOT']) ? rtrim((string) $_SERVER['DOCUMENT_ROOT'], '/') : '') . '/assets/site-ai/widget.css';
+    $jsFile = (isset($_SERVER['DOCUMENT_ROOT']) ? rtrim((string) $_SERVER['DOCUMENT_ROOT'], '/') : '') . '/assets/site-ai/widget.js';
+    $cssVer = is_file($cssFile) ? (string) filemtime($cssFile) : (string) time();
+    $jsVer = is_file($jsFile) ? (string) filemtime($jsFile) : (string) time();
+    // Fallback when DOCUMENT_ROOT is not public/
+    if ($cssVer === (string) time()) {
+        $alt = dirname(__DIR__) . '/public/assets/site-ai/widget.css';
+        if (is_file($alt)) {
+            $cssVer = (string) filemtime($alt);
+        }
+        $altJs = dirname(__DIR__) . '/public/assets/site-ai/widget.js';
+        if (is_file($altJs)) {
+            $jsVer = (string) filemtime($altJs);
+        }
+    }
+    $snippet = '<link rel="stylesheet" href="/assets/site-ai/widget.css?v=' . $cssVer . '">'
         . '<div id="mova-site-ai-root" data-name="' . $name . '"'
         . ($primary !== '' ? ' data-primary="' . $primary . '"' : '')
         . ($accent !== '' ? ' data-accent="' . $accent . '"' : '')
         . ' data-api="/api/site-ai/chat"></div>'
-        . '<script src="/assets/site-ai/widget.js?v=5" defer></script>';
+        . '<script src="/assets/site-ai/widget.js?v=' . $jsVer . '" defer></script>';
     if (stripos($html, '</body>') !== false) {
         return preg_replace('/<\/body>/i', $snippet . '</body>', $html, 1) ?? ($html . $snippet);
     }
