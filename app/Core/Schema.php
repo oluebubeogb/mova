@@ -727,6 +727,7 @@ class Schema
         self::migratePhase7($db);
         self::migratePhase8($db);
         self::migratePhase9($db);
+        self::migratePhase10($db);
     }
 
     /**
@@ -870,6 +871,34 @@ class Schema
             $db->exec("CREATE INDEX IF NOT EXISTS idx_media_gallery_exclude ON media(exclude_from_gallery)");
         } catch (\Throwable $e) {
         }
+    }
+
+    /** Mova AI HQ chat sessions (Phases 1–3) */
+    private static function migratePhase10(\PDO $db): void
+    {
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS ai_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                title TEXT NOT NULL DEFAULT 'New chat',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        ");
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS ai_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id INTEGER NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                meta TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (session_id) REFERENCES ai_sessions(id) ON DELETE CASCADE
+            )
+        ");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_ai_sessions_user ON ai_sessions(user_id, updated_at)");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_ai_messages_session ON ai_messages(session_id, id)");
     }
 
     public static function isInstalled(): bool

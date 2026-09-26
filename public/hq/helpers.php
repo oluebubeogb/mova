@@ -111,6 +111,10 @@ HTML;
     <link rel="stylesheet" href="/assets/css/hq.css?v=20260922fullwidth2">
     <link rel="stylesheet" href="/assets/css/hq-vnext.css?v=20260922fullwidth2">
     <link rel="stylesheet" href="/assets/css/hq-landings.css?v=20260922fullwidth2">
+    <?php if ($isAuth): ?>
+    <meta name="csrf-token" content="<?= htmlspecialchars(\Mova\Security\Csrf::token()) ?>">
+    <link rel="stylesheet" href="/assets/css/mova-ai-panel.css?v=20260926ai1">
+    <?php endif; ?>
 </head>
 <body class="hq hq-vnext <?= $isAuth ? 'hq-authenticated' : 'hq-guest' ?>" data-workspace="<?= htmlspecialchars($workspace) ?>">
 
@@ -134,6 +138,9 @@ HTML;
         </div>
 
         <div class="hq-line1-right">
+            <button type="button" class="hq-icon-btn" id="mova-ai-header-btn" title="Mova AI (Ctrl+J)" aria-label="Open Mova AI">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+            </button>
             <a href="/" target="_blank" class="hq-icon-btn hq-desktop-only" title="View site" aria-label="View site">
                 <i class="fa-solid fa-arrow-up-right-from-square"></i>
             </a>
@@ -166,6 +173,36 @@ HTML;
         <?= $content ?>
     </main>
 
+    <!-- Mova AI panel (global) -->
+    <button type="button" class="mova-ai-fab" id="mova-ai-fab" title="Mova AI (Ctrl+J)" aria-label="Open Mova AI">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+    </button>
+    <aside class="mova-ai-panel" id="mova-ai-panel" aria-label="Mova AI">
+        <div class="mova-ai-panel-header">
+            <h2>Mova AI <span class="mova-ai-badge">HQ</span></h2>
+            <button type="button" class="mova-ai-icon-btn" id="mova-ai-sessions-toggle" title="Sessions" aria-label="Sessions">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+            </button>
+            <button type="button" class="mova-ai-icon-btn" id="mova-ai-new" title="New chat" aria-label="New chat">
+                <i class="fa-solid fa-plus"></i>
+            </button>
+            <button type="button" class="mova-ai-icon-btn" id="mova-ai-close" title="Close" aria-label="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="mova-ai-sessions" id="mova-ai-sessions" hidden>
+            <div id="mova-ai-sessions-list"></div>
+        </div>
+        <div class="mova-ai-messages" id="mova-ai-messages"></div>
+        <div class="mova-ai-composer">
+            <textarea id="mova-ai-input" rows="2" placeholder="Ask Mova AI… e.g. Where is the site icon?"></textarea>
+            <div class="mova-ai-composer-row">
+                <span class="hint">Ctrl+J · Enter to send</span>
+                <button type="button" class="mova-ai-send" id="mova-ai-send">Send</button>
+            </div>
+        </div>
+    </aside>
+
 <?php else: ?>
     <div class="hq-auth-wrap">
         <?= $content ?>
@@ -176,6 +213,24 @@ HTML;
     <script src="/assets/js/hq-search-index.js?v=20260923gallery"></script>
     <script src="/assets/js/hq-nav.js?v=20260923gallery" defer></script>
     <script src="/assets/js/hq-layers.js" defer></script>
+    <?php if ($isAuth): ?>
+    <script src="/assets/js/mova-ai-panel.js?v=20260926ai1" defer></script>
+    <script>
+    (function () {
+      var btn = document.getElementById('mova-ai-header-btn');
+      if (btn) {
+        btn.addEventListener('click', function () {
+          var fab = document.getElementById('mova-ai-fab');
+          if (fab) fab.click();
+          else {
+            var panel = document.getElementById('mova-ai-panel');
+            if (panel) panel.classList.add('is-open');
+          }
+        });
+      }
+    })();
+    </script>
+    <?php endif; ?>
 </body>
 </html>
     <?php

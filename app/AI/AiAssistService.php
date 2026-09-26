@@ -63,33 +63,22 @@ class AiAssistService
         ];
     }
 
-    private function callProvider(string $action, string $title, string $body, string $excerpt): string
+    /**
+     * Low-level OpenAI-compatible chat (used by HQ panel sessions).
+     *
+     * @param list<array{role:string,content:string}> $messages
+     */
+    public function chatRaw(array $messages, int $maxTokens = 800): string
     {
         $endpoint = rtrim($this->setting('ai_api_url', self::DEFAULT_API_URL), '/') . '/chat/completions';
         $model = $this->setting('ai_model', self::DEFAULT_MODEL) ?: self::DEFAULT_MODEL;
         $key = $this->setting('ai_api_key', self::DEFAULT_API_KEY);
 
-        $prompts = [
-            'outline' => "Create a clear content outline (markdown bullet headings) for an article titled \"{$title}\". Body context:\n" . mb_substr($body, 0, 3000),
-            'title' => "Suggest 5 improved SEO-friendly titles (one per line) for content currently titled \"{$title}\". Context:\n" . mb_substr($body, 0, 2000),
-            'excerpt' => "Write a compelling 1–2 sentence excerpt (max 160 chars preference) for \"{$title}\".\n" . mb_substr($body, 0, 2500),
-            'meta' => "Write an SEO meta description (150–160 characters) for \"{$title}\".\n" . mb_substr($body, 0, 2500),
-            'keywords' => "Suggest 8 relevant keywords/phrases (comma-separated) for \"{$title}\".\n" . mb_substr($body, 0, 2000),
-            'faq' => "Generate 4 FAQ items (Q: / A:) based on \"{$title}\" and this content:\n" . mb_substr($body, 0, 3000),
-            'summarize' => "Summarize this content in 3 short bullets:\nTitle: {$title}\n" . mb_substr($body, 0, 4000),
-            'improve' => "Suggest concrete improvements for clarity, structure, and SEO (bullet list) for \"{$title}\":\n" . mb_substr($body, 0, 3500),
-        ];
-
-        $userPrompt = $prompts[$action] ?? $prompts['summarize'];
-
         $payload = json_encode([
             'model' => $model,
-            'messages' => [
-                ['role' => 'system', 'content' => 'You are Mova AI, the built-in editorial assistant for Mova CMS. Be concise, practical, and SEO-aware. Never invent publishing actions or claim to have published content.'],
-                ['role' => 'user', 'content' => $userPrompt],
-            ],
-            'temperature' => 0.6,
-            'max_tokens' => 800,
+            'messages' => $messages,
+            'temperature' => 0.5,
+            'max_tokens' => $maxTokens,
         ]);
 
         $ctx = stream_context_create([
@@ -100,7 +89,7 @@ class AiAssistService
                     'Authorization: Bearer ' . $key,
                 ]),
                 'content' => $payload,
-                'timeout' => 60,
+                'timeout' => 90,
                 'ignore_errors' => true,
             ],
             'ssl' => [
@@ -119,6 +108,27 @@ class AiAssistService
             throw new \RuntimeException($data['error']['message'] ?? 'Invalid AI response');
         }
         return trim($text);
+    }
+
+    private function callProvider(string $action, string $title, string $body, string $excerpt): string
+    {
+        $prompts = [
+            'outline' => "Create a clear content outline (markdown bullet headings) for an article titled \"{$title}\". Body context:\n" . mb_substr($body, 0, 3000),
+            'title' => "Suggest 5 improved SEO-friendly titles (one per line) for content currently titled \"{$title}\". Context:\n" . mb_substr($body, 0, 2000),
+            'excerpt' => "Write a compelling 1–2 sentence excerpt (max 160 chars preference) for \"{$title}\".\n" . mb_substr($body, 0, 2500),
+            'meta' => "Write an SEO meta description (150–160 characters) for \"{$title}\".\n" . mb_substr($body, 0, 2500),
+            'keywords' => "Suggest 8 relevant keywords/phrases (comma-separated) for \"{$title}\".\n" . mb_substr($body, 0, 2000),
+            'faq' => "Generate 4 FAQ items (Q: / A:) based on \"{$title}\" and this content:\n" . mb_substr($body, 0, 3000),
+            'summarize' => "Summarize this content in 3 short bullets:\nTitle: {$title}\n" . mb_substr($body, 0, 4000),
+            'improve' => "Suggest concrete improvements for clarity, structure, and SEO (bullet list) for \"{$title}\":\n" . mb_substr($body, 0, 3500),
+        ];
+
+        $userPrompt = $prompts[$action] ?? $prompts['summarize'];
+
+        return $this->chatRaw([
+            ['role' => 'system', 'content' => 'You are Mova AI, the built-in editorial assistant for Mova CMS. Be concise, practical, and SEO-aware. Never invent publishing actions or claim to have published content.'],
+            ['role' => 'user', 'content' => $userPrompt],
+        ], 800);
     }
 
     private function heuristic(string $action, string $title, string $body, string $excerpt): string
