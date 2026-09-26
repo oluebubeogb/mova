@@ -292,6 +292,25 @@ $router->get('/{parent}/{child}', function (Request $req, array $params) use ($c
     ]);
 });
 
+// Mova Site AI public API (plugin)
+if (is_file(dirname(__DIR__) . '/mova-plugins/mova-site-ai/src/SiteAiService.php')) {
+    require_once dirname(__DIR__) . '/mova-plugins/mova-site-ai/src/KnowledgeBank.php';
+    require_once dirname(__DIR__) . '/mova-plugins/mova-site-ai/src/SiteAiService.php';
+    $router->post('/api/site-ai/chat', function (Request $req) {
+        $msg = trim((string) ($req->post('message') ?? ''));
+        $page = (string) ($req->post('page') ?? '/');
+        if ($msg === '') {
+            return (new Response())->json(['error' => 'Empty message'], 400);
+        }
+        $cfg = \MovaSiteAi\SiteAiService::config();
+        if (empty($cfg['enabled'])) {
+            return (new Response())->json(['error' => 'Site AI disabled'], 403);
+        }
+        $result = \MovaSiteAi\SiteAiService::chat($msg, $page);
+        return (new Response())->json(['ok' => true] + $result);
+    });
+}
+
 $response = $router->dispatch($request);
 
 // Cache successful HTML page responses

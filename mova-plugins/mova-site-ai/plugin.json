@@ -1,0 +1,5 @@
+{
+  "name": "Mova Site AI",
+  "version": "1.0.0",
+  "description": "Public-facing site assistant with knowledge bank. Independent of HQ. Palette-aware widget, custom AI name, indexed sources (text, files, URLs)."
+}

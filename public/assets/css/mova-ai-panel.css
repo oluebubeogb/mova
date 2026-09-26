@@ -309,3 +309,77 @@ body.mova-ai-open {
 }
 .mova-ai-msg .mova-ai-actions button.mova-ai-apply:hover { background: #6d28d9; }
 .mova-ai-msg .mova-ai-actions button.mova-ai-apply:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.mova-ai-session-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--hq-border, #f3f4f6);
+}
+.mova-ai-session-row .mova-ai-session-item {
+  flex: 1;
+  border-bottom: none;
+}
+.mova-ai-session-del {
+  border: none;
+  background: transparent;
+  color: var(--hq-muted, #6b7280);
+  padding: 0 0.75rem;
+  cursor: pointer;
+}
+.mova-ai-session-del:hover { color: #dc2626; }
+.mova-ai-sessions-empty {
+  padding: 1rem;
+  font-size: 0.85rem;
+  color: var(--hq-muted, #6b7280);
+  text-align: center;
+}
+.mova-ai-greet {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--hq-text, #111827);
+  margin: 0 0 0.5rem;
+}
+.mova-ai-greet-sub {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--hq-muted, #6b7280);
+}
+.mova-ai-msg-tools {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 0.45rem;
+}
+.mova-ai-tool {
+  border: none;
+  background: transparent;
+  color: var(--hq-muted, #6b7280);
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+}
+.mova-ai-tool:hover,
+.mova-ai-tool.is-active {
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+}
+.mova-ai-code {
+  margin: 0.5rem 0 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 0.75rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.mova-ai-sessions {
+  flex: 1;
+  max-height: none;
+  overflow-y: auto;
+}

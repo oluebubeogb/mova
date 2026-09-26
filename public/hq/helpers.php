@@ -113,7 +113,7 @@ HTML;
     <link rel="stylesheet" href="/assets/css/hq-landings.css?v=20260922fullwidth2">
     <?php if ($isAuth): ?>
     <meta name="csrf-token" content="<?= htmlspecialchars(\Mova\Security\Csrf::token()) ?>">
-    <link rel="stylesheet" href="/assets/css/mova-ai-panel.css?v=20260926ai3">
+    <link rel="stylesheet" href="/assets/css/mova-ai-panel.css?v=20260926ai4">
     <?php endif; ?>
 </head>
 <body class="hq hq-vnext <?= $isAuth ? 'hq-authenticated' : 'hq-guest' ?>" data-workspace="<?= htmlspecialchars($workspace) ?>">
@@ -219,13 +219,14 @@ HTML;
       route: <?= json_encode(($_SERVER['REQUEST_URI'] ?? '/hq')) ?>,
       area: <?= json_encode($workspace) ?>,
       layer: <?= json_encode($_GET['layer'] ?? '') ?>,
+      userName: <?= json_encode($user['name'] ?? '') ?>,
       entityId: (function () {
         var m = (<?= json_encode(($_SERVER['REQUEST_URI'] ?? '')) ?> || '').match(/\/hq\/content\/edit\/(\d+)/);
         return m ? parseInt(m[1], 10) : null;
       })()
     };
     </script>
-    <script src="/assets/js/mova-ai-panel.js?v=20260926ai3" defer></script>
+    <script src="/assets/js/mova-ai-panel.js?v=20260926ai4" defer></script>
     <script>
     (function () {
       var btn = document.getElementById('mova-ai-header-btn');

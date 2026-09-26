@@ -35,6 +35,17 @@ class AiChatService
         );
     }
 
+    public function deleteSession(int $sessionId, int $userId): bool
+    {
+        $session = $this->getSession($sessionId, $userId);
+        if (!$session) {
+            return false;
+        }
+        Database::query("DELETE FROM ai_messages WHERE session_id = :s", ['s' => $sessionId]);
+        Database::query("DELETE FROM ai_sessions WHERE id = :id AND user_id = :u", ['id' => $sessionId, 'u' => $userId]);
+        return true;
+    }
+
     public function createSession(int $userId, string $title = 'New chat'): array
     {
         $now = date('c');
@@ -287,18 +298,26 @@ class AiChatService
         }
 
         try {
-            $raw = $this->assist->chatRaw($messages, 600);
+            $raw = $this->assist->chatRaw($messages, 2400);
             $parsed = $this->parseJsonReply($raw);
             if ($parsed !== null) {
                 return [
-                    'reply' => $parsed['reply'],
+                    'reply' => self::stripLeakedJson($parsed['reply']),
                     'actions' => $parsed['actions'],
                     'provider' => $this->assist->providerLabel(),
                 ];
             }
-            // Model returned prose — wrap it
+            // Model returned prose or raw JSON — never show JSON blob to user
+            $maybe = $this->parseJsonReply($raw);
+            if ($maybe !== null) {
+                return [
+                    'reply' => self::stripLeakedJson($maybe['reply'] !== '' ? $maybe['reply'] : 'Done.'),
+                    'actions' => $maybe['actions'] ?: $this->actionsFromMatches($mapMatches),
+                    'provider' => $this->assist->providerLabel(),
+                ];
+            }
             return [
-                'reply' => trim($raw),
+                'reply' => self::stripLeakedJson(trim($raw)),
                 'actions' => $this->actionsFromMatches($mapMatches),
                 'provider' => $this->assist->providerLabel(),
             ];
@@ -598,5 +617,35 @@ class AiChatService
             $payload[$bucket] = $out;
         }
         return $payload;
+    }
+
+    /** Never show model JSON envelopes in the chat UI */
+    private static function stripLeakedJson(string $text): string
+    {
+        $text = trim($text);
+        if ($text === '') {
+            return $text;
+        }
+        // Whole payload is JSON
+        if (str_starts_with($text, '{') && str_contains($text, '"reply"')) {
+            $data = json_decode($text, true);
+            if (is_array($data) && isset($data['reply'])) {
+                return trim((string) $data['reply']);
+            }
+        }
+        // Trailing / embedded JSON object
+        if (preg_match('/^(.*?)\s*\{\s*"reply"\s*:/s', $text, $m)) {
+            $before = trim($m[1]);
+            if ($before !== '') {
+                return $before;
+            }
+            $data = json_decode(substr($text, strpos($text, '{')), true);
+            if (is_array($data) && isset($data['reply'])) {
+                return trim((string) $data['reply']);
+            }
+        }
+        // Fence
+        $text = preg_replace('/```json\s*[\s\S]*?```/i', '', $text) ?? $text;
+        return trim($text);
     }
 }

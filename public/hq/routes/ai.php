@@ -37,6 +37,19 @@ $router->post('/ai/sessions', function (Request $req) {
     return (new Response())->json(['ok' => true, 'session' => $session]);
 });
 
+
+$router->post('/ai/sessions/{id}/delete', function (Request $req, array $params = []) {
+    requireAuth();
+    if (!Csrf::validate()) {
+        return (new Response())->json(['error' => 'CSRF'], 403);
+    }
+    $uid = (int) Auth::id();
+    $id = (int) ($params['id'] ?? 0);
+    $svc = new AiChatService();
+    $ok = $svc->deleteSession($id, $uid);
+    return (new Response())->json(['ok' => $ok]);
+});
+
 $router->get('/ai/sessions/{id}', function (Request $req, array $params = []) {
     requireAuth();
     $uid = (int) Auth::id();
