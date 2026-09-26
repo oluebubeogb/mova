@@ -1,6 +1,6 @@
 <?php
 /**
- * Mova AI — HQ chat sessions, memory, and structured navigate actions (Phases 1–3).
+ * Mova AI — HQ chat sessions, memory, navigate + write actions (Phases 1–5).
  */
 
 namespace Mova\AI;
@@ -113,20 +113,72 @@ class AiChatService
         $actions = $llm['actions'] ?? [];
         $provider = $llm['provider'] ?? 'heuristic';
 
+        // Heuristic: create content intent when LLM missed it
+        if (!$this->hasActionType($actions, 'create_content') && $this->looksLikeCreateContent($message)) {
+            $actions[] = $this->buildCreateContentAction($message);
+        }
+
+        // Heuristic: color change intent
+        if (!$this->hasActionType($actions, 'update_design_tokens') && $this->looksLikeColorChange($message)) {
+            $colorAction = $this->buildColorActionFromMessage($message);
+            if ($colorAction !== null) {
+                $actions[] = $colorAction;
+            }
+        }
+
+        // Auto-run create_content (always draft) so the user gets a real link
+        $executor = new AiActionService();
+        $finalActions = [];
+        foreach ($actions as $action) {
+            $type = (string) ($action['type'] ?? '');
+            if ($type === 'create_content') {
+                $exec = $executor->execute($action, $userId);
+                if (!empty($exec['ok']) && !empty($exec['result']['path'])) {
+                    $path = (string) $exec['result']['path'];
+                    $title = (string) ($exec['result']['title'] ?? 'Draft');
+                    $finalActions[] = [
+                        'type' => 'navigate',
+                        'label' => 'Open draft: ' . $title,
+                        'path' => $path,
+                    ];
+                    if ($reply === '' || str_contains(mb_strtolower($reply), 'create')) {
+                        $reply = ($reply !== '' ? $reply . "\n\n" : '')
+                            . "Created a **draft** «{$title}». Open it to review — nothing was published.";
+                    } else {
+                        $reply .= "\n\nCreated draft «{$title}» (not published).";
+                    }
+                } else {
+                    $finalActions[] = $action;
+                    if (empty($exec['ok'])) {
+                        $reply .= "\n\nCould not create content: " . ($exec['error'] ?? 'unknown error');
+                    }
+                }
+                continue;
+            }
+            if ($type === 'update_design_tokens') {
+                // Require explicit Apply in the UI
+                $action['confirm'] = true;
+                $action['label'] = $action['label'] ?? 'Apply color changes';
+                $finalActions[] = $action;
+                continue;
+            }
+            $finalActions[] = $action;
+        }
+        $actions = $finalActions;
+
         // Merge local navigate suggestions if model returned none
         if ($actions === [] && $localActions !== []) {
             $actions = array_slice($localActions, 0, 3);
             if ($reply === '') {
-                $labels = array_map(static fn($a) => $a['label'], $actions);
                 $reply = 'Here are the best matching HQ screens:';
             }
         }
 
         if ($reply === '' && $actions !== []) {
-            $reply = 'I found these places in HQ:';
+            $reply = 'Here’s what I can do:';
         }
         if ($reply === '') {
-            $reply = 'I can help you navigate HQ, edit content, and adjust design. Try: “Where is the site icon?” or “Open design colors.”';
+            $reply = 'I can navigate HQ, create draft pages, and suggest design colors. Try: “Create an About Us page” or “Set primary color to #0ea5e9”.';
         }
 
         $meta = json_encode(['actions' => $actions, 'provider' => $provider], JSON_UNESCAPED_UNICODE);
@@ -179,15 +231,21 @@ class AiChatService
         }
 
         $system = "You are Mova AI, the assistant inside Mova CMS HQ. "
-            . "Help users navigate HQ and understand settings. Be concise. "
-            . "Never claim you published content. Never invent HQ URLs — use the map. "
-            . "When the user should open a screen, include navigate actions.\n\n"
+            . "Help users navigate HQ, create draft content, and adjust design colors. Be concise. "
+            . "Never publish content. Never invent HQ URLs — use the map. "
+            . "When the user should open a screen, include navigate actions. "
+            . "When they ask to create a page/post, include create_content with title, type (page|article), body HTML or markdown, optional slug. "
+            . "When they ask to change site colors, include update_design_tokens with colors object (hex values for primary, accent, etc.).\n\n"
             . HqMap::asPromptBlock(35) . "\n\n"
             . "Current page: route={$route} area={$area} layer={$layer}\n"
             . "Top map matches for this message:\n" . ($matchLines ? implode("\n", $matchLines) : "(none)") . "\n\n"
-            . "Respond with ONLY valid JSON (no markdown):\n"
-            . '{"reply":"string","actions":[{"type":"navigate","label":"Open …","path":"/hq/..."}]}\n'
-            . "Use 0–3 navigate actions. path must start with /hq.";
+            . "Respond with ONLY valid JSON (no markdown fences):\n"
+            . '{"reply":"string","actions":[ '
+            . '{"type":"navigate","label":"Open …","path":"/hq/..."}, '
+            . '{"type":"create_content","label":"Create draft","payload":{"title":"…","type":"page","body":"…","slug":"optional"}}, '
+            . '{"type":"update_design_tokens","label":"Apply colors","payload":{"colors":{"primary":"#2563eb"}}} '
+            . "]}\n"
+            . "Use 0–4 actions. navigate paths must start with /hq.";
 
         $messages = [['role' => 'system', 'content' => $system]];
         foreach (array_slice($history, -12) as $row) {
@@ -287,16 +345,136 @@ class AiChatService
                 continue;
             }
             $type = (string) ($a['type'] ?? '');
-            $path = (string) ($a['path'] ?? '');
-            $label = (string) ($a['label'] ?? 'Open');
-            if ($type === 'navigate' && str_starts_with($path, '/hq')) {
+            $label = (string) ($a['label'] ?? '');
+            if ($type === 'navigate') {
+                $path = (string) ($a['path'] ?? '');
+                if (str_starts_with($path, '/hq')) {
+                    $actions[] = [
+                        'type' => 'navigate',
+                        'label' => $label !== '' ? $label : 'Open',
+                        'path' => $path,
+                    ];
+                }
+            } elseif ($type === 'create_content') {
+                $payload = is_array($a['payload'] ?? null) ? $a['payload'] : [];
+                if (trim((string) ($payload['title'] ?? '')) !== '') {
+                    $actions[] = [
+                        'type' => 'create_content',
+                        'label' => $label !== '' ? $label : 'Create draft',
+                        'payload' => $payload,
+                    ];
+                }
+            } elseif ($type === 'update_design_tokens') {
+                $payload = is_array($a['payload'] ?? null) ? $a['payload'] : [];
                 $actions[] = [
-                    'type' => 'navigate',
-                    'label' => $label !== '' ? $label : 'Open',
-                    'path' => $path,
+                    'type' => 'update_design_tokens',
+                    'label' => $label !== '' ? $label : 'Apply colors',
+                    'payload' => $payload,
+                    'confirm' => true,
                 ];
             }
         }
-        return ['reply' => $reply, 'actions' => array_slice($actions, 0, 5)];
+        return ['reply' => $reply, 'actions' => array_slice($actions, 0, 6)];
+    }
+
+    /** @param list<array<string,mixed>> $actions */
+    private function hasActionType(array $actions, string $type): bool
+    {
+        foreach ($actions as $a) {
+            if (($a['type'] ?? '') === $type) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private function looksLikeCreateContent(string $message): bool
+    {
+        $m = mb_strtolower($message);
+        return (bool) preg_match('/\b(create|new|write|draft)\b.*\b(page|post|article|about\s*us|content)\b/i', $m)
+            || (bool) preg_match('/\babout\s*us\b/i', $m) && preg_match('/\b(create|new|write|make)\b/i', $m);
+    }
+
+    /** @return array{type:string,label:string,payload:array} */
+    private function buildCreateContentAction(string $message): array
+    {
+        $title = 'About Us';
+        if (preg_match('/about\s*us/i', $message)) {
+            $title = 'About Us';
+        } elseif (preg_match('/(?:create|new|write|draft)\s+(?:a\s+|an\s+)?(?:page|post|article)\s+(?:on|about|for|called|titled)?\s*[\"\']?([^\"\'.\n]+)/i', $message, $m)) {
+            $title = trim($m[1]);
+        } elseif (preg_match('/[\"\']([^\"\']{3,80})[\"\']/', $message, $m)) {
+            $title = trim($m[1]);
+        }
+
+        $body = '<p>This is a draft created by Mova AI. Edit and publish when ready.</p>';
+        if (preg_match('/about\s*us/i', $message)) {
+            $body = '<h2>Who we are</h2><p>We are building something meaningful. Update this section with your story.</p>'
+                . '<h2>What we do</h2><p>Describe your products, services, or mission here.</p>'
+                . '<h2>Get in touch</h2><p>Add contact details or a call to action.</p>';
+        }
+
+        $type = preg_match('/\b(article|post)\b/i', $message) ? 'article' : 'page';
+
+        return [
+            'type' => 'create_content',
+            'label' => 'Create draft: ' . $title,
+            'payload' => [
+                'title' => $title,
+                'type' => $type,
+                'body' => $body,
+            ],
+        ];
+    }
+
+    private function looksLikeColorChange(string $message): bool
+    {
+        $m = mb_strtolower($message);
+        return (bool) preg_match('/\b(color|colour|primary|accent|palette|theme)\b/i', $m)
+            && (bool) preg_match('/\b(set|change|make|update|use|#|[0-9a-f]{3,6}|blue|green|red|purple|orange)\b/i', $m);
+    }
+
+    /** @return array{type:string,label:string,payload:array,confirm:bool}|null */
+    private function buildColorActionFromMessage(string $message): ?array
+    {
+        $hex = null;
+        if (preg_match('/#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})\b/', $message, $m)) {
+            $hex = '#' . $m[1];
+        }
+        $named = [
+            'blue' => '#2563eb',
+            'sky' => '#0ea5e9',
+            'green' => '#16a34a',
+            'red' => '#dc2626',
+            'purple' => '#7c3aed',
+            'orange' => '#ea580c',
+            'pink' => '#db2777',
+            'teal' => '#0d9488',
+        ];
+        if ($hex === null) {
+            $low = mb_strtolower($message);
+            foreach ($named as $name => $code) {
+                if (str_contains($low, $name)) {
+                    $hex = $code;
+                    break;
+                }
+            }
+        }
+        if ($hex === null) {
+            return null;
+        }
+        $key = 'primary';
+        if (preg_match('/\baccent\b/i', $message)) {
+            $key = 'accent';
+        } elseif (preg_match('/\bsecondary\b/i', $message)) {
+            $key = 'secondary';
+        }
+
+        return [
+            'type' => 'update_design_tokens',
+            'label' => 'Apply ' . $key . ' ' . $hex,
+            'payload' => ['colors' => [$key => $hex]],
+            'confirm' => true,
+        ];
     }
 }

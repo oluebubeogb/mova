@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Mova\Core\Request;
 use Mova\Core\Response;
 use Mova\AI\AiAssistService;
+use Mova\AI\AiActionService;
 use Mova\AI\AiChatService;
 use Mova\AI\HqMap;
 use Mova\Analysis\ContentAnalyzer;
@@ -83,6 +84,35 @@ $router->post('/ai/chat', function (Request $req) {
 $router->get('/ai/map', function () {
     requireAuth();
     return (new Response())->json(['ok' => true, 'items' => HqMap::all()]);
+});
+
+/** Apply a confirmed write action (e.g. design tokens) */
+$router->post('/ai/action', function (Request $req) {
+    requireAuth();
+    if (!Csrf::validate()) {
+        return (new Response())->json(['error' => 'CSRF'], 403);
+    }
+    $uid = (int) Auth::id();
+    $raw = (string) $req->post('action_json', '');
+    $action = json_decode($raw, true);
+    if (!is_array($action)) {
+        // Also accept flat fields
+        $action = [
+            'type' => (string) $req->post('type', ''),
+            'payload' => json_decode((string) $req->post('payload', '{}'), true) ?: [],
+            'path' => (string) $req->post('path', ''),
+            'label' => (string) $req->post('label', ''),
+        ];
+    }
+    $type = (string) ($action['type'] ?? '');
+    // Safety: create_content is auto-run from chat; allow re-run. Design requires this endpoint.
+    if (!in_array($type, ['create_content', 'update_design_tokens', 'navigate'], true)) {
+        return (new Response())->json(['error' => 'Action not allowed'], 400);
+    }
+    $svc = new AiActionService();
+    $result = $svc->execute($action, $uid);
+    $status = !empty($result['ok']) ? 200 : 400;
+    return (new Response())->json($result, $status);
 });
 
 $router->post('/ai/assist', function (Request $req) {

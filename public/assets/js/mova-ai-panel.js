@@ -1,12 +1,21 @@
 /**
- * Mova AI panel — global HQ sidebar (Phases 1–3)
+ * Mova AI panel — global HQ sidebar (Phases 1–5)
  * Shortcut: Ctrl+J / Cmd+J
+ * Loading feedback while the model works.
  */
 (function () {
   'use strict';
 
   var STORAGE_OPEN = 'mova_ai_panel_open';
   var STORAGE_SESSION = 'mova_ai_session_id';
+
+  var thinkingPhrases = [
+    'Reading your request…',
+    'Checking HQ screens…',
+    'Talking to Mova AI…',
+    'Preparing a response…',
+    'Almost there…'
+  ];
 
   function csrfToken() {
     var meta = document.querySelector('meta[name="csrf-token"]');
@@ -64,6 +73,80 @@
     setOpen(!state.open);
   }
 
+  function showThinking() {
+    var box = el('mova-ai-messages');
+    if (!box) return;
+    var empty = box.querySelector('.mova-ai-empty');
+    if (empty) empty.remove();
+    removeThinking();
+
+    var div = document.createElement('div');
+    div.className = 'mova-ai-msg thinking';
+    div.id = 'mova-ai-thinking';
+    div.innerHTML =
+      '<div class="mova-ai-thinking-row">' +
+      '<div class="mova-ai-dots"><span></span><span></span><span></span></div>' +
+      '<span class="mova-ai-thinking-label">Mova AI is working</span>' +
+      '</div>' +
+      '<span class="mova-ai-thinking-status" id="mova-ai-thinking-status">' +
+      escapeHtml(thinkingPhrases[0]) +
+      '</span>';
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+
+    var i = 0;
+    div._movaTimer = setInterval(function () {
+      i = (i + 1) % thinkingPhrases.length;
+      var st = el('mova-ai-thinking-status');
+      if (st) st.textContent = thinkingPhrases[i];
+    }, 2200);
+  }
+
+  function removeThinking() {
+    var t = el('mova-ai-thinking');
+    if (t) {
+      if (t._movaTimer) clearInterval(t._movaTimer);
+      t.remove();
+    }
+  }
+
+  function applyDesignAction(action, btn) {
+    if (!action || !action.payload) return;
+    if (btn) btn.disabled = true;
+    var body = new URLSearchParams();
+    body.set('_mova_csrf', csrfToken());
+    body.set('action_json', JSON.stringify(action));
+    fetch('/hq/ai/action', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-CSRF-TOKEN': csrfToken()
+      },
+      body: body.toString()
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ok) {
+          var path = (data.result && data.result.path) || '/hq/style';
+          appendMessage(
+            'assistant',
+            'Colors applied. Open Style to review.',
+            [{ type: 'navigate', label: 'Open Style', path: path }],
+            null
+          );
+        } else {
+          appendMessage('assistant', data.error || 'Could not apply design changes.', null, null);
+        }
+      })
+      .catch(function () {
+        appendMessage('assistant', 'Network error applying design changes.', null, null);
+      })
+      .finally(function () {
+        if (btn) btn.disabled = false;
+      });
+  }
+
   function appendMessage(role, text, actions, provider) {
     var box = el('mova-ai-messages');
     if (!box) return;
@@ -72,17 +155,32 @@
 
     var div = document.createElement('div');
     div.className = 'mova-ai-msg ' + role;
-    div.innerHTML = escapeHtml(text || '');
+    var html = escapeHtml(text || '').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    div.innerHTML = html;
 
     if (actions && actions.length) {
       var act = document.createElement('div');
       act.className = 'mova-ai-actions';
       actions.forEach(function (a) {
-        if (!a || a.type !== 'navigate' || !a.path) return;
-        var link = document.createElement('a');
-        link.href = a.path;
-        link.innerHTML = '<i class="fa-solid fa-arrow-up-right-from-square"></i> ' + escapeHtml(a.label || 'Open');
-        act.appendChild(link);
+        if (!a || !a.type) return;
+        if (a.type === 'navigate' && a.path) {
+          var link = document.createElement('a');
+          link.href = a.path;
+          link.innerHTML =
+            '<i class="fa-solid fa-arrow-up-right-from-square"></i> ' +
+            escapeHtml(a.label || 'Open');
+          act.appendChild(link);
+        } else if (a.type === 'update_design_tokens') {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'mova-ai-apply';
+          btn.innerHTML =
+            '<i class="fa-solid fa-palette"></i> ' + escapeHtml(a.label || 'Apply colors');
+          btn.addEventListener('click', function () {
+            applyDesignAction(a, btn);
+          });
+          act.appendChild(btn);
+        }
       });
       if (act.childNodes.length) div.appendChild(act);
     }
@@ -101,7 +199,7 @@
     if (!box) return;
     box.innerHTML =
       '<div class="mova-ai-empty">Ask Mova AI anything about HQ.<br><br>' +
-      'Try: “Where is the site icon?” or “Open design colors”.<br><br>' +
+      'Try: “Where is the site icon?”, “Create an About Us page”, or “Set primary to #0ea5e9”.<br><br>' +
       'Shortcut: <kbd>Ctrl</kbd>+<kbd>J</kbd></div>';
   }
 
@@ -174,6 +272,7 @@
     if (btn) btn.disabled = true;
     appendMessage('user', text, null, null);
     ta.value = '';
+    showThinking();
 
     var body = new URLSearchParams();
     body.set('_mova_csrf', csrfToken());
@@ -196,6 +295,7 @@
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
+        removeThinking();
         if (data.session_id) {
           state.sessionId = data.session_id;
           try {
@@ -211,9 +311,11 @@
         loadSessions();
       })
       .catch(function () {
+        removeThinking();
         appendMessage('assistant', 'Network error talking to Mova AI.', null, null);
       })
       .finally(function () {
+        removeThinking();
         state.busy = false;
         if (btn) btn.disabled = false;
       });
