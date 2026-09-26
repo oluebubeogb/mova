@@ -26,8 +26,8 @@ PluginManager::addAction('theme.render.footer', function (array $ctx = []) {
     $accent = htmlspecialchars((string) ($cfg['accent'] ?? ''));
     $base = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/\\');
     // assets served from plugin path via public symlink or inline minimal
-    $css = '/mova-plugins/mova-site-ai/assets/css/widget.css';
-    $js = '/mova-plugins/mova-site-ai/assets/js/widget.js';
+    $css = '/assets/site-ai/widget.css';
+    $js = '/assets/site-ai/widget.js';
     // Prefer design tokens when primary empty
     echo '<link rel="stylesheet" href="' . $css . '?v=1">';
     echo '<div id="mova-site-ai-root" data-name="' . $name . '"'
