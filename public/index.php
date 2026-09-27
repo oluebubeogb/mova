@@ -292,13 +292,19 @@ $router->get('/{parent}/{child}', function (Request $req, array $params) use ($c
     ]);
 });
 
-// Mova Site AI public API (plugin)
+// Mova Site AI public API (plugin) — chat, sessions mirror, feedback
 if (is_file(dirname(__DIR__) . '/mova-plugins/mova-site-ai/src/SiteAiService.php')) {
     require_once dirname(__DIR__) . '/mova-plugins/mova-site-ai/src/KnowledgeBank.php';
     require_once dirname(__DIR__) . '/mova-plugins/mova-site-ai/src/SiteAiService.php';
+    require_once dirname(__DIR__) . '/mova-plugins/mova-site-ai/src/SiteAiSessions.php';
+
     $router->post('/api/site-ai/chat', function (Request $req) {
         $msg = trim((string) ($req->post('message') ?? ''));
         $page = (string) ($req->post('page') ?? '/');
+        $pageTitle = (string) ($req->post('page_title') ?? '');
+        $sessionId = (int) ($req->post('session_id') ?? 0) ?: null;
+        $clientId = trim((string) ($req->post('client_id') ?? ''));
+        $visitorIn = trim((string) ($req->post('visitor_id') ?? ''));
         if ($msg === '') {
             return (new Response())->json(['error' => 'Empty message'], 400);
         }
@@ -306,8 +312,114 @@ if (is_file(dirname(__DIR__) . '/mova-plugins/mova-site-ai/src/SiteAiService.php
         if (empty($cfg['enabled'])) {
             return (new Response())->json(['error' => 'Site AI disabled'], 403);
         }
-        $result = \MovaSiteAi\SiteAiService::chat($msg, $page);
-        return (new Response())->json(['ok' => true] + $result);
+        $vid = \MovaSiteAi\SiteAiSessions::resolveVisitorId($visitorIn !== '' ? $visitorIn : null);
+        // Persist user message
+        $appended = \MovaSiteAi\SiteAiSessions::appendMessage(
+            $vid,
+            $sessionId,
+            'user',
+            $msg,
+            null,
+            $clientId !== '' ? $clientId : null,
+            $msg
+        );
+        $sessionId = $appended['session_id'];
+        $result = \MovaSiteAi\SiteAiService::chat($msg, $page, $pageTitle);
+        // Persist assistant reply
+        \MovaSiteAi\SiteAiSessions::appendMessage(
+            $vid,
+            $sessionId,
+            'assistant',
+            (string) ($result['reply'] ?? ''),
+            $result['links'] ?? [],
+            $clientId !== '' ? $clientId : null
+        );
+        return (new Response())->json([
+            'ok' => true,
+            'visitor_id' => $vid,
+            'session_id' => $sessionId,
+        ] + $result);
+    });
+
+    $router->get('/api/site-ai/sessions', function (Request $req) {
+        $cfg = \MovaSiteAi\SiteAiService::config();
+        if (empty($cfg['enabled'])) {
+            return (new Response())->json(['error' => 'Site AI disabled'], 403);
+        }
+        $vid = \MovaSiteAi\SiteAiSessions::resolveVisitorId(
+            trim((string) ($req->query('visitor_id') ?? ''))
+        );
+        $sessions = \MovaSiteAi\SiteAiSessions::listSessions($vid);
+        return (new Response())->json(['ok' => true, 'visitor_id' => $vid, 'sessions' => $sessions]);
+    });
+
+    $router->get('/api/site-ai/sessions/{id}', function (Request $req, array $params = []) {
+        $cfg = \MovaSiteAi\SiteAiService::config();
+        if (empty($cfg['enabled'])) {
+            return (new Response())->json(['error' => 'Site AI disabled'], 403);
+        }
+        $vid = \MovaSiteAi\SiteAiSessions::resolveVisitorId(
+            trim((string) ($req->query('visitor_id') ?? ''))
+        );
+        $id = (int) ($params['id'] ?? 0);
+        $session = \MovaSiteAi\SiteAiSessions::getSession($id, $vid);
+        if (!$session) {
+            return (new Response())->json(['error' => 'Not found'], 404);
+        }
+        $messages = \MovaSiteAi\SiteAiSessions::listMessages($id, $vid);
+        return (new Response())->json([
+            'ok' => true,
+            'visitor_id' => $vid,
+            'session' => $session,
+            'messages' => $messages,
+        ]);
+    });
+
+    $router->post('/api/site-ai/sessions', function (Request $req) {
+        $cfg = \MovaSiteAi\SiteAiService::config();
+        if (empty($cfg['enabled'])) {
+            return (new Response())->json(['error' => 'Site AI disabled'], 403);
+        }
+        $vid = \MovaSiteAi\SiteAiSessions::resolveVisitorId(
+            trim((string) ($req->post('visitor_id') ?? ''))
+        );
+        $title = trim((string) ($req->post('title') ?? 'New chat'));
+        $clientId = trim((string) ($req->post('client_id') ?? ''));
+        $session = \MovaSiteAi\SiteAiSessions::createSession(
+            $vid,
+            $title !== '' ? $title : 'New chat',
+            $clientId !== '' ? $clientId : null
+        );
+        return (new Response())->json(['ok' => true, 'visitor_id' => $vid, 'session' => $session]);
+    });
+
+    $router->post('/api/site-ai/sessions/{id}/delete', function (Request $req, array $params = []) {
+        $cfg = \MovaSiteAi\SiteAiService::config();
+        if (empty($cfg['enabled'])) {
+            return (new Response())->json(['error' => 'Site AI disabled'], 403);
+        }
+        $vid = \MovaSiteAi\SiteAiSessions::resolveVisitorId(
+            trim((string) ($req->post('visitor_id') ?? ''))
+        );
+        $id = (int) ($params['id'] ?? 0);
+        $ok = \MovaSiteAi\SiteAiSessions::deleteSession($id, $vid);
+        return (new Response())->json(['ok' => $ok, 'visitor_id' => $vid]);
+    });
+
+    $router->post('/api/site-ai/feedback', function (Request $req) {
+        $cfg = \MovaSiteAi\SiteAiService::config();
+        if (empty($cfg['enabled'])) {
+            return (new Response())->json(['error' => 'Site AI disabled'], 403);
+        }
+        $vid = \MovaSiteAi\SiteAiSessions::resolveVisitorId(
+            trim((string) ($req->post('visitor_id') ?? ''))
+        );
+        $rating = (string) ($req->post('rating') ?? 'up');
+        $sessionId = (string) ($req->post('session_id') ?? '');
+        $hash = (string) ($req->post('message_hash') ?? '');
+        $page = (string) ($req->post('page') ?? '');
+        \MovaSiteAi\SiteAiSessions::saveFeedback($vid, $rating, $sessionId ?: null, $hash ?: null, $page ?: null);
+        return (new Response())->json(['ok' => true, 'visitor_id' => $vid]);
     });
 }
 

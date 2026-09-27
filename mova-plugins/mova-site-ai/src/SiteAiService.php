@@ -52,8 +52,10 @@ class SiteAiService
         );
     }
 
-    /** @return array{reply:string,links:list<array{label:string,path:string}>} */
-    public static function chat(string $message, string $pagePath = '/'): array
+    /**
+     * @return array{reply:string,links:list<array{label:string,path:string}>}
+     */
+    public static function chat(string $message, string $pagePath = '/', string $pageTitle = ''): array
     {
         $cfg = self::config();
         $name = (string) ($cfg['name'] ?? 'Assistant');
@@ -85,14 +87,21 @@ class SiteAiService
             }
         }
 
+        // Current page content for summarize / explain intents
+        $currentPageBlock = self::currentPageContext($pagePath, $pageTitle, $message);
+
         $system = "You are {$name}, the on-site assistant for this website. "
             . "You help visitors only — never mention HQ, admin, CMS, or internal tools. "
             . "Be warm, concise, and useful. Use knowledge bank facts when present. "
-            . "When suggesting a page, include a site path starting with /. "
+            . "When suggesting a page, put it in the links array with a human label and path starting with /. "
+            . "In the reply text you may use markdown links like [Label](/path). Prefer that over bare /slug. "
+            . "If the visitor asks to summarize or explain the current page, use the CURRENT PAGE CONTENT below. "
             . "Respond with ONLY JSON: {\"reply\":\"...\",\"links\":[{\"label\":\"...\",\"path\":\"/slug\"}]}\n\n"
             . "Published pages:\n" . implode("\n", array_slice($pageLines, 0, 30)) . "\n\n"
             . "Knowledge bank excerpts:\n" . ($kbBlock !== '' ? $kbBlock : "(none)\n")
-            . "Visitor is currently on: {$pagePath}";
+            . "Visitor is currently on: {$pagePath}"
+            . ($pageTitle !== '' ? " ({$pageTitle})" : '') . "\n"
+            . $currentPageBlock;
 
         $assist = new AiAssistService();
         $reply = '';
@@ -109,7 +118,9 @@ class SiteAiService
                     if (is_array($data)) {
                         $reply = trim((string) ($data['reply'] ?? ''));
                         foreach ($data['links'] ?? [] as $l) {
-                            if (!is_array($l)) continue;
+                            if (!is_array($l)) {
+                                continue;
+                            }
                             $path = (string) ($l['path'] ?? '');
                             if (str_starts_with($path, '/') && !str_starts_with($path, '/hq')) {
                                 $outLinks[] = [
@@ -141,17 +152,81 @@ class SiteAiService
             }
         }
 
+        // Extract any markdown links from reply into links array
+        if (preg_match_all('/\[([^\]]+)\]\((\/[^)\s]+)\)/', $reply, $mm, PREG_SET_ORDER)) {
+            foreach ($mm as $m) {
+                $path = $m[2];
+                if (str_starts_with($path, '/') && !str_starts_with($path, '/hq')) {
+                    $outLinks[] = ['label' => $m[1], 'path' => $path];
+                }
+            }
+        }
+
         // unique links
         $seen = [];
         $unique = [];
         foreach ($outLinks as $l) {
             $k = $l['path'];
-            if (isset($seen[$k])) continue;
+            if (isset($seen[$k])) {
+                continue;
+            }
             $seen[$k] = true;
             $unique[] = $l;
         }
 
         return ['reply' => $reply, 'links' => array_slice($unique, 0, 5)];
+    }
+
+    /**
+     * Load published content for the path when user asks about the current page.
+     */
+    private static function currentPageContext(string $pagePath, string $pageTitle, string $message): string
+    {
+        $q = mb_strtolower($message);
+        $wantsPage = (bool) preg_match(
+            '/\b(summar(y|ize|ise)|explain|what is (this|the) page|tell me (more )?about (this|the) page|current page|this page)\b/i',
+            $message
+        );
+        // Always provide a short context when path is known
+        $slug = trim($pagePath, '/');
+        if ($slug === '') {
+            return $pageTitle !== '' ? "Page title: {$pageTitle}\n" : '';
+        }
+        // Home or multi-segment: try last segment or full slug
+        $candidates = [$slug];
+        if (str_contains($slug, '/')) {
+            $parts = explode('/', $slug);
+            $candidates[] = end($parts);
+        }
+        try {
+            $repo = new ContentRepository();
+            $entity = null;
+            foreach ($candidates as $c) {
+                $entity = $repo->findBySlug($c);
+                if ($entity) {
+                    break;
+                }
+            }
+            if (!$entity) {
+                return $pageTitle !== '' ? "Page title: {$pageTitle}\n" : '';
+            }
+            $title = (string) ($entity['title'] ?? $pageTitle);
+            $excerpt = (string) ($entity['excerpt'] ?? '');
+            $body = (string) ($entity['body'] ?? '');
+            $bodyPlain = trim(html_entity_decode(strip_tags($body), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+            $bodyPlain = preg_replace('/\s+/', ' ', $bodyPlain) ?? $bodyPlain;
+            $bodyPlain = mb_substr($bodyPlain, 0, $wantsPage ? 2500 : 800);
+            $block = "CURRENT PAGE CONTENT:\nTitle: {$title}\n";
+            if ($excerpt !== '') {
+                $block .= "Excerpt: {$excerpt}\n";
+            }
+            if ($bodyPlain !== '') {
+                $block .= "Body:\n{$bodyPlain}\n";
+            }
+            return $block;
+        } catch (\Throwable $e) {
+            return $pageTitle !== '' ? "Page title: {$pageTitle}\n" : '';
+        }
     }
 
     public static function paletteDefaults(): array

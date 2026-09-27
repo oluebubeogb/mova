@@ -185,6 +185,14 @@
     }
   }
 
+  function formatElapsed(sec) {
+    sec = Math.max(0, Math.floor(sec));
+    if (sec < 60) return sec + 's';
+    var m = Math.floor(sec / 60);
+    var s = sec % 60;
+    return m + 'm ' + (s < 10 ? '0' : '') + s + 's';
+  }
+
   function showThinking() {
     var box = el('mova-ai-messages');
     if (!box) return;
@@ -198,7 +206,7 @@
     div.innerHTML =
       '<div class="mova-ai-thinking-row">' +
       '<div class="mova-ai-dots"><span></span><span></span><span></span></div>' +
-      '<span class="mova-ai-thinking-label">Mova AI is working</span>' +
+      '<span class="mova-ai-thinking-label">Working for <strong id="mova-ai-elapsed">0s</strong></span>' +
       '</div>' +
       '<span class="mova-ai-thinking-status" id="mova-ai-thinking-status">' +
       escapeHtml(thinkingPhrases[0]) +
@@ -206,12 +214,15 @@
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
 
+    var started = Date.now();
     var i = 0;
     div._movaTimer = setInterval(function () {
       i = (i + 1) % thinkingPhrases.length;
       var st = el('mova-ai-thinking-status');
       if (st) st.textContent = thinkingPhrases[i];
-    }, 2200);
+      var elap = el('mova-ai-elapsed');
+      if (elap) elap.textContent = formatElapsed((Date.now() - started) / 1000);
+    }, 1000);
   }
 
   function removeThinking() {

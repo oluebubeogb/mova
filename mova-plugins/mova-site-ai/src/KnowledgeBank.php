@@ -33,6 +33,39 @@ class KnowledgeBank
                 setting_value TEXT,
                 updated_at TEXT NOT NULL
             )");
+
+            // Anonymous sessions (server mirror of browser localStorage)
+            $db->exec("CREATE TABLE IF NOT EXISTS site_ai_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                visitor_id TEXT NOT NULL,
+                client_id TEXT,
+                title TEXT NOT NULL DEFAULT 'New chat',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )");
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_site_ai_sessions_visitor ON site_ai_sessions(visitor_id)");
+            $db->exec("CREATE TABLE IF NOT EXISTS site_ai_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id INTEGER NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                links TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (session_id) REFERENCES site_ai_sessions(id) ON DELETE CASCADE
+            )");
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_site_ai_messages_session ON site_ai_messages(session_id)");
+
+            // Like / dislike feedback
+            $db->exec("CREATE TABLE IF NOT EXISTS site_ai_feedback (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                visitor_id TEXT,
+                session_id TEXT,
+                message_hash TEXT,
+                rating TEXT NOT NULL,
+                page_path TEXT,
+                created_at TEXT NOT NULL
+            )");
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_site_ai_feedback_visitor ON site_ai_feedback(visitor_id)");
         } catch (\Throwable $e) {
             // ignore until DB ready
         }
