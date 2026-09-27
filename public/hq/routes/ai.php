@@ -5,12 +5,128 @@ declare(strict_types=1);
 use Mova\Core\Request;
 use Mova\Core\Response;
 use Mova\AI\AiAssistService;
+use Mova\AI\AiActionService;
+use Mova\AI\AiChatService;
+use Mova\AI\HqMap;
 use Mova\Analysis\ContentAnalyzer;
+use Mova\Auth\Auth;
 use Mova\Content\ContentRepository;
 use Mova\Content\RelationService;
 use Mova\Security\Csrf;
 
 /** @var \Mova\Core\Router $router */
+
+// —— Mova AI panel (Phases 1–3): sessions + chat + navigate ——
+
+$router->get('/ai/sessions', function () {
+    requireAuth();
+    $uid = (int) Auth::id();
+    $svc = new AiChatService();
+    return (new Response())->json(['ok' => true, 'sessions' => $svc->listSessions($uid)]);
+});
+
+$router->post('/ai/sessions', function (Request $req) {
+    requireAuth();
+    if (!Csrf::validate()) {
+        return (new Response())->json(['error' => 'CSRF'], 403);
+    }
+    $uid = (int) Auth::id();
+    $title = trim((string) $req->post('title', 'New chat'));
+    $svc = new AiChatService();
+    $session = $svc->createSession($uid, $title !== '' ? $title : 'New chat');
+    return (new Response())->json(['ok' => true, 'session' => $session]);
+});
+
+
+$router->post('/ai/sessions/{id}/delete', function (Request $req, array $params = []) {
+    requireAuth();
+    if (!Csrf::validate()) {
+        return (new Response())->json(['error' => 'CSRF'], 403);
+    }
+    $uid = (int) Auth::id();
+    $id = (int) ($params['id'] ?? 0);
+    $svc = new AiChatService();
+    $ok = $svc->deleteSession($id, $uid);
+    return (new Response())->json(['ok' => $ok]);
+});
+
+$router->get('/ai/sessions/{id}', function (Request $req, array $params = []) {
+    requireAuth();
+    $uid = (int) Auth::id();
+    $id = (int) ($params['id'] ?? 0);
+    $svc = new AiChatService();
+    $session = $svc->getSession($id, $uid);
+    if (!$session) {
+        return (new Response())->json(['error' => 'Not found'], 404);
+    }
+    $messages = $svc->listMessages($id, $uid);
+    foreach ($messages as &$m) {
+        $meta = $m['meta'] ?? null;
+        $m['actions'] = [];
+        if (is_string($meta) && $meta !== '') {
+            $decoded = json_decode($meta, true);
+            if (is_array($decoded) && isset($decoded['actions'])) {
+                $m['actions'] = $decoded['actions'];
+            }
+        }
+    }
+    unset($m);
+    return (new Response())->json(['ok' => true, 'session' => $session, 'messages' => $messages]);
+});
+
+$router->post('/ai/chat', function (Request $req) {
+    requireAuth();
+    if (!Csrf::validate()) {
+        return (new Response())->json(['error' => 'CSRF'], 403);
+    }
+    $uid = (int) Auth::id();
+    $message = trim((string) $req->post('message', ''));
+    $sessionId = (int) $req->post('session_id', 0) ?: null;
+    $pageContext = [
+        'route' => (string) $req->post('route', ''),
+        'area' => (string) $req->post('area', ''),
+        'layer' => (string) $req->post('layer', ''),
+        'entityId' => (int) $req->post('entity_id', 0) ?: null,
+    ];
+    $svc = new AiChatService();
+    $result = $svc->chat($uid, $sessionId, $message, $pageContext);
+    $status = !empty($result['ok']) ? 200 : 400;
+    return (new Response())->json($result, $status);
+});
+
+$router->get('/ai/map', function () {
+    requireAuth();
+    return (new Response())->json(['ok' => true, 'items' => HqMap::all()]);
+});
+
+/** Apply a confirmed write action (e.g. design tokens) */
+$router->post('/ai/action', function (Request $req) {
+    requireAuth();
+    if (!Csrf::validate()) {
+        return (new Response())->json(['error' => 'CSRF'], 403);
+    }
+    $uid = (int) Auth::id();
+    $raw = (string) $req->post('action_json', '');
+    $action = json_decode($raw, true);
+    if (!is_array($action)) {
+        // Also accept flat fields
+        $action = [
+            'type' => (string) $req->post('type', ''),
+            'payload' => json_decode((string) $req->post('payload', '{}'), true) ?: [],
+            'path' => (string) $req->post('path', ''),
+            'label' => (string) $req->post('label', ''),
+        ];
+    }
+    $type = (string) ($action['type'] ?? '');
+    // Safety: create_content is auto-run from chat; allow re-run. Design requires this endpoint.
+    if (!in_array($type, ['create_content', 'update_content', 'update_design_tokens', 'navigate'], true)) {
+        return (new Response())->json(['error' => 'Action not allowed'], 400);
+    }
+    $svc = new AiActionService();
+    $result = $svc->execute($action, $uid);
+    $status = !empty($result['ok']) ? 200 : 400;
+    return (new Response())->json($result, $status);
+});
 
 $router->post('/ai/assist', function (Request $req) {
     requireAuth();

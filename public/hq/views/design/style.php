@@ -49,7 +49,7 @@ $renderSystemSwatch = static function (string $key, string $label, string $val, 
     <div class="alert alert-success">Style tokens saved. Public cache cleared.</div>
 <?php endif; ?>
 
-<p class="design-intro">Design tokens — colors, type, radius, shadows, density. Add custom colors below; double‑click a custom name on Light to rename (syncs to Dark).</p>
+<p class="design-intro">Design tokens — colors, type, radius, shadows, density. Add custom colors below; double‑click a custom name on Light to rename (syncs to Dark). To restore Mova defaults, use <a href="/hq/design/reset">Reset defaults</a> in the Design nav.</p>
 
 <form method="post" action="/hq/style" class="design-form" id="style-form">
     <?= Csrf::field() ?>

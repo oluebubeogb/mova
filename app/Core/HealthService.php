@@ -66,7 +66,7 @@ class HealthService
             'detail' => 'CSRF + sessions active',
         ];
 
-        // AI
+        // Mova AI
         $aiKey = '';
         try {
             $row = Database::fetch("SELECT setting_value FROM settings WHERE setting_key = 'ai_api_key'");
@@ -75,7 +75,7 @@ class HealthService
         }
         $checks['ai'] = [
             'status' => $aiKey !== '' ? 'ok' : 'info',
-            'detail' => $aiKey !== '' ? 'AI provider configured' : 'Heuristic mode (no API key)',
+            'detail' => $aiKey !== '' ? 'Mova AI configured' : 'Heuristic mode (no API key)',
         ];
 
         // Recent errors from logs

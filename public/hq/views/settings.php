@@ -4,7 +4,7 @@
     <div class="alert alert-success">Settings saved.</div>
 <?php endif; ?>
 
-<p class="design-intro">General site options and AI assist. Outbound mail uses Audience → Mailbox accounts. Sites are under Settings → Sites.</p>
+<p class="design-intro">General site options and Mova AI. Outbound mail uses Audience → Mailbox accounts. Sites are under Settings → Sites.</p>
 
 <form method="post" action="/hq/settings" class="settings-form">
     <?= Csrf::field() ?>
@@ -29,7 +29,7 @@
                 <i class="fa-solid fa-sliders" aria-hidden="true"></i><span>General</span>
             </button>
             <button type="button" class="hq-layer-tab" data-layer="ai" role="tab">
-                <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i><span>AI assist</span>
+                <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i><span>Mova AI</span>
             </button>
         </div>
         <hr class="hq-layer-rule">
@@ -53,21 +53,24 @@
             </div>
 
             <div class="hq-layer-panel" data-layer-panel="ai" hidden>
-                <h3>AI assist</h3>
-                <p class="field-hint">Leave API key empty for local heuristics. AI never auto-publishes.</p>
+                <h3>Mova AI</h3>
+                <p class="field-hint">
+                    Built-in AI for content, SEO, and design suggestions. Defaults point at your self-hosted Mova AI service.
+                    Clear the API key to fall back to local heuristics. Mova AI never auto-publishes.
+                </p>
                 <div class="form-section">
                   <div class="form-grid">
                     <div class="form-group span-2"><label>API key</label>
                       <div class="password-field">
-                        <input type="password" name="ai_api_key" value="<?= htmlspecialchars($settings['ai_api_key'] ?? '') ?>" autocomplete="new-password" placeholder="sk-…">
+                        <input type="password" name="ai_api_key" value="<?= htmlspecialchars($settings['ai_api_key'] ?? 'mova-ai-key') ?>" autocomplete="new-password" placeholder="mova-ai-key">
                         <button type="button" class="password-toggle" aria-label="Show password"><i class="fa-solid fa-eye"></i><i class="fa-solid fa-eye-slash"></i></button>
                       </div></div>
                     <div class="form-group span-2"><label>API base URL</label>
-                      <input type="url" name="ai_api_url" value="<?= htmlspecialchars($settings['ai_api_url'] ?? 'https://api.openai.com/v1') ?>" placeholder="https://api.openai.com/v1"></div>
+                      <input type="url" name="ai_api_url" value="<?= htmlspecialchars($settings['ai_api_url'] ?? 'https://movaai.collab.name.ng/v1') ?>" placeholder="https://movaai.collab.name.ng/v1"></div>
                     <div class="form-group"><label>Model</label>
-                      <input type="text" name="ai_model" value="<?= htmlspecialchars($settings['ai_model'] ?? 'gpt-4o-mini') ?>"></div>
+                      <input type="text" name="ai_model" value="<?= htmlspecialchars($settings['ai_model'] ?? 'qwen2.5:7b') ?>" placeholder="qwen2.5:7b"></div>
                     <div class="form-group"><label>Provider label</label>
-                      <input type="text" name="ai_provider" value="<?= htmlspecialchars($settings['ai_provider'] ?? 'openai') ?>"></div>
+                      <input type="text" name="ai_provider" value="<?= htmlspecialchars($settings['ai_provider'] ?? 'Mova AI') ?>" placeholder="Mova AI"></div>
                   </div>
                 </div>
             </div>

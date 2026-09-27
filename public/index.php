@@ -292,6 +292,137 @@ $router->get('/{parent}/{child}', function (Request $req, array $params) use ($c
     ]);
 });
 
+// Mova Site AI public API (plugin) — chat, sessions mirror, feedback
+if (is_file(dirname(__DIR__) . '/mova-plugins/mova-site-ai/src/SiteAiService.php')) {
+    require_once dirname(__DIR__) . '/mova-plugins/mova-site-ai/src/KnowledgeBank.php';
+    require_once dirname(__DIR__) . '/mova-plugins/mova-site-ai/src/SiteAiService.php';
+    require_once dirname(__DIR__) . '/mova-plugins/mova-site-ai/src/SiteAiSessions.php';
+
+    $router->post('/api/site-ai/chat', function (Request $req) {
+        $msg = trim((string) ($req->post('message') ?? ''));
+        $page = (string) ($req->post('page') ?? '/');
+        $pageTitle = (string) ($req->post('page_title') ?? '');
+        $sessionId = (int) ($req->post('session_id') ?? 0) ?: null;
+        $clientId = trim((string) ($req->post('client_id') ?? ''));
+        $visitorIn = trim((string) ($req->post('visitor_id') ?? ''));
+        if ($msg === '') {
+            return (new Response())->json(['error' => 'Empty message'], 400);
+        }
+        $cfg = \MovaSiteAi\SiteAiService::config();
+        if (empty($cfg['enabled'])) {
+            return (new Response())->json(['error' => 'Site AI disabled'], 403);
+        }
+        $vid = \MovaSiteAi\SiteAiSessions::resolveVisitorId($visitorIn !== '' ? $visitorIn : null);
+        // Persist user message
+        $appended = \MovaSiteAi\SiteAiSessions::appendMessage(
+            $vid,
+            $sessionId,
+            'user',
+            $msg,
+            null,
+            $clientId !== '' ? $clientId : null,
+            $msg
+        );
+        $sessionId = $appended['session_id'];
+        $result = \MovaSiteAi\SiteAiService::chat($msg, $page, $pageTitle);
+        // Persist assistant reply
+        \MovaSiteAi\SiteAiSessions::appendMessage(
+            $vid,
+            $sessionId,
+            'assistant',
+            (string) ($result['reply'] ?? ''),
+            $result['links'] ?? [],
+            $clientId !== '' ? $clientId : null
+        );
+        return (new Response())->json([
+            'ok' => true,
+            'visitor_id' => $vid,
+            'session_id' => $sessionId,
+        ] + $result);
+    });
+
+    $router->get('/api/site-ai/sessions', function (Request $req) {
+        $cfg = \MovaSiteAi\SiteAiService::config();
+        if (empty($cfg['enabled'])) {
+            return (new Response())->json(['error' => 'Site AI disabled'], 403);
+        }
+        $vid = \MovaSiteAi\SiteAiSessions::resolveVisitorId(
+            trim((string) ($req->query('visitor_id') ?? ''))
+        );
+        $sessions = \MovaSiteAi\SiteAiSessions::listSessions($vid);
+        return (new Response())->json(['ok' => true, 'visitor_id' => $vid, 'sessions' => $sessions]);
+    });
+
+    $router->get('/api/site-ai/sessions/{id}', function (Request $req, array $params = []) {
+        $cfg = \MovaSiteAi\SiteAiService::config();
+        if (empty($cfg['enabled'])) {
+            return (new Response())->json(['error' => 'Site AI disabled'], 403);
+        }
+        $vid = \MovaSiteAi\SiteAiSessions::resolveVisitorId(
+            trim((string) ($req->query('visitor_id') ?? ''))
+        );
+        $id = (int) ($params['id'] ?? 0);
+        $session = \MovaSiteAi\SiteAiSessions::getSession($id, $vid);
+        if (!$session) {
+            return (new Response())->json(['error' => 'Not found'], 404);
+        }
+        $messages = \MovaSiteAi\SiteAiSessions::listMessages($id, $vid);
+        return (new Response())->json([
+            'ok' => true,
+            'visitor_id' => $vid,
+            'session' => $session,
+            'messages' => $messages,
+        ]);
+    });
+
+    $router->post('/api/site-ai/sessions', function (Request $req) {
+        $cfg = \MovaSiteAi\SiteAiService::config();
+        if (empty($cfg['enabled'])) {
+            return (new Response())->json(['error' => 'Site AI disabled'], 403);
+        }
+        $vid = \MovaSiteAi\SiteAiSessions::resolveVisitorId(
+            trim((string) ($req->post('visitor_id') ?? ''))
+        );
+        $title = trim((string) ($req->post('title') ?? 'New chat'));
+        $clientId = trim((string) ($req->post('client_id') ?? ''));
+        $session = \MovaSiteAi\SiteAiSessions::createSession(
+            $vid,
+            $title !== '' ? $title : 'New chat',
+            $clientId !== '' ? $clientId : null
+        );
+        return (new Response())->json(['ok' => true, 'visitor_id' => $vid, 'session' => $session]);
+    });
+
+    $router->post('/api/site-ai/sessions/{id}/delete', function (Request $req, array $params = []) {
+        $cfg = \MovaSiteAi\SiteAiService::config();
+        if (empty($cfg['enabled'])) {
+            return (new Response())->json(['error' => 'Site AI disabled'], 403);
+        }
+        $vid = \MovaSiteAi\SiteAiSessions::resolveVisitorId(
+            trim((string) ($req->post('visitor_id') ?? ''))
+        );
+        $id = (int) ($params['id'] ?? 0);
+        $ok = \MovaSiteAi\SiteAiSessions::deleteSession($id, $vid);
+        return (new Response())->json(['ok' => $ok, 'visitor_id' => $vid]);
+    });
+
+    $router->post('/api/site-ai/feedback', function (Request $req) {
+        $cfg = \MovaSiteAi\SiteAiService::config();
+        if (empty($cfg['enabled'])) {
+            return (new Response())->json(['error' => 'Site AI disabled'], 403);
+        }
+        $vid = \MovaSiteAi\SiteAiSessions::resolveVisitorId(
+            trim((string) ($req->post('visitor_id') ?? ''))
+        );
+        $rating = (string) ($req->post('rating') ?? 'up');
+        $sessionId = (string) ($req->post('session_id') ?? '');
+        $hash = (string) ($req->post('message_hash') ?? '');
+        $page = (string) ($req->post('page') ?? '');
+        \MovaSiteAi\SiteAiSessions::saveFeedback($vid, $rating, $sessionId ?: null, $hash ?: null, $page ?: null);
+        return (new Response())->json(['ok' => true, 'visitor_id' => $vid]);
+    });
+}
+
 $response = $router->dispatch($request);
 
 // Cache successful HTML page responses
@@ -306,6 +437,64 @@ if ($cacheable && $response->getStatus() >= 200 && $response->getStatus() < 400)
 $response->send();
 
 // --- Theme helper ---
+
+/**
+ * Inject public Site AI widget when enabled (works even if plugin hook missed).
+ */
+function mova_inject_site_ai_widget(string $html): string
+{
+    $svc = dirname(__DIR__) . '/mova-plugins/mova-site-ai/src/SiteAiService.php';
+    $kb = dirname(__DIR__) . '/mova-plugins/mova-site-ai/src/KnowledgeBank.php';
+    if (!is_file($svc) || !is_file($kb)) {
+        return $html;
+    }
+    require_once $kb;
+    require_once $svc;
+    try {
+        $cfg = \MovaSiteAi\SiteAiService::config();
+    } catch (\Throwable $e) {
+        return $html;
+    }
+    if (empty($cfg['enabled'])) {
+        return $html;
+    }
+    if (str_contains($html, 'mova-site-ai-root')) {
+        return $html;
+    }
+    $name = htmlspecialchars((string) ($cfg['name'] ?? 'Assistant'), ENT_QUOTES, 'UTF-8');
+    $primary = htmlspecialchars((string) ($cfg['primary'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $accent = htmlspecialchars((string) ($cfg['accent'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $bgLight = htmlspecialchars((string) ($cfg['bg_light'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $bgDark = htmlspecialchars((string) ($cfg['bg_dark'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $cssFile = (isset($_SERVER['DOCUMENT_ROOT']) ? rtrim((string) $_SERVER['DOCUMENT_ROOT'], '/') : '') . '/assets/site-ai/widget.css';
+    $jsFile = (isset($_SERVER['DOCUMENT_ROOT']) ? rtrim((string) $_SERVER['DOCUMENT_ROOT'], '/') : '') . '/assets/site-ai/widget.js';
+    $cssVer = is_file($cssFile) ? (string) filemtime($cssFile) : (string) time();
+    $jsVer = is_file($jsFile) ? (string) filemtime($jsFile) : (string) time();
+    // Fallback when DOCUMENT_ROOT is not public/
+    if ($cssVer === (string) time()) {
+        $alt = dirname(__DIR__) . '/public/assets/site-ai/widget.css';
+        if (is_file($alt)) {
+            $cssVer = (string) filemtime($alt);
+        }
+        $altJs = dirname(__DIR__) . '/public/assets/site-ai/widget.js';
+        if (is_file($altJs)) {
+            $jsVer = (string) filemtime($altJs);
+        }
+    }
+    $snippet = '<link rel="stylesheet" href="/assets/site-ai/widget.css?v=' . $cssVer . '">'
+        . '<div id="mova-site-ai-root" data-name="' . $name . '"'
+        . ($primary !== '' ? ' data-primary="' . $primary . '"' : '')
+        . ($accent !== '' ? ' data-accent="' . $accent . '"' : '')
+        . ($bgLight !== '' ? ' data-bg-light="' . $bgLight . '"' : '')
+        . ($bgDark !== '' ? ' data-bg-dark="' . $bgDark . '"' : '')
+        . ' data-api="/api/site-ai/chat"></div>'
+        . '<script src="/assets/site-ai/widget.js?v=' . $jsVer . '" defer></script>';
+    if (stripos($html, '</body>') !== false) {
+        return preg_replace('/<\/body>/i', $snippet . '</body>', $html, 1) ?? ($html . $snippet);
+    }
+    return $html . $snippet;
+}
+
 function renderTheme(string $view, array $data = [], int $status = 200): Response
 {
     $mgr = new \Mova\Theme\ThemeManager();
@@ -326,6 +515,7 @@ function renderTheme(string $view, array $data = [], int $status = 200): Respons
     ob_start();
     include $themePath . '/layout.php';
     $html = ob_get_clean();
+    $html = mova_inject_site_ai_widget($html);
 
     return (new Response())->status($status)->body($html);
 }

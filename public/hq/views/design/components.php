@@ -9,7 +9,7 @@ $hero = $c['hero'] ?? [];
     <div class="alert alert-success">Component variants saved. Public cache cleared.</div>
 <?php endif; ?>
 
-<p class="design-intro">Visual variants for buttons, cards, and heroes.</p>
+<p class="design-intro">Visual variants for buttons, cards, and heroes. To restore Mova defaults, use <a href="/hq/design/reset">Reset defaults</a> in the Design nav.</p>
 
 <form method="post" action="/hq/components" class="design-form">
     <?= Csrf::field() ?>

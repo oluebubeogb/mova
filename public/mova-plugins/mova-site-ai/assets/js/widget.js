@@ -1,0 +1,116 @@
+(function () {
+  var root = document.getElementById('mova-site-ai-root');
+  if (!root) return;
+  var name = root.getAttribute('data-name') || 'Assistant';
+  var api = root.getAttribute('data-api') || '/api/site-ai/chat';
+  var primaryOverride = root.getAttribute('data-primary');
+  var accentOverride = root.getAttribute('data-accent');
+  var bgLight = root.getAttribute('data-bg-light');
+  var bgDark = root.getAttribute('data-bg-dark');
+  if (primaryOverride) root.style.setProperty('--msa-primary', primaryOverride);
+  if (accentOverride) root.style.setProperty('--msa-accent', accentOverride);
+  function applyBg() {
+    var dark = false;
+    try {
+      dark = document.documentElement.getAttribute('data-theme') === 'dark'
+        || document.documentElement.classList.contains('dark')
+        || document.body.classList.contains('dark')
+        || document.documentElement.getAttribute('data-color-scheme') === 'dark'
+        || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+            && !document.documentElement.getAttribute('data-theme'));
+    } catch (e) {}
+    if (dark && bgDark) {
+      root.style.setProperty('--msa-surface', bgDark);
+      root.style.setProperty('--msa-bg', bgDark);
+    } else if (!dark && bgLight) {
+      root.style.setProperty('--msa-surface', bgLight);
+      root.style.setProperty('--msa-bg', bgLight);
+    } else if (bgDark) {
+      root.style.setProperty('--msa-surface-dark', bgDark);
+    }
+  }
+  applyBg();
+  try {
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyBg);
+    }
+  } catch (e) {}
+
+  function hourGreet() {
+    var h = new Date().getHours();
+    if (h < 12) return 'Good morning — I\'m ' + name + '.';
+    if (h < 18) return 'Hi, I\'m ' + name + '. How can I help?';
+    return 'Good evening — ' + name + ' here.';
+  }
+
+  var fab = document.createElement('button');
+  fab.type = 'button';
+  fab.className = 'msa-fab';
+  fab.setAttribute('aria-label', 'Open ' + name);
+  fab.innerHTML = '✦';
+  var panel = document.createElement('div');
+  panel.className = 'msa-panel';
+  panel.innerHTML =
+    '<div class="msa-head"><strong>' + name + '</strong><button type="button" data-close aria-label="Close">&times;</button></div>' +
+    '<div class="msa-msgs" data-msgs><div class="msa-greet">' + hourGreet() + '</div></div>' +
+    '<div class="msa-compose"><input type="text" placeholder="Ask anything…" data-input autocomplete="off"><button type="button" data-send>Send</button></div>';
+  document.body.appendChild(fab);
+  document.body.appendChild(panel);
+
+  var msgs = panel.querySelector('[data-msgs]');
+  var input = panel.querySelector('[data-input]');
+  function open() { panel.classList.add('is-open'); input.focus(); }
+  function close() { panel.classList.remove('is-open'); }
+  fab.addEventListener('click', open);
+  panel.querySelector('[data-close]').addEventListener('click', close);
+
+  function add(role, text, links) {
+    var g = msgs.querySelector('.msa-greet');
+    if (g) g.remove();
+    var d = document.createElement('div');
+    d.className = 'msa-bubble ' + (role === 'user' ? 'user' : 'bot');
+    d.textContent = text || '';
+    if (links && links.length) {
+      var wrap = document.createElement('div');
+      wrap.className = 'msa-links';
+      links.forEach(function (l) {
+        var a = document.createElement('a');
+        a.href = l.path;
+        a.textContent = l.label || l.path;
+        wrap.appendChild(a);
+      });
+      d.appendChild(wrap);
+    }
+    msgs.appendChild(d);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  function send() {
+    var text = (input.value || '').trim();
+    if (!text) return;
+    input.value = '';
+    add('user', text);
+    var body = new URLSearchParams();
+    body.set('message', text);
+    body.set('page', location.pathname);
+    fetch(api, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString()
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        add('bot', data.reply || 'Sorry, try again.', data.links || []);
+      })
+      .catch(function () {
+        add('bot', 'Connection issue — please try again.');
+      });
+  }
+  panel.querySelector('[data-send]').addEventListener('click', send);
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      send();
+    }
+  });
+})();

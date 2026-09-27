@@ -14,7 +14,7 @@ $mobileIconPresets = $mobileIconPresets ?? [];
     <div class="alert alert-success">Layout saved. Public cache cleared.</div>
 <?php endif; ?>
 
-<p class="design-intro">Header, navigation, containers, and mobile menu.</p>
+<p class="design-intro">Header, navigation, containers, and mobile menu. To restore Mova defaults, use <a href="/hq/design/reset">Reset defaults</a> in the Design nav.</p>
 
 <form method="post" action="/hq/layout" class="design-form">
     <?= Csrf::field() ?>

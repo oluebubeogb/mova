@@ -30,6 +30,17 @@
       <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
     </a>
 
+    <a class="hq-landing-card" href="/hq/site-ai">
+      <div class="hq-landing-card-inner">
+        <div class="hq-landing-icon is-mix"><i class="fa-solid fa-comments"></i></div>
+        <div class="hq-landing-card-body">
+          <strong>Site AI Engine</strong>
+          <span>Visitor assistant, knowledge bank, site widget</span>
+        </div>
+      </div>
+      <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
+    </a>
+
     <a class="hq-landing-card" href="/hq/integrations">
       <div class="hq-landing-card-inner">
         <div class="hq-landing-icon is-green"><i class="fa-solid fa-link"></i></div>
