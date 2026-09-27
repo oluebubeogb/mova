@@ -1,29 +1,19 @@
 /* Site AI — site tokens with opaque fallbacks (never transparent) */
-#mova-site-ai-root {
-  /* Optional admin overrides (set these from HQ if you expose AI panel colors) */
+:root {
   --msa-primary: var(--color-primary, #2563eb);
   --msa-accent: var(--color-brand-accent, var(--color-primary, #7c3aed));
-  --msa-on-primary: var(--color-on-primary, #ffffff);
-
-  /* Panel / bubble surface — prefer explicit AI override, else design surface */
   --msa-surface: var(--msa-panel-bg, var(--color-surface, #ffffff));
-
-  /* Message list bg — MUST differ from surface so bot bubbles read clearly */
   --msa-bg: var(--msa-messages-bg, var(--color-bg, var(--color-background, #f4f5f7)));
-
   --msa-text: var(--color-text, #111827);
   --msa-muted: var(--color-muted, #6b7280);
   --msa-border: var(--color-border, #e5e7eb);
+  --msa-on-primary: var(--color-on-primary, #ffffff);
   --msa-radius: var(--radius-md, 12px);
   --msa-shadow: var(--shadow-md, 0 16px 48px rgba(15, 23, 42, 0.22));
   --msa-font: var(--font-sans, system-ui, -apple-system, sans-serif);
 }
 
-/* Dark mode: use theme dark surface/bg (DesignConfig already switches --color-*) */
-html[data-theme="dark"] #mova-site-ai-root,
-html.dark #mova-site-ai-root,
-body.dark #mova-site-ai-root,
-[data-color-scheme="dark"] #mova-site-ai-root {
+html[data-theme="dark"] {
   --msa-surface: var(--msa-panel-bg, var(--color-surface, #1e293b));
   --msa-bg: var(--msa-messages-bg, var(--color-bg, var(--color-background, #0f172a)));
 }
