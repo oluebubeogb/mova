@@ -2,9 +2,8 @@
 #mova-site-ai-root {
   --msa-primary: var(--color-primary, #2563eb);
   --msa-accent: var(--color-brand-accent, var(--color-primary, #7c3aed));
-  --msa-bg: var(--color-bg, var(--color-background, #f8f9fb));
   --msa-surface: var(--color-surface, #ffffff);
-  --msa-bg: var(--color-surface, #ffffff);
+  --msa-bg: var(--msa-surface);
   --msa-text: var(--color-text, #111827);
   --msa-muted: var(--color-muted, #6b7280);
   --msa-border: var(--color-border, #e5e7eb);
@@ -12,6 +11,15 @@
   --msa-shadow: var(--shadow-md, 0 16px 48px rgba(15, 23, 42, 0.22));
   --msa-font: var(--font-sans, system-ui, -apple-system, sans-serif);
   --msa-on-primary: var(--color-on-primary, #ffffff);
+}
+
+/* Dark mode: prefer explicit override, else theme surface token */
+html[data-theme="dark"] #mova-site-ai-root,
+html.dark #mova-site-ai-root,
+body.dark #mova-site-ai-root,
+[data-color-scheme="dark"] #mova-site-ai-root {
+  --msa-surface: var(--msa-surface-dark, var(--color-surface, #1e293b));
+  --msa-bg: var(--msa-surface);
 }
 
 .msa-fab {

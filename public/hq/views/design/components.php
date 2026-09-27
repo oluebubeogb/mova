@@ -9,16 +9,7 @@ $hero = $c['hero'] ?? [];
     <div class="alert alert-success">Component variants saved. Public cache cleared.</div>
 <?php endif; ?>
 
-<?php if (!empty($_GET['reset'])): ?>
-    <div class="alert alert-success">Restored Mova defaults. Public cache cleared.</div>
-<?php endif; ?>
-<form method="post" action="/hq/components/reset" class="design-reset-form" style="margin:0 0 1rem;" onsubmit="return confirm('Reset components to Mova defaults? This overwrites your current components settings.');">
-    <?= Csrf::field() ?>
-    <button type="submit" class="btn btn-secondary" style="font-size:0.85rem;">
-        <i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Reset components to defaults
-    </button>
-</form>
-<p class="design-intro">Visual variants for buttons, cards, and heroes.</p>
+<p class="design-intro">Visual variants for buttons, cards, and heroes. To restore Mova defaults, use <a href="/hq/design/reset">Reset defaults</a> in the Design nav.</p>
 
 <form method="post" action="/hq/components" class="design-form">
     <?= Csrf::field() ?>

@@ -5,8 +5,36 @@
   var api = root.getAttribute('data-api') || '/api/site-ai/chat';
   var primaryOverride = root.getAttribute('data-primary');
   var accentOverride = root.getAttribute('data-accent');
+  var bgLight = root.getAttribute('data-bg-light');
+  var bgDark = root.getAttribute('data-bg-dark');
   if (primaryOverride) root.style.setProperty('--msa-primary', primaryOverride);
   if (accentOverride) root.style.setProperty('--msa-accent', accentOverride);
+  function applyBg() {
+    var dark = false;
+    try {
+      dark = document.documentElement.getAttribute('data-theme') === 'dark'
+        || document.documentElement.classList.contains('dark')
+        || document.body.classList.contains('dark')
+        || document.documentElement.getAttribute('data-color-scheme') === 'dark'
+        || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+            && !document.documentElement.getAttribute('data-theme'));
+    } catch (e) {}
+    if (dark && bgDark) {
+      root.style.setProperty('--msa-surface', bgDark);
+      root.style.setProperty('--msa-bg', bgDark);
+    } else if (!dark && bgLight) {
+      root.style.setProperty('--msa-surface', bgLight);
+      root.style.setProperty('--msa-bg', bgLight);
+    } else if (bgDark) {
+      root.style.setProperty('--msa-surface-dark', bgDark);
+    }
+  }
+  applyBg();
+  try {
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyBg);
+    }
+  } catch (e) {}
 
   function hourGreet() {
     var h = new Date().getHours();

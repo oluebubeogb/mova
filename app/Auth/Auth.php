@@ -158,9 +158,11 @@ class Auth
             return false;
         }
 
+        // Administrator has the same capabilities as owner except creating new administrators
+        // (enforced in people routes). All permission checks treat admin like full access.
         $map = [
             'owner'         => ['*'],
-            'administrator' => ['manage_content', 'manage_media', 'manage_users', 'manage_settings', 'manage_mail', 'view_insights', 'manage_appearance'],
+            'administrator' => ['*'],
             'editor'        => ['manage_content', 'manage_media', 'view_insights'],
             'author'        => ['manage_own_content', 'manage_media'],
             'viewer'        => ['view_content'],

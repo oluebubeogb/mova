@@ -39,17 +39,45 @@ $router->post('/site-ai', function (Request $req) {
         return (new Response())->status(403)->body('Forbidden');
     }
     $action = (string) $req->post('action', 'save');
+    $layer = (string) $req->post('layer', 'settings');
+    $redirectLayer = in_array($layer, ['settings', 'design', 'knowledge'], true) ? $layer : 'settings';
+
     if ($action === 'save') {
-        $enabled = $req->post('enabled') === '1';
-        \MovaSiteAi\SiteAiService::saveConfig([
-            'enabled' => $enabled,
-            'name' => trim((string) $req->post('name', 'Site Assistant')),
-            'welcome' => trim((string) $req->post('welcome', '')),
-            'primary' => trim((string) $req->post('primary', '')),
-            'accent' => trim((string) $req->post('accent', '')),
-        ]);
-        // Ensure plugin is active so the public widget hook boots
-        if ($enabled && class_exists(\Mova\Plugin\PluginManager::class)) {
+        $current = \MovaSiteAi\SiteAiService::config();
+        $payload = [
+            'enabled' => $req->post('enabled') === '1' || (!empty($current['enabled']) && $layer === 'design'),
+            'name' => $layer === 'settings'
+                ? trim((string) $req->post('name', 'Site Assistant'))
+                : (string) ($current['name'] ?? 'Site Assistant'),
+            'welcome' => $layer === 'settings'
+                ? trim((string) $req->post('welcome', ''))
+                : (string) ($current['welcome'] ?? ''),
+            'primary' => $layer === 'design'
+                ? trim((string) $req->post('primary', ''))
+                : (string) ($current['primary'] ?? ''),
+            'accent' => $layer === 'design'
+                ? trim((string) $req->post('accent', ''))
+                : (string) ($current['accent'] ?? ''),
+            'bg_light' => $layer === 'design'
+                ? trim((string) $req->post('bg_light', ''))
+                : (string) ($current['bg_light'] ?? ''),
+            'bg_dark' => $layer === 'design'
+                ? trim((string) $req->post('bg_dark', ''))
+                : (string) ($current['bg_dark'] ?? ''),
+        ];
+        // When saving design only, preserve enabled from checkbox absence
+        if ($layer === 'design') {
+            $payload['enabled'] = !empty($current['enabled']);
+        }
+        if ($layer === 'settings') {
+            $payload['enabled'] = $req->post('enabled') === '1';
+            $payload['primary'] = (string) ($current['primary'] ?? '');
+            $payload['accent'] = (string) ($current['accent'] ?? '');
+            $payload['bg_light'] = (string) ($current['bg_light'] ?? '');
+            $payload['bg_dark'] = (string) ($current['bg_dark'] ?? '');
+        }
+        \MovaSiteAi\SiteAiService::saveConfig($payload);
+        if (!empty($payload['enabled']) && class_exists(\Mova\Plugin\PluginManager::class)) {
             (new \Mova\Plugin\PluginManager())->activate('mova-site-ai');
         }
         if (class_exists(\Mova\Cache\PageCache::class)) {
@@ -61,6 +89,7 @@ $router->post('/site-ai', function (Request $req) {
         if ($text !== '') {
             \MovaSiteAi\KnowledgeBank::addTextSource($title !== '' ? $title : 'Note', 'text', $text);
         }
+        $redirectLayer = 'knowledge';
     } elseif ($action === 'add_url') {
         $url = trim((string) $req->post('source_url', ''));
         if ($url !== '' && preg_match('#^https?://#i', $url)) {
@@ -71,18 +100,58 @@ $router->post('/site-ai', function (Request $req) {
                 \MovaSiteAi\KnowledgeBank::addTextSource($url, 'url', mb_substr($text, 0, 50000), $url);
             }
         }
-    } elseif ($action === 'upload' && !empty($_FILES['source_file']['tmp_name'])) {
+        $redirectLayer = 'knowledge';
+    } elseif ($action === 'upload_one') {
+        // AJAX single-file upload with JSON response (progress UI)
+        if (empty($_FILES['source_file']['tmp_name'])) {
+            return (new Response())
+                ->header('Content-Type', 'application/json; charset=utf-8')
+                ->body(json_encode(['ok' => false, 'error' => 'No file']));
+        }
         $f = $_FILES['source_file'];
         $name = (string) ($f['name'] ?? 'upload');
-        $text = \MovaSiteAi\KnowledgeBank::extractTextFromUpload((string) $f['tmp_name'], $name);
-        if (trim($text) !== '') {
-            \MovaSiteAi\KnowledgeBank::addTextSource($name, 'file', mb_substr($text, 0, 100000), $name);
+        $id = \MovaSiteAi\KnowledgeBank::queueUpload((string) $f['tmp_name'], $name);
+        if ($id <= 0) {
+            return (new Response())
+                ->header('Content-Type', 'application/json; charset=utf-8')
+                ->body(json_encode(['ok' => false, 'error' => 'Could not extract text']));
         }
+        \MovaSiteAi\KnowledgeBank::processSource($id);
+        return (new Response())
+            ->header('Content-Type', 'application/json; charset=utf-8')
+            ->body(json_encode(['ok' => true, 'id' => $id]));
+    } elseif ($action === 'upload') {
+        // Classic multi-file form fallback
+        $files = $_FILES['source_files'] ?? $_FILES['source_file'] ?? null;
+        if ($files) {
+            $names = $files['name'] ?? [];
+            $tmps = $files['tmp_name'] ?? [];
+            $errors = $files['error'] ?? [];
+            if (!is_array($names)) {
+                $names = [$names];
+                $tmps = [$tmps];
+                $errors = [$errors];
+            }
+            foreach ($names as $i => $name) {
+                $tmp = $tmps[$i] ?? '';
+                $err = $errors[$i] ?? UPLOAD_ERR_NO_FILE;
+                if ($err !== UPLOAD_ERR_OK || $tmp === '' || !is_uploaded_file($tmp)) {
+                    continue;
+                }
+                $id = \MovaSiteAi\KnowledgeBank::queueUpload($tmp, (string) $name);
+                if ($id > 0) {
+                    \MovaSiteAi\KnowledgeBank::processSource($id);
+                }
+            }
+        }
+        $redirectLayer = 'knowledge';
     } elseif ($action === 'delete') {
         $id = (int) $req->post('source_id', 0);
         if ($id > 0) {
             \MovaSiteAi\KnowledgeBank::deleteSource($id);
         }
+        $redirectLayer = 'knowledge';
     }
-    return (new Response())->redirect('/hq/site-ai');
+
+    return (new Response())->redirect('/hq/site-ai?layer=' . rawurlencode($redirectLayer));
 });

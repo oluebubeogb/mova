@@ -79,6 +79,73 @@ class KnowledgeBank
         return $id;
     }
 
+    /**
+     * Create a source in indexing state and store raw text in meta for processSource.
+     */
+    public static function queueUpload(string $tmpPath, string $filename): int
+    {
+        self::ensureSchema();
+        $text = self::extractTextFromUpload($tmpPath, $filename);
+        if (trim($text) === '') {
+            return 0;
+        }
+        $text = mb_substr($text, 0, 100000);
+        $now = date('c');
+        $id = Database::insert('site_ai_sources', [
+            'title' => mb_substr($filename, 0, 200),
+            'type' => 'file',
+            'source_ref' => $filename,
+            'status' => 'indexing',
+            'meta' => json_encode(['pending_text' => $text, 'chars' => mb_strlen($text)]),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        return (int) $id;
+    }
+
+    public static function processSource(int $id): bool
+    {
+        self::ensureSchema();
+        $row = Database::fetch('SELECT * FROM site_ai_sources WHERE id = :id', ['id' => $id]);
+        if (!$row) {
+            return false;
+        }
+        $meta = [];
+        if (!empty($row['meta'])) {
+            $decoded = json_decode((string) $row['meta'], true);
+            if (is_array($decoded)) {
+                $meta = $decoded;
+            }
+        }
+        $text = (string) ($meta['pending_text'] ?? '');
+        if ($text === '') {
+            Database::query(
+                "UPDATE site_ai_sources SET status = 'ready', updated_at = :t WHERE id = :id",
+                ['t' => date('c'), 'id' => $id]
+            );
+            return true;
+        }
+        Database::query("DELETE FROM site_ai_chunks WHERE source_id = :id", ['id' => $id]);
+        $now = date('c');
+        $chunks = self::chunkText($text, 900);
+        foreach ($chunks as $i => $chunk) {
+            Database::insert('site_ai_chunks', [
+                'source_id' => $id,
+                'chunk_index' => $i,
+                'content' => $chunk,
+                'created_at' => $now,
+            ]);
+        }
+        unset($meta['pending_text']);
+        $meta['chars'] = mb_strlen($text);
+        $meta['chunks'] = count($chunks);
+        Database::query(
+            "UPDATE site_ai_sources SET status = 'ready', meta = :m, updated_at = :t WHERE id = :id",
+            ['m' => json_encode($meta), 't' => $now, 'id' => $id]
+        );
+        return true;
+    }
+
     /** @return list<string> */
     public static function chunkText(string $text, int $size = 900): array
     {
@@ -109,6 +176,7 @@ class KnowledgeBank
         $rows = Database::fetchAll(
             "SELECT c.content, s.title FROM site_ai_chunks c
              JOIN site_ai_sources s ON s.id = c.source_id
+             WHERE s.status = 'ready'
              ORDER BY c.id DESC LIMIT 400"
         );
         $scored = [];
@@ -148,6 +216,12 @@ class KnowledgeBank
         if ($ext === 'docx') {
             return self::extractDocx($tmpPath);
         }
+        if ($ext === 'doc') {
+            return self::extractDocLegacy($raw);
+        }
+        if ($ext === 'xlsx' || $ext === 'xls') {
+            return self::extractSpreadsheet($tmpPath, $ext);
+        }
         if ($ext === 'pdf') {
             // best-effort: strip binary noise
             $text = preg_replace('/[^\x09\x0A\x0D\x20-\x7E\xA0-\x{10FFFF}]/u', ' ', $raw) ?? '';
@@ -172,5 +246,60 @@ class KnowledgeBank
         }
         $xml = preg_replace('/<\/w:p>/', "\n", $xml) ?? $xml;
         return trim(html_entity_decode(strip_tags($xml), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    }
+
+    /** Best-effort for old .doc binary — extract printable runs. */
+    private static function extractDocLegacy(string $raw): string
+    {
+        $text = preg_replace('/[^\x09\x0A\x0D\x20-\x7E]/', ' ', $raw) ?? '';
+        return trim(preg_replace('/\s+/', ' ', $text) ?? '');
+    }
+
+    private static function extractSpreadsheet(string $path, string $ext): string
+    {
+        if ($ext === 'xlsx' && class_exists('ZipArchive')) {
+            $zip = new \ZipArchive();
+            if ($zip->open($path) !== true) {
+                return '';
+            }
+            $shared = [];
+            $ss = $zip->getFromName('xl/sharedStrings.xml');
+            if ($ss !== false) {
+                if (preg_match_all('/<t[^>]*>([^<]*)<\/t>/', $ss, $m)) {
+                    $shared = $m[1];
+                }
+            }
+            $parts = [];
+            for ($i = 1; $i <= 20; $i++) {
+                $sheet = $zip->getFromName("xl/worksheets/sheet{$i}.xml");
+                if ($sheet === false) {
+                    break;
+                }
+                // Inline strings
+                if (preg_match_all('/<t[^>]*>([^<]*)<\/t>/', $sheet, $im)) {
+                    foreach ($im[1] as $t) {
+                        $parts[] = html_entity_decode($t, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    }
+                }
+                // Shared string references
+                if (preg_match_all('/<c[^>]*t="s"[^>]*>\s*<v>(\d+)<\/v>/', $sheet, $cm)) {
+                    foreach ($cm[1] as $idx) {
+                        $idx = (int) $idx;
+                        if (isset($shared[$idx])) {
+                            $parts[] = html_entity_decode($shared[$idx], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                        }
+                    }
+                }
+            }
+            $zip->close();
+            return trim(implode("\n", array_filter($parts, static fn($p) => trim($p) !== '')));
+        }
+        // xls or fallback: printable text
+        $raw = @file_get_contents($path);
+        if ($raw === false) {
+            return '';
+        }
+        $text = preg_replace('/[^\x09\x0A\x0D\x20-\x7E]/', ' ', $raw) ?? '';
+        return trim(preg_replace('/\s+/', ' ', $text) ?? '');
     }
 }

@@ -17,6 +17,8 @@ class SiteAiService
             'welcome' => '',
             'primary' => '',
             'accent' => '',
+            'bg_light' => '',
+            'bg_dark' => '',
         ];
         try {
             $row = Database::fetch(
@@ -158,10 +160,17 @@ class SiteAiService
             $t = DesignConfig::tokens();
             return [
                 'primary' => $t['colors']['primary'] ?? '#2563eb',
-                'accent' => $t['colors']['accent'] ?? '#7c3aed',
+                'accent' => $t['colors']['accent'] ?? $t['colors']['brand-accent'] ?? '#7c3aed',
+                'surface' => $t['colors']['surface'] ?? $t['colors']['bg'] ?? '#ffffff',
+                'surface_dark' => $t['colors_dark']['surface'] ?? $t['colors_dark']['bg'] ?? '#1e293b',
             ];
         } catch (\Throwable $e) {
-            return ['primary' => '#2563eb', 'accent' => '#7c3aed'];
+            return [
+                'primary' => '#2563eb',
+                'accent' => '#7c3aed',
+                'surface' => '#ffffff',
+                'surface_dark' => '#1e293b',
+            ];
         }
     }
 }

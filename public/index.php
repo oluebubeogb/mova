@@ -352,6 +352,8 @@ function mova_inject_site_ai_widget(string $html): string
     $name = htmlspecialchars((string) ($cfg['name'] ?? 'Assistant'), ENT_QUOTES, 'UTF-8');
     $primary = htmlspecialchars((string) ($cfg['primary'] ?? ''), ENT_QUOTES, 'UTF-8');
     $accent = htmlspecialchars((string) ($cfg['accent'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $bgLight = htmlspecialchars((string) ($cfg['bg_light'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $bgDark = htmlspecialchars((string) ($cfg['bg_dark'] ?? ''), ENT_QUOTES, 'UTF-8');
     $cssFile = (isset($_SERVER['DOCUMENT_ROOT']) ? rtrim((string) $_SERVER['DOCUMENT_ROOT'], '/') : '') . '/assets/site-ai/widget.css';
     $jsFile = (isset($_SERVER['DOCUMENT_ROOT']) ? rtrim((string) $_SERVER['DOCUMENT_ROOT'], '/') : '') . '/assets/site-ai/widget.js';
     $cssVer = is_file($cssFile) ? (string) filemtime($cssFile) : (string) time();
@@ -371,6 +373,8 @@ function mova_inject_site_ai_widget(string $html): string
         . '<div id="mova-site-ai-root" data-name="' . $name . '"'
         . ($primary !== '' ? ' data-primary="' . $primary . '"' : '')
         . ($accent !== '' ? ' data-accent="' . $accent . '"' : '')
+        . ($bgLight !== '' ? ' data-bg-light="' . $bgLight . '"' : '')
+        . ($bgDark !== '' ? ' data-bg-dark="' . $bgDark . '"' : '')
         . ' data-api="/api/site-ai/chat"></div>'
         . '<script src="/assets/site-ai/widget.js?v=' . $jsVer . '" defer></script>';
     if (stripos($html, '</body>') !== false) {

@@ -112,7 +112,8 @@
                 { label: 'Layout',     href: '/hq/layout' },
                 { label: 'Components', href: '/hq/components' },
                 { label: 'Elements',   href: '/hq/elements' },
-                { label: 'Variables',  href: '/hq/variables' }
+                { label: 'Variables',  href: '/hq/variables' },
+                { label: 'Reset defaults', href: '/hq/design/reset' }
             ]
         },
         'design.variables': {
@@ -139,7 +140,8 @@
                 { label: 'Dark colors',      layer: 'dark' },
                 { label: 'Typography',       layer: 'type' },
                 { label: 'Radius & shadow',  layer: 'shape' },
-                { label: 'Density',          layer: 'density' }
+                { label: 'Density',          layer: 'density' },
+                { label: 'Reset defaults',   href: '/hq/design/reset' }
             ]
         },
         'design.layout': {
@@ -149,7 +151,8 @@
                 { label: 'Header',      layer: 'header' },
                 { label: 'Navigation',  layer: 'nav' },
                 { label: 'Mobile menu', layer: 'mobile' },
-                { label: 'Footer',      layer: 'footer' }
+                { label: 'Footer',      layer: 'footer' },
+                { label: 'Reset defaults', href: '/hq/design/reset' }
             ]
         },
         'design.components': {
@@ -157,7 +160,8 @@
             items: [
                 { label: 'Buttons',    layer: 'button' },
                 { label: 'Cards',      layer: 'card' },
-                { label: 'Hero',       layer: 'hero' }
+                { label: 'Hero',       layer: 'hero' },
+                { label: 'Reset defaults', href: '/hq/design/reset' }
             ]
         },
         'design.elements': {
@@ -177,6 +181,14 @@
                 { label: 'Integrations', href: '/hq/integrations' },
                 { label: 'API keys',     href: '/hq/api-keys' },
                 { label: 'Webhooks',     href: '/hq/webhooks' }
+            ]
+        },
+        'site-ai': {
+            sectionName: 'Site AI',
+            items: [
+                { label: 'Settings',       href: '/hq/site-ai?layer=settings',  layer: 'settings' },
+                { label: 'Design',         href: '/hq/site-ai?layer=design',    layer: 'design' },
+                { label: 'Knowledge bank', href: '/hq/site-ai?layer=knowledge', layer: 'knowledge' }
             ]
         },
         plugins: {
@@ -277,7 +289,8 @@
 
         // Extend
         if (path.startsWith('/hq/integrations')) return { key: 'integrations', params };
-        if (path.startsWith('/hq/site-ai')) return { key: 'plugins', params };
+        if (path.startsWith('/hq/site-ai')) return { key: 'site-ai', params };
+        if (path.startsWith('/hq/design/reset')) return { key: 'design', params };
         if (path.startsWith('/hq/plugins')) return { key: 'plugins', params };
         if (path.startsWith('/hq/api-keys') || path.startsWith('/hq/webhooks')) return { key: 'extend', params };
 
@@ -508,6 +521,7 @@
         { title: 'Extend',           href: '/hq/extend',          keywords: 'extend', group: 'Extend' },
         { title: 'Plugins',          href: '/hq/plugins',         keywords: 'plugins modules', group: 'Extend' },
         { title: 'Site AI Engine',   href: '/hq/site-ai',         keywords: 'site ai assistant chatbot knowledge bank widget frontend', group: 'Extend' },
+        { title: 'Reset design defaults', href: '/hq/design/reset', keywords: 'reset defaults style layout components', group: 'Design' },
         { title: 'Integrations',     href: '/hq/integrations',    keywords: 'integrations', group: 'Extend' },
         { title: 'API keys',         href: '/hq/api-keys',             keywords: 'api keys', group: 'Extend' },
         { title: 'Webhooks',         href: '/hq/webhooks',        keywords: 'webhooks', group: 'Extend' },

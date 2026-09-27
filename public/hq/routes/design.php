@@ -289,6 +289,13 @@ $router->post('/style', function (Request $req) {
     return (new Response())->redirect('/hq/style?saved=1');
 });
 
+$router->get('/design/reset', function () {
+    if ($r = mova_design_guard()) {
+        return $r;
+    }
+    return renderHq('design/reset', ['title' => 'Reset design defaults']);
+});
+
 $router->post('/style/reset', function (Request $req) {
     if ($r = mova_design_guard()) {
         return $r;
@@ -301,7 +308,7 @@ $router->post('/style/reset', function (Request $req) {
         \Mova\Cache\PageCache::flush();
     }
     Audit::log('design.style.reset');
-    return (new Response())->redirect('/hq/style?reset=1');
+    return (new Response())->redirect('/hq/design/reset?reset=style');
 });
 
 $router->post('/layout/reset', function (Request $req) {
@@ -316,7 +323,7 @@ $router->post('/layout/reset', function (Request $req) {
         \Mova\Cache\PageCache::flush();
     }
     Audit::log('design.layout.reset');
-    return (new Response())->redirect('/hq/layout?reset=1');
+    return (new Response())->redirect('/hq/design/reset?reset=layout');
 });
 
 $router->post('/components/reset', function (Request $req) {
@@ -331,7 +338,7 @@ $router->post('/components/reset', function (Request $req) {
         \Mova\Cache\PageCache::flush();
     }
     Audit::log('design.components.reset');
-    return (new Response())->redirect('/hq/components?reset=1');
+    return (new Response())->redirect('/hq/design/reset?reset=components');
 });
 
 
