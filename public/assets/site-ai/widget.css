@@ -57,7 +57,7 @@ body.dark #mova-site-ai-root,
   z-index: 100000;
   width: min(380px, calc(100vw - 1.5rem));
   height: min(520px, 70vh);
-  background-color: var(--msa-surface);
+  background-color: var(--msa-surface, var(--color-surface, #ffffff));
   color: var(--msa-text);
   border: 1px solid var(--msa-border);
   border-radius: calc(var(--msa-radius) + 4px);
@@ -193,4 +193,26 @@ body.dark #mova-site-ai-root,
   font-size: 0.9rem;
   padding: 1.25rem 0.5rem;
   line-height: 1.5;
+}
+
+
+.msa-msgs {
+  background-color: var(--msa-bg, var(--color-bg, var(--color-background, #f4f5f7)));
+}
+.msa-bubble.bot {
+  background-color: var(--msa-surface, var(--color-surface, #ffffff));
+}
+.msa-compose {
+  background-color: var(--msa-surface, var(--color-surface, #ffffff));
+}
+.msa-head {
+  background-color: var(--msa-primary, var(--color-primary, #2563eb));
+  background-image: linear-gradient(
+    135deg,
+    var(--msa-primary, var(--color-primary, #2563eb)),
+    var(--msa-accent, var(--color-brand-accent, #7c3aed))
+  );
+}
+.msa-compose input {
+  background-color: var(--msa-bg, var(--color-bg, #f4f5f7));
 }
