@@ -82,7 +82,7 @@ class AiChatService
      * @param array{route?:string,area?:string,entityId?:int|null,layer?:string|null} $pageContext
      * @return array{ok:bool,session_id:int,reply:string,actions:list<array>,provider:string,error?:string}
      */
-    public function chat(int $userId, ?int $sessionId, string $message, array $pageContext = []): array
+    public function chat(int $userId, ?int $sessionId, string $message, array $pageContext = [], array $options = []): array
     {
         $message = trim($message);
         if ($message === '') {
@@ -118,7 +118,7 @@ class AiChatService
         }
 
         $history = $this->listMessages($sessionId, $userId, 24);
-        $llm = $this->callLlm($message, $history, $pageContext, $matches);
+        $llm = $this->callLlm($message, $history, $pageContext, $matches, $options);
 
         $reply = $llm['reply'] ?? '';
         $actions = $llm['actions'] ?? [];
@@ -245,11 +245,14 @@ class AiChatService
      * @param list<array<string,mixed>> $mapMatches
      * @return array{reply:string,actions:list<array>,provider:string,error?:string}
      */
-    private function callLlm(string $message, array $history, array $pageContext, array $mapMatches): array
+    private function callLlm(string $message, array $history, array $pageContext, array $mapMatches, array $options = []): array
     {
         $route = (string) ($pageContext['route'] ?? '');
         $area = (string) ($pageContext['area'] ?? '');
         $layer = (string) ($pageContext['layer'] ?? '');
+        $kind = (string) ($options['kind'] ?? 'chat');
+        $longRunning = !empty($options['long_running']) || $kind === 'coding';
+        $isCoding = $kind === 'coding' || (bool) preg_match('/\b(html|css|javascript|code|snippet|pricelist|price list)\b/i', $message);
 
         $matchLines = [];
         foreach (array_slice($mapMatches, 0, 5) as $m) {
@@ -266,22 +269,30 @@ class AiChatService
             ? "The user is editing content id={$entityId}. If they ask to add, expand, continue, or revise the article, use update_content with payload id={$entityId}, mode=append (or replace), and body HTML — do NOT create_content."
             : "When creating new pages use create_content (draft only).";
 
+        $codingHelp = $isCoding
+            ? "The user wants code. Put complete HTML and/or CSS in the reply using markdown fences (```html and ```css). "
+              . "Do not omit code in favor of navigate links. Prefer a full paste-ready snippet. "
+              . "You may still include navigate actions if useful, but code in reply is required when asked."
+            : "When helpful you may include short code in markdown fences.";
+
         $system = "You are Mova AI, the assistant inside Mova CMS HQ. "
-            . "Help users navigate HQ, create/update draft content, and adjust design colors. Be concise. "
+            . "Help users navigate HQ, create/update draft content, adjust design colors, and write HTML/CSS when asked. Be concise. "
             . "Never publish content. Never invent HQ URLs — use the map. "
-            . "{$paletteHelp} {$contentHelp} "
+            . "{$paletteHelp} {$contentHelp} {$codingHelp} "
             . "When the user should open a screen, include navigate actions.\n\n"
             . HqMap::asPromptBlock(35) . "\n\n"
             . "Current page: route={$route} area={$area} layer={$layer} entityId={$entityId}\n"
             . "Top map matches for this message:\n" . ($matchLines ? implode("\n", $matchLines) : "(none)") . "\n\n"
-            . "Respond with ONLY valid JSON (no markdown fences):\n"
-            . '{"reply":"string","actions":[ '
+            . "Respond with ONLY valid JSON (no markdown fences around the JSON itself):\n"
+            . '{"reply":"string — may contain markdown and ```html / ```css code fences","actions":[ '
             . '{"type":"navigate","label":"Open …","path":"/hq/..."}, '
             . '{"type":"create_content","label":"Create draft","payload":{"title":"…","type":"page","body":"…"}}, '
             . '{"type":"update_content","label":"Update draft","payload":{"id":' . max($entityId, 0) . ',"mode":"append","body":"…"}}, '
-            . '{"type":"update_design_tokens","label":"Apply colors","payload":{"colors":{"primary":"#2563eb","accent":"#7c3aed"}}} '
+            . '{"type":"update_design_tokens","label":"Apply colors","payload":{"colors":{"primary":"#2563eb","accent":"#7c3aed"}}}, '
+            . '{"type":"insert_code","label":"Insert into body","payload":{"target":"body","mode":"append","language":"html","code":"…"}} '
             . "]}\n"
-            . "Use 0–4 actions. navigate paths must start with /hq. Only use palette keys listed above.";
+            . "Use 0–4 actions. navigate paths must start with /hq. Only use palette keys listed above. "
+            . "For coding requests prefer insert_code when the user is editing content.";
 
         $messages = [['role' => 'system', 'content' => $system]];
         foreach (array_slice($history, -12) as $row) {
@@ -298,7 +309,9 @@ class AiChatService
         }
 
         try {
-            $raw = $this->assist->chatRaw($messages, 2400);
+            $maxTokens = ($longRunning || $isCoding) ? 6000 : 2400;
+            $timeout = ($longRunning || $isCoding) ? 300 : 90;
+            $raw = $this->assist->chatRaw($messages, $maxTokens, $timeout);
             $parsed = $this->parseJsonReply($raw);
             if ($parsed !== null) {
                 return [
@@ -322,6 +335,17 @@ class AiChatService
                 'provider' => $this->assist->providerLabel(),
             ];
         } catch (\Throwable $e) {
+            $isCodingFail = !empty($options['long_running'])
+                || (($options['kind'] ?? '') === 'coding')
+                || (bool) preg_match('/\b(html|css|code|snippet)\b/i', $message);
+            if ($isCodingFail) {
+                return [
+                    'reply' => 'The model timed out or failed while generating code. Try again, or shorten the request. (' . $e->getMessage() . ')',
+                    'actions' => [],
+                    'provider' => 'error',
+                    'error' => $e->getMessage(),
+                ];
+            }
             $fallback = $this->heuristicReply($message, $mapMatches);
             $fallback['error'] = $e->getMessage();
             return $fallback;

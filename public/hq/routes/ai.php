@@ -94,6 +94,98 @@ $router->post('/ai/chat', function (Request $req) {
     return (new Response())->json($result, $status);
 });
 
+
+// —— Background AI jobs (long coding / async) ——
+
+$router->get('/ai/jobs', function (Request $req) {
+    requireAuth();
+    $uid = (int) Auth::id();
+    $activeOnly = (string) $req->query('active', '') === '1';
+    $svc = new \Mova\AI\AiJobService();
+    return (new Response())->json(['ok' => true, 'jobs' => $svc->listJobs($uid, 30, $activeOnly)]);
+});
+
+$router->get('/ai/jobs/{id}', function (Request $req, array $params = []) {
+    requireAuth();
+    $uid = (int) Auth::id();
+    $id = (int) ($params['id'] ?? 0);
+    $svc = new \Mova\AI\AiJobService();
+    $job = $svc->getJob($id, $uid);
+    if (!$job) {
+        return (new Response())->json(['error' => 'Not found'], 404);
+    }
+    return (new Response())->json(['ok' => true, 'job' => $job]);
+});
+
+$router->post('/ai/jobs', function (Request $req) {
+    requireAuth();
+    if (!Csrf::validate()) {
+        return (new Response())->json(['error' => 'CSRF'], 403);
+    }
+    $uid = (int) Auth::id();
+    $message = trim((string) $req->post('message', ''));
+    $sessionId = (int) $req->post('session_id', 0) ?: null;
+    $clientKey = trim((string) $req->post('client_key', '')) ?: null;
+    $background = (string) $req->post('background', '1') === '1';
+    $pageContext = [
+        'route' => (string) $req->post('route', ''),
+        'area' => (string) $req->post('area', ''),
+        'layer' => (string) $req->post('layer', ''),
+        'entityId' => (int) $req->post('entity_id', 0) ?: null,
+    ];
+    if ($message === '') {
+        return (new Response())->json(['error' => 'Empty message'], 400);
+    }
+    $svc = new \Mova\AI\AiJobService();
+    try {
+        $job = $svc->enqueue($uid, $message, $sessionId, $pageContext, 'chat', $clientKey);
+    } catch (\Throwable $e) {
+        return (new Response())->json(['error' => $e->getMessage()], 400);
+    }
+
+    // Kick processing after response when possible (same PHP worker)
+    if (function_exists('fastcgi_finish_request') || PHP_SAPI !== 'cli') {
+        $jobId = (int) $job['id'];
+        register_shutdown_function(static function () use ($svc, $jobId, $uid) {
+            try {
+                @ignore_user_abort(true);
+                $svc->processJob($jobId, $uid);
+            } catch (\Throwable $e) {
+            }
+        });
+    }
+
+    return (new Response())->json(['ok' => true, 'job' => $job, 'background' => true]);
+});
+
+$router->post('/ai/jobs/process', function (Request $req) {
+    requireAuth();
+    if (!Csrf::validate()) {
+        return (new Response())->json(['error' => 'CSRF'], 403);
+    }
+    $uid = (int) Auth::id();
+    $jobId = (int) $req->post('job_id', 0);
+    $svc = new \Mova\AI\AiJobService();
+    if ($jobId > 0) {
+        $job = $svc->processJob($jobId, $uid);
+    } else {
+        $job = $svc->processNext($uid);
+    }
+    return (new Response())->json(['ok' => true, 'job' => $job]);
+});
+
+$router->post('/ai/jobs/{id}/cancel', function (Request $req, array $params = []) {
+    requireAuth();
+    if (!Csrf::validate()) {
+        return (new Response())->json(['error' => 'CSRF'], 403);
+    }
+    $uid = (int) Auth::id();
+    $id = (int) ($params['id'] ?? 0);
+    $svc = new \Mova\AI\AiJobService();
+    $ok = $svc->cancelJob($id, $uid);
+    return (new Response())->json(['ok' => $ok]);
+});
+
 $router->get('/ai/map', function () {
     requireAuth();
     return (new Response())->json(['ok' => true, 'items' => HqMap::all()]);

@@ -113,7 +113,7 @@ HTML;
     <link rel="stylesheet" href="/assets/css/hq-landings.css?v=20260922fullwidth2">
     <?php if ($isAuth): ?>
     <meta name="csrf-token" content="<?= htmlspecialchars(\Mova\Security\Csrf::token()) ?>">
-    <link rel="stylesheet" href="/assets/css/mova-ai-panel.css?v=20260926ai4">
+    <link rel="stylesheet" href="/assets/css/mova-ai-panel.css?v=20260927jobs">
     <?php endif; ?>
 </head>
 <body class="hq hq-vnext <?= $isAuth ? 'hq-authenticated' : 'hq-guest' ?>" data-workspace="<?= htmlspecialchars($workspace) ?>">
@@ -180,6 +180,10 @@ HTML;
     <aside class="mova-ai-panel" id="mova-ai-panel" aria-label="Mova AI">
         <div class="mova-ai-panel-header">
             <h2>Mova AI <span class="mova-ai-badge">HQ</span></h2>
+            <button type="button" class="mova-ai-icon-btn" id="mova-ai-jobs-toggle" title="Background jobs" aria-label="Background jobs">
+                <i class="fa-solid fa-layer-group"></i>
+                <span class="mova-ai-jobs-badge" id="mova-ai-jobs-badge" hidden>0</span>
+            </button>
             <button type="button" class="mova-ai-icon-btn" id="mova-ai-sessions-toggle" title="Sessions" aria-label="Sessions">
                 <i class="fa-solid fa-clock-rotate-left"></i>
             </button>
@@ -193,11 +197,23 @@ HTML;
         <div class="mova-ai-sessions" id="mova-ai-sessions" hidden>
             <div id="mova-ai-sessions-list"></div>
         </div>
+        <div class="mova-ai-jobs" id="mova-ai-jobs" hidden>
+            <div class="mova-ai-jobs-head">
+                <span>Background tasks</span>
+                <button type="button" class="mova-ai-text-btn" id="mova-ai-jobs-refresh">Refresh</button>
+            </div>
+            <div id="mova-ai-jobs-list"></div>
+            <p class="mova-ai-jobs-hint">Queue prompts even while offline — they run when you are back online. Coding tasks get a longer window.</p>
+        </div>
         <div class="mova-ai-messages" id="mova-ai-messages"></div>
         <div class="mova-ai-composer">
-            <textarea id="mova-ai-input" rows="2" placeholder="Ask Mova AI… e.g. Where is the site icon?"></textarea>
+            <textarea id="mova-ai-input" rows="2" placeholder="Ask Mova AI… code, navigate, or content help"></textarea>
             <div class="mova-ai-composer-row">
-                <span class="hint">Ctrl+J · Enter to send</span>
+                <label class="mova-ai-bg-toggle" title="Run in background (longer tasks / offline queue)">
+                    <input type="checkbox" id="mova-ai-bg-mode" checked>
+                    <span>Background</span>
+                </label>
+                <span class="hint">Ctrl+J · Enter</span>
                 <button type="button" class="mova-ai-send" id="mova-ai-send">Send</button>
             </div>
         </div>
@@ -226,7 +242,7 @@ HTML;
       })()
     };
     </script>
-    <script src="/assets/js/mova-ai-panel.js?v=20260926ai4" defer></script>
+    <script src="/assets/js/mova-ai-panel.js?v=20260927jobs" defer></script>
     <script>
     (function () {
       var btn = document.getElementById('mova-ai-header-btn');

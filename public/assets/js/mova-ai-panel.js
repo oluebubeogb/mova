@@ -7,7 +7,11 @@
 
   var STORAGE_OPEN = 'mova_ai_panel_open';
   var STORAGE_SESSION = 'mova_ai_session_id';
+  var STORAGE_OFFLINE_Q = 'mova_ai_offline_queue';
+  var STORAGE_BG_MODE = 'mova_ai_bg_mode';
   var lastUserMessage = '';
+  var jobPollTimer = null;
+  var knownJobIds = {};
 
   var thinkingPhrases = [
     'Reading your request…',
@@ -108,7 +112,9 @@
     open: false,
     sessionId: null,
     busy: false,
-    view: 'chat'
+    view: 'chat',
+    bgMode: true,
+    activeJobs: {}
   };
 
   function setOpen(open) {
@@ -133,11 +139,14 @@
   }
 
   function showSessionsView(show) {
+    if (show) showJobsView(false);
     state.view = show ? 'sessions' : 'chat';
     var list = el('mova-ai-sessions');
     var messages = el('mova-ai-messages');
     var composer = document.querySelector('.mova-ai-composer');
+    var jobs = el('mova-ai-jobs');
     if (list) list.hidden = !show;
+    if (jobs && show) jobs.hidden = true;
     if (messages) messages.hidden = !!show;
     if (composer) composer.hidden = !!show;
     var title = document.querySelector('.mova-ai-panel-header h2');
@@ -146,6 +155,300 @@
         ? 'Sessions <span class="mova-ai-badge">HQ</span>'
         : 'Mova AI <span class="mova-ai-badge">HQ</span>';
     }
+  }
+
+  function showJobsView(show) {
+    if (show) showSessionsView(false);
+    state.view = show ? 'jobs' : 'chat';
+    var jobs = el('mova-ai-jobs');
+    var messages = el('mova-ai-messages');
+    var composer = document.querySelector('.mova-ai-composer');
+    var sessions = el('mova-ai-sessions');
+    if (jobs) jobs.hidden = !show;
+    if (sessions && show) sessions.hidden = true;
+    if (messages) messages.hidden = !!show;
+    if (composer) composer.hidden = !!show;
+    var title = document.querySelector('.mova-ai-panel-header h2');
+    if (title) {
+      title.innerHTML = show
+        ? 'Jobs <span class="mova-ai-badge">BG</span>'
+        : 'Mova AI <span class="mova-ai-badge">HQ</span>';
+    }
+    if (show) refreshJobsList();
+  }
+
+  function offlineQueue() {
+    try {
+      var raw = localStorage.getItem(STORAGE_OFFLINE_Q);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) { return []; }
+  }
+
+  function saveOfflineQueue(q) {
+    try { localStorage.setItem(STORAGE_OFFLINE_Q, JSON.stringify(q || [])); } catch (e) {}
+  }
+
+  function enqueueOffline(prompt, ctx) {
+    var q = offlineQueue();
+    q.push({
+      id: 'off_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+      prompt: prompt,
+      session_id: state.sessionId,
+      context: ctx,
+      created_at: new Date().toISOString()
+    });
+    saveOfflineQueue(q);
+    updateJobsBadge();
+    return q[q.length - 1];
+  }
+
+  function updateJobsBadge() {
+    var badge = el('mova-ai-jobs-badge');
+    if (!badge) return;
+    var active = 0;
+    Object.keys(state.activeJobs).forEach(function (k) {
+      var j = state.activeJobs[k];
+      if (j && (j.status === 'queued' || j.status === 'running')) active++;
+    });
+    active += offlineQueue().length;
+    if (active > 0) {
+      badge.hidden = false;
+      badge.textContent = String(active > 9 ? '9+' : active);
+    } else {
+      badge.hidden = true;
+    }
+  }
+
+  function refreshJobsList() {
+    var list = el('mova-ai-jobs-list');
+    if (!list) return;
+    list.innerHTML = '<p class="mova-ai-jobs-loading">Loading…</p>';
+
+    var offline = offlineQueue();
+    var html = '';
+    if (offline.length) {
+      html += '<div class="mova-ai-jobs-section">Offline queue</div>';
+      offline.forEach(function (item) {
+        html += '<div class="mova-ai-job-row is-offline">' +
+          '<div class="mova-ai-job-title">' + escapeHtml((item.prompt || '').slice(0, 80)) + '</div>' +
+          '<div class="mova-ai-job-meta">Waiting for network</div></div>';
+      });
+    }
+
+    fetch('/hq/ai/jobs?active=0', { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!list) return;
+        var jobs = (data && data.jobs) || [];
+        jobs.forEach(function (j) {
+          if (j.status === 'queued' || j.status === 'running') {
+            state.activeJobs[j.id] = j;
+          }
+        });
+        updateJobsBadge();
+        if (!jobs.length && !offline.length) {
+          list.innerHTML = '<p class="mova-ai-jobs-empty">No background jobs yet. Enable Background and send a prompt — coding tasks run longer without blocking the panel.</p>';
+          return;
+        }
+        html += '<div class="mova-ai-jobs-section">Recent</div>';
+        jobs.slice(0, 20).forEach(function (j) {
+          var st = j.status || '';
+          var prog = j.progress || st;
+          html += '<div class="mova-ai-job-row is-' + escapeHtml(st) + '" data-job="' + j.id + '">' +
+            '<div class="mova-ai-job-title">' + escapeHtml((j.prompt || '').slice(0, 80)) + '</div>' +
+            '<div class="mova-ai-job-meta">' +
+            '<span class="mova-ai-job-status">' + escapeHtml(st) + '</span> · ' +
+            escapeHtml(prog) +
+            (j.provider ? ' · ' + escapeHtml(j.provider) : '') +
+            '</div></div>';
+        });
+        list.innerHTML = html;
+        list.querySelectorAll('[data-job]').forEach(function (row) {
+          row.addEventListener('click', function () {
+            var id = parseInt(row.getAttribute('data-job'), 10);
+            openJobResult(id);
+          });
+        });
+      })
+      .catch(function () {
+        if (!offline.length) {
+          list.innerHTML = '<p class="mova-ai-jobs-empty">Could not load jobs.</p>';
+        } else {
+          list.innerHTML = html;
+        }
+      });
+  }
+
+  function openJobResult(id) {
+    fetch('/hq/ai/jobs/' + id, { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data || !data.ok || !data.job) return;
+        var j = data.job;
+        showJobsView(false);
+        if (j.session_id) {
+          state.sessionId = j.session_id;
+          try { localStorage.setItem(STORAGE_SESSION, String(j.session_id)); } catch (e) {}
+        }
+        if (j.status === 'done' && j.reply) {
+          appendMessage('user', j.prompt, null, null);
+          appendMessage('assistant', j.reply, j.actions || [], j.provider || null);
+        } else if (j.status === 'failed') {
+          appendMessage('assistant', j.error || 'Job failed.', null, 'error');
+        } else {
+          appendMessage('assistant', 'Job is still ' + j.status + ': ' + (j.progress || ''), null, null);
+        }
+      })
+      .catch(function () {});
+  }
+
+  function startJobPolling() {
+    if (jobPollTimer) return;
+    jobPollTimer = setInterval(function () {
+      pollActiveJobs();
+      flushOfflineQueue();
+    }, 2500);
+  }
+
+  function pollActiveJobs() {
+    var ids = Object.keys(state.activeJobs);
+    if (!ids.length) {
+      updateJobsBadge();
+      return;
+    }
+    ids.forEach(function (id) {
+      fetch('/hq/ai/jobs/' + id, { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data || !data.job) return;
+          var j = data.job;
+          state.activeJobs[j.id] = j;
+          // Kick process if still queued
+          if (j.status === 'queued') {
+            kickProcess(j.id);
+          }
+          if (j.status === 'done' || j.status === 'failed' || j.status === 'cancelled') {
+            onJobFinished(j);
+            delete state.activeJobs[j.id];
+          }
+          updateJobsBadge();
+          if (state.view === 'jobs') refreshJobsList();
+        })
+        .catch(function () {});
+    });
+  }
+
+  function kickProcess(jobId) {
+    var body = new URLSearchParams();
+    body.set('_mova_csrf', csrfToken());
+    body.set('job_id', String(jobId));
+    fetch('/hq/ai/jobs/process', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-CSRF-TOKEN': csrfToken()
+      },
+      body: body.toString()
+    }).catch(function () {});
+  }
+
+  function onJobFinished(j) {
+    if (knownJobIds[j.id]) return;
+    knownJobIds[j.id] = true;
+    if (j.session_id && !state.sessionId) {
+      state.sessionId = j.session_id;
+      try { localStorage.setItem(STORAGE_SESSION, String(j.session_id)); } catch (e) {}
+    }
+    // Only surface if user is on that session or no session filter
+    if (j.session_id && state.sessionId && j.session_id !== state.sessionId) {
+      updateJobsBadge();
+      return;
+    }
+    removeThinking();
+    state.busy = false;
+    var sendBtn = el('mova-ai-send');
+    if (sendBtn) sendBtn.disabled = false;
+    if (j.status === 'done') {
+      appendMessage('assistant', j.reply || 'Done.', j.actions || [], j.provider || 'Mova AI');
+      (j.actions || []).forEach(function (a) {
+        if (a && a.type === 'navigate' && a.soft) softFillEditor(a);
+        if (a && a.type === 'insert_code') applyInsertCode(a);
+      });
+    } else if (j.status === 'failed') {
+      appendMessage('assistant', j.error || 'Background job failed. Try again.', null, 'error');
+    }
+    updateJobsBadge();
+  }
+
+  function applyInsertCode(action) {
+    if (!action || !action.payload) return;
+    var code = action.payload.code || '';
+    var target = action.payload.target || 'body';
+    var mode = action.payload.mode || 'append';
+    if (!code) return;
+    var form = document.getElementById('content-form');
+    if (!form) return;
+    if (target === 'body') {
+      var body = form.querySelector('textarea[name="body"]');
+      if (body) {
+        body.value = mode === 'replace' ? code : (body.value ? body.value + '\n\n' + code : code);
+        body.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      if (window.movaStudioSetBody && typeof window.movaStudioSetBody === 'function') {
+        try {
+          if (mode === 'replace') window.movaStudioSetBody(code);
+          else {
+            var cur = body ? body.value : code;
+            window.movaStudioSetBody(cur);
+          }
+        } catch (e) {}
+      }
+    }
+  }
+
+  function flushOfflineQueue() {
+    if (!navigator.onLine) return;
+    var q = offlineQueue();
+    if (!q.length) return;
+    var item = q.shift();
+    saveOfflineQueue(q);
+    submitBackgroundJob(item.prompt, item.session_id, item.context, item.id);
+  }
+
+  function submitBackgroundJob(text, sessionId, ctx, clientKey) {
+    ctx = ctx || pageContext();
+    var body = new URLSearchParams();
+    body.set('_mova_csrf', csrfToken());
+    body.set('message', text);
+    body.set('background', '1');
+    if (sessionId) body.set('session_id', String(sessionId));
+    if (clientKey) body.set('client_key', clientKey);
+    body.set('route', ctx.route || '');
+    body.set('area', ctx.area || '');
+    body.set('layer', ctx.layer || '');
+    if (ctx.entity_id) body.set('entity_id', String(ctx.entity_id));
+
+    return fetch('/hq/ai/jobs', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-CSRF-TOKEN': csrfToken()
+      },
+      body: body.toString()
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.job) {
+          state.activeJobs[data.job.id] = data.job;
+          if (data.job.status === 'queued') kickProcess(data.job.id);
+          updateJobsBadge();
+          startJobPolling();
+          return data.job;
+        }
+        throw new Error((data && data.error) || 'Job failed');
+      });
   }
 
   function applyCssVars(vars) {
@@ -313,10 +616,36 @@
     var div = document.createElement('div');
     div.className = 'mova-ai-msg ' + role;
     var html = escapeHtml(text || '').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    html = html.replace(/```([\s\S]*?)```/g, function (_, code) {
-      return '<pre class="mova-ai-code"><code>' + escapeHtml(code.replace(/^\w+\n/, '')) + '</code></pre>';
+    var codeBlocks = [];
+    html = html.replace(/```([\w]*)\n?([\s\S]*?)```/g, function (_, lang, code) {
+      var idx = codeBlocks.length;
+      var clean = code.replace(/^\n/, '');
+      codeBlocks.push({ lang: lang || '', code: clean });
+      return '<div class="mova-ai-code-wrap" data-code-idx="' + idx + '">' +
+        '<div class="mova-ai-code-bar">' +
+        '<span>' + escapeHtml(lang || 'code') + '</span>' +
+        '<button type="button" class="mova-ai-code-btn" data-code-copy="' + idx + '">Copy</button>' +
+        '<button type="button" class="mova-ai-code-btn" data-code-insert="' + idx + '">Insert</button>' +
+        '</div>' +
+        '<pre class="mova-ai-code"><code>' + escapeHtml(clean) + '</code></pre></div>';
     });
     div.innerHTML = html;
+    div.querySelectorAll('[data-code-copy]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var i = parseInt(btn.getAttribute('data-code-copy'), 10);
+        if (codeBlocks[i]) copyText(codeBlocks[i].code, btn);
+      });
+    });
+    div.querySelectorAll('[data-code-insert]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var i = parseInt(btn.getAttribute('data-code-insert'), 10);
+        if (!codeBlocks[i]) return;
+        applyInsertCode({ payload: { target: 'body', mode: 'append', code: codeBlocks[i].code } });
+        var prev = btn.textContent;
+        btn.textContent = 'Inserted';
+        setTimeout(function () { btn.textContent = prev; }, 1200);
+      });
+    });
 
     if (actions && actions.length) {
       var act = document.createElement('div');
@@ -340,6 +669,16 @@
             applyDesignAction(a, btn);
           });
           act.appendChild(btn);
+        } else if (a.type === 'insert_code' && a.payload && a.payload.code) {
+          var ib = document.createElement('button');
+          ib.type = 'button';
+          ib.className = 'mova-ai-apply';
+          ib.innerHTML = '<i class="fa-solid fa-file-import"></i> ' + escapeHtml(a.label || 'Insert into body');
+          ib.addEventListener('click', function () {
+            applyInsertCode(a);
+            ib.innerHTML = '<i class="fa-solid fa-check"></i> Inserted';
+          });
+          act.appendChild(ib);
         }
       });
       if (act.childNodes.length) div.appendChild(act);
@@ -497,18 +836,66 @@
     if (!text) return;
 
     showSessionsView(false);
-    state.busy = true;
+    showJobsView(false);
     lastUserMessage = text;
-    if (btn) btn.disabled = true;
     appendMessage('user', text, null, null);
     ta.value = '';
+
+    var ctx = pageContext();
+    var bgCheck = el('mova-ai-bg-mode');
+    var useBg = state.bgMode;
+    if (bgCheck) useBg = !!bgCheck.checked;
+    // Auto-background for coding-looking prompts
+    var looksCode = /\b(html|css|javascript|code|snippet|pricelist|price list)\b/i.test(text) || text.indexOf('```') !== -1;
+    if (looksCode) useBg = true;
+
+    if (useBg) {
+      state.busy = false;
+      if (btn) btn.disabled = false;
+      showThinking();
+      var thinkingLabel = el('mova-ai-thinking');
+      if (thinkingLabel) {
+        var st = el('mova-ai-thinking-status');
+        if (st) st.textContent = looksCode ? 'Queued coding job in background…' : 'Running in background…';
+      }
+
+      if (!navigator.onLine) {
+        enqueueOffline(text, ctx);
+        removeThinking();
+        appendMessage('assistant', 'You are offline. Prompt saved to the background queue and will run when you are back online.', null, 'offline');
+        updateJobsBadge();
+        return;
+      }
+
+      submitBackgroundJob(text, state.sessionId, ctx, null)
+        .then(function (job) {
+          var st = el('mova-ai-thinking-status');
+          if (st) st.textContent = (job.progress || 'Working…') + ' — safe to keep browsing';
+          // Keep light thinking until first progress poll finishes job
+          startJobPolling();
+        })
+        .catch(function () {
+          removeThinking();
+          // Fallback to sync chat
+          sendSync(text, ctx);
+        });
+      return;
+    }
+
+    sendSync(text, ctx);
+  }
+
+  function sendSync(text, ctx) {
+    var btn = el('mova-ai-send');
+    state.busy = true;
+    if (btn) btn.disabled = true;
     showThinking();
 
     var body = new URLSearchParams();
     body.set('_mova_csrf', csrfToken());
     body.set('message', text);
     if (state.sessionId) body.set('session_id', String(state.sessionId));
-    var ctx = pageContext();
+    ctx = ctx || pageContext();
     body.set('route', ctx.route);
     body.set('area', ctx.area);
     body.set('layer', ctx.layer);
@@ -535,6 +922,7 @@
         var acts = data.actions || [];
         acts.forEach(function (a) {
           if (a && a.type === 'navigate' && a.soft) softFillEditor(a);
+          if (a && a.type === 'insert_code') applyInsertCode(a);
         });
         appendMessage(
           'assistant',
@@ -572,6 +960,44 @@
         if (show) loadSessions();
       });
     }
+    var jobsToggle = el('mova-ai-jobs-toggle');
+    if (jobsToggle) {
+      jobsToggle.addEventListener('click', function () {
+        var show = state.view !== 'jobs';
+        showJobsView(show);
+      });
+    }
+    var jobsRefresh = el('mova-ai-jobs-refresh');
+    if (jobsRefresh) {
+      jobsRefresh.addEventListener('click', refreshJobsList);
+    }
+    var bgCheck = el('mova-ai-bg-mode');
+    if (bgCheck) {
+      try {
+        var saved = localStorage.getItem(STORAGE_BG_MODE);
+        if (saved === '0') bgCheck.checked = false;
+        if (saved === '1') bgCheck.checked = true;
+      } catch (e) {}
+      state.bgMode = !!bgCheck.checked;
+      bgCheck.addEventListener('change', function () {
+        state.bgMode = !!bgCheck.checked;
+        try { localStorage.setItem(STORAGE_BG_MODE, state.bgMode ? '1' : '0'); } catch (e2) {}
+      });
+    }
+    window.addEventListener('online', function () { flushOfflineQueue(); });
+    startJobPolling();
+    // Load active jobs on boot
+    fetch('/hq/ai/jobs?active=1', { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        ((data && data.jobs) || []).forEach(function (j) {
+          state.activeJobs[j.id] = j;
+          if (j.status === 'queued') kickProcess(j.id);
+        });
+        updateJobsBadge();
+      })
+      .catch(function () {});
+    flushOfflineQueue();
     var sendBtn = el('mova-ai-send');
     if (sendBtn) sendBtn.addEventListener('click', send);
     var ta = el('mova-ai-input');

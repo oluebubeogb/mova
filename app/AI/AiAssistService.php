@@ -68,11 +68,12 @@ class AiAssistService
      *
      * @param list<array{role:string,content:string}> $messages
      */
-    public function chatRaw(array $messages, int $maxTokens = 800): string
+    public function chatRaw(array $messages, int $maxTokens = 800, int $timeoutSeconds = 90): string
     {
         $endpoint = rtrim($this->setting('ai_api_url', self::DEFAULT_API_URL), '/') . '/chat/completions';
         $model = $this->setting('ai_model', self::DEFAULT_MODEL) ?: self::DEFAULT_MODEL;
         $key = $this->setting('ai_api_key', self::DEFAULT_API_KEY);
+        $timeoutSeconds = max(15, min(600, $timeoutSeconds));
 
         $payload = json_encode([
             'model' => $model,
@@ -89,7 +90,7 @@ class AiAssistService
                     'Authorization: Bearer ' . $key,
                 ]),
                 'content' => $payload,
-                'timeout' => 90,
+                'timeout' => $timeoutSeconds,
                 'ignore_errors' => true,
             ],
             'ssl' => [

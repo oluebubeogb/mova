@@ -728,6 +728,7 @@ class Schema
         self::migratePhase8($db);
         self::migratePhase9($db);
         self::migratePhase10($db);
+        self::migratePhase11($db);
     }
 
     /**
@@ -899,6 +900,37 @@ class Schema
         ");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_ai_sessions_user ON ai_sessions(user_id, updated_at)");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_ai_messages_session ON ai_messages(session_id, id)");
+    }
+
+
+    /** Mova AI background jobs (long-running / coding) */
+    private static function migratePhase11(\PDO $db): void
+    {
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS ai_jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                session_id INTEGER,
+                status TEXT NOT NULL DEFAULT 'queued',
+                kind TEXT NOT NULL DEFAULT 'chat',
+                prompt TEXT NOT NULL,
+                page_context TEXT,
+                progress TEXT,
+                reply TEXT,
+                actions TEXT,
+                provider TEXT,
+                error TEXT,
+                client_key TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                started_at TEXT,
+                finished_at TEXT,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (session_id) REFERENCES ai_sessions(id) ON DELETE SET NULL
+            )
+        ");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_ai_jobs_user_status ON ai_jobs(user_id, status, updated_at)");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_ai_jobs_session ON ai_jobs(session_id)");
     }
 
     public static function isInstalled(): bool
