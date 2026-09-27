@@ -381,30 +381,170 @@
     updateJobsBadge();
   }
 
-  function applyInsertCode(action) {
-    if (!action || !action.payload) return;
-    var code = action.payload.code || '';
-    var target = action.payload.target || 'body';
-    var mode = action.payload.mode || 'append';
-    if (!code) return;
-    var form = document.getElementById('content-form');
-    if (!form) return;
-    if (target === 'body') {
-      var body = form.querySelector('textarea[name="body"]');
-      if (body) {
-        body.value = mode === 'replace' ? code : (body.value ? body.value + '\n\n' + code : code);
-        body.dispatchEvent(new Event('input', { bubbles: true }));
+  function decodeEntities(s) {
+    s = String(s || '');
+    if (s.indexOf('&lt;') === -1 && s.indexOf('&amp;') === -1 && s.indexOf('&quot;') === -1) {
+      return s;
+    }
+    var ta = document.createElement('textarea');
+    ta.innerHTML = s;
+    return ta.value;
+  }
+
+  /** Strip YAML/front-matter wrappers the model sometimes emits; keep pure code. */
+  function cleanCodeSnippet(raw, langHint) {
+    var s = String(raw || '').replace(/^\uFEFF/, '');
+    s = s.replace(/\r\n/g, '\n');
+    // If whole reply was copied with fences still inside, pull first fence
+    var fence = s.match(/```[\w]*\n?([\s\S]*?)```/);
+    if (fence) s = fence[1];
+    s = decodeEntities(s);
+    // YAML-ish: type: page / body: |
+    if (/^\s*type\s*:/m.test(s) || /^\s*body\s*:\s*\|/m.test(s)) {
+      var bodyMatch = s.match(/^\s*body\s*:\s*\|\s*\n([\s\S]*)/m);
+      if (bodyMatch) {
+        s = bodyMatch[1];
+        // Un-indent common leading spaces from YAML block scalar
+        var lines = s.split('\n');
+        var minIndent = null;
+        lines.forEach(function (line) {
+          if (!line.trim()) return;
+          var m = line.match(/^( +)/);
+          var n = m ? m[1].length : 0;
+          if (minIndent === null || n < minIndent) minIndent = n;
+        });
+        if (minIndent && minIndent > 0) {
+          s = lines.map(function (line) {
+            return line.indexOf(Array(minIndent + 1).join(' ')) === 0
+              ? line.slice(minIndent)
+              : line;
+          }).join('\n');
+        }
+      } else {
+        // Drop pure yaml key lines
+        s = s.split('\n').filter(function (line) {
+          return !/^\s*(type|title|status|slug|body)\s*:/.test(line);
+        }).join('\n');
       }
+    }
+    // Leading language label alone on first line
+    s = s.replace(/^(html|css|javascript|js|json|xml|text)\s*\n/i, '');
+    return s.replace(/^\n+/, '').replace(/\n+$/, '') + (s.trim() ? '\n' : '');
+  }
+
+  function detectLang(code, hint) {
+    var h = (hint || '').toLowerCase();
+    if (h === 'js' || h === 'javascript') return 'js';
+    if (h === 'css' || h === 'scss') return 'css';
+    if (h === 'html' || h === 'xml' || h === 'markup') return 'html';
+    var c = String(code || '');
+    if (/^\s*[\.\#\@\w-]+\s*\{/.test(c) || /:\s*[^;]+;/.test(c) && c.indexOf('<') === -1) return 'css';
+    if (/^\s*(function|const|let|var|document\.|window\.|=>)/m.test(c) && c.indexOf('<') === -1) return 'js';
+    if (/<[a-zA-Z]/.test(c)) return 'html';
+    return h || 'html';
+  }
+
+  function writeTextarea(el, code, mode) {
+    if (!el) return false;
+    var next = mode === 'replace' ? code : ((el.value ? el.value.replace(/\s*$/, '') + '\n\n' : '') + code);
+    el.value = next;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  }
+
+  function insertIntoStudio(code, lang, mode) {
+    if (!document.getElementById('studio-app') && !document.getElementById('studio-html')) {
+      return false;
+    }
+    var api = window.MovaStudio;
+    if (api) {
+      try {
+        if (lang === 'css') {
+          if (mode === 'replace' && api.setCss) api.setCss(code);
+          else if (api.appendCss) api.appendCss(code);
+          else if (api.setCss && api.getCss) api.setCss((api.getCss() || '') + '\n' + code);
+        } else if (lang === 'js') {
+          if (mode === 'replace' && api.setJs) api.setJs(code);
+          else if (api.appendJs) api.appendJs(code);
+          else if (api.setJs && api.getJs) api.setJs((api.getJs() || '') + '\n' + code);
+        } else {
+          if (mode === 'replace' && api.setHtml) api.setHtml(code);
+          else if (api.appendHtml) api.appendHtml(code);
+          else if (api.setHtml && api.getHtml) api.setHtml((api.getHtml() || '') + code);
+        }
+        return true;
+      } catch (e) {}
+    }
+    var id = lang === 'css' ? 'studio-css' : (lang === 'js' ? 'studio-js' : 'studio-html');
+    return writeTextarea(document.getElementById(id), code, mode);
+  }
+
+  function insertIntoContent(code, mode) {
+    // Prefer visible/dev body editors, then hidden body-input
+    var candidates = [
+      document.querySelector('#mova-dev-panels textarea[name="body"]'),
+      document.querySelector('textarea[name="body"]:not([hidden])'),
+      document.getElementById('body-input'),
+      document.querySelector('#content-form textarea[name="body"]'),
+      document.querySelector('textarea[name="body"]')
+    ];
+    var el = null;
+    for (var i = 0; i < candidates.length; i++) {
+      if (candidates[i]) { el = candidates[i]; break; }
+    }
+    if (!el) {
       if (window.movaStudioSetBody && typeof window.movaStudioSetBody === 'function') {
         try {
           if (mode === 'replace') window.movaStudioSetBody(code);
-          else {
-            var cur = body ? body.value : code;
-            window.movaStudioSetBody(cur);
-          }
+          else window.movaStudioSetBody(code);
+          return true;
         } catch (e) {}
       }
+      return false;
     }
+    var ok = writeTextarea(el, code, mode);
+    if (window.movaStudioSetBody && typeof window.movaStudioSetBody === 'function') {
+      try { window.movaStudioSetBody(el.value); } catch (e2) {}
+    }
+    // Visual editor bridge if present
+    if (window.movaVisualEditor && typeof window.movaVisualEditor.setHtml === 'function') {
+      try { window.movaVisualEditor.setHtml(el.value); } catch (e3) {}
+    }
+    return ok;
+  }
+
+  function insertIntoFocused(code, mode) {
+    var ae = document.activeElement;
+    if (ae && (ae.tagName === 'TEXTAREA' || (ae.tagName === 'INPUT' && ae.type === 'text'))) {
+      if (ae.closest && ae.closest('.mova-ai-panel')) return false;
+      return writeTextarea(ae, code, mode);
+    }
+    if (ae && ae.isContentEditable) {
+      if (mode === 'replace') ae.innerHTML = code;
+      else ae.insertAdjacentHTML('beforeend', code);
+      return true;
+    }
+    return false;
+  }
+
+  function applyInsertCode(action) {
+    if (!action || !action.payload) return false;
+    var lang = detectLang(action.payload.code || '', action.payload.language || action.payload.lang || '');
+    var code = cleanCodeSnippet(action.payload.code || '', lang);
+    var mode = action.payload.mode || 'append';
+    if (!code.trim()) return false;
+
+    // 1) Focused field outside AI panel
+    if (insertIntoFocused(code, mode)) return true;
+    // 2) Studio
+    if (insertIntoStudio(code, lang, mode)) return true;
+    // 3) Content edit
+    if (insertIntoContent(code, mode)) return true;
+    // 4) Any obvious code area on page
+    var fallback = document.querySelector('textarea.studio-code-area, textarea[name="raw_css"], textarea[name="raw_js"], textarea[name="custom_css"]');
+    if (fallback) return writeTextarea(fallback, code, mode);
+    return false;
   }
 
   function flushOfflineQueue() {
@@ -619,15 +759,16 @@
     var codeBlocks = [];
     html = html.replace(/```([\w]*)\n?([\s\S]*?)```/g, function (_, lang, code) {
       var idx = codeBlocks.length;
-      var clean = code.replace(/^\n/, '');
-      codeBlocks.push({ lang: lang || '', code: clean });
+      var cleaned = cleanCodeSnippet(code, lang);
+      var langLabel = (lang || detectLang(cleaned, '') || 'code');
+      codeBlocks.push({ lang: langLabel, code: cleaned });
       return '<div class="mova-ai-code-wrap" data-code-idx="' + idx + '">' +
         '<div class="mova-ai-code-bar">' +
-        '<span>' + escapeHtml(lang || 'code') + '</span>' +
+        '<span>' + escapeHtml(langLabel) + '</span>' +
         '<button type="button" class="mova-ai-code-btn" data-code-copy="' + idx + '">Copy</button>' +
         '<button type="button" class="mova-ai-code-btn" data-code-insert="' + idx + '">Insert</button>' +
         '</div>' +
-        '<pre class="mova-ai-code"><code>' + escapeHtml(clean) + '</code></pre></div>';
+        '<pre class="mova-ai-code"><code>' + escapeHtml(cleaned) + '</code></pre></div>';
     });
     div.innerHTML = html;
     div.querySelectorAll('[data-code-copy]').forEach(function (btn) {
@@ -640,10 +781,17 @@
       btn.addEventListener('click', function () {
         var i = parseInt(btn.getAttribute('data-code-insert'), 10);
         if (!codeBlocks[i]) return;
-        applyInsertCode({ payload: { target: 'body', mode: 'append', code: codeBlocks[i].code } });
+        var ok = applyInsertCode({
+          payload: {
+            target: 'body',
+            mode: 'append',
+            language: codeBlocks[i].lang,
+            code: codeBlocks[i].code
+          }
+        });
         var prev = btn.textContent;
-        btn.textContent = 'Inserted';
-        setTimeout(function () { btn.textContent = prev; }, 1200);
+        btn.textContent = ok ? 'Inserted' : 'No editor';
+        setTimeout(function () { btn.textContent = prev; }, 1400);
       });
     });
 

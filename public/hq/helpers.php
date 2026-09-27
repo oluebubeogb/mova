@@ -113,7 +113,7 @@ HTML;
     <link rel="stylesheet" href="/assets/css/hq-landings.css?v=20260922fullwidth2">
     <?php if ($isAuth): ?>
     <meta name="csrf-token" content="<?= htmlspecialchars(\Mova\Security\Csrf::token()) ?>">
-    <link rel="stylesheet" href="/assets/css/mova-ai-panel.css?v=20260927jobs">
+    <link rel="stylesheet" href="/assets/css/mova-ai-panel.css?v=20260927insert2">
     <?php endif; ?>
 </head>
 <body class="hq hq-vnext <?= $isAuth ? 'hq-authenticated' : 'hq-guest' ?>" data-workspace="<?= htmlspecialchars($workspace) ?>">
@@ -242,7 +242,7 @@ HTML;
       })()
     };
     </script>
-    <script src="/assets/js/mova-ai-panel.js?v=20260927jobs" defer></script>
+    <script src="/assets/js/mova-ai-panel.js?v=20260927insert2" defer></script>
     <script>
     (function () {
       var btn = document.getElementById('mova-ai-header-btn');
