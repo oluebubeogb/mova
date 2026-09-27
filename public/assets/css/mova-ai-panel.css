@@ -1,4 +1,4 @@
-/* Mova AI — global HQ panel (Phases 1–3) */
+/* Mova AI — global HQ panel (Phases 1–3) — fixed backgrounds */
 
 .mova-ai-fab {
   position: fixed;
@@ -26,6 +26,7 @@
   display: none !important;
 }
 
+/* Panel shell — solid surface, prefer site tokens then HQ */
 .mova-ai-panel {
   position: fixed;
   top: 0;
@@ -35,11 +36,12 @@
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--hq-surface, #fff);
-  border-left: 1px solid var(--hq-border, #e5e7eb);
+  background: var(--color-surface, var(--hq-surface, #ffffff));
+  border-left: 1px solid var(--color-border, var(--hq-border, #e5e7eb));
   box-shadow: -8px 0 32px rgba(0, 0, 0, 0.08);
   transform: translateX(100%);
   transition: transform 0.2s ease;
+  color: var(--color-text, var(--hq-text, #111827));
 }
 .mova-ai-panel.is-open {
   transform: translateX(0);
@@ -50,8 +52,9 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.85rem 1rem;
-  border-bottom: 1px solid var(--hq-border, #e5e7eb);
+  border-bottom: 1px solid var(--color-border, var(--hq-border, #e5e7eb));
   flex-shrink: 0;
+  background: var(--color-surface, var(--hq-surface, #ffffff));
 }
 .mova-ai-panel-header h2 {
   margin: 0;
@@ -69,10 +72,11 @@
   padding: 0.15rem 0.4rem;
   border-radius: 4px;
 }
+
 .mova-ai-icon-btn {
   border: none;
   background: transparent;
-  color: var(--hq-muted, #6b7280);
+  color: var(--color-muted, var(--hq-muted, #6b7280));
   width: 2rem;
   height: 2rem;
   border-radius: 6px;
@@ -82,15 +86,16 @@
   justify-content: center;
 }
 .mova-ai-icon-btn:hover {
-  background: var(--hq-bg, #f3f4f6);
-  color: var(--hq-text, #111827);
+  background: var(--color-bg, var(--hq-bg, #f3f4f6));
+  color: var(--color-text, var(--hq-text, #111827));
 }
 
 .mova-ai-sessions {
   max-height: 9rem;
   overflow-y: auto;
-  border-bottom: 1px solid var(--hq-border, #e5e7eb);
+  border-bottom: 1px solid var(--color-border, var(--hq-border, #e5e7eb));
   flex-shrink: 0;
+  background: var(--color-surface, var(--hq-surface, #ffffff));
 }
 .mova-ai-sessions[hidden] {
   display: none !important;
@@ -103,9 +108,9 @@
   background: transparent;
   padding: 0.55rem 1rem;
   font-size: 0.8rem;
-  color: var(--hq-text, #111827);
+  color: var(--color-text, var(--hq-text, #111827));
   cursor: pointer;
-  border-bottom: 1px solid var(--hq-border, #f3f4f6);
+  border-bottom: 1px solid var(--color-border, var(--hq-border, #f3f4f6));
 }
 .mova-ai-session-item:hover,
 .mova-ai-session-item.is-active {
@@ -114,7 +119,7 @@
 .mova-ai-session-item time {
   display: block;
   font-size: 0.7rem;
-  color: var(--hq-muted, #6b7280);
+  color: var(--color-muted, var(--hq-muted, #6b7280));
   margin-top: 0.15rem;
 }
 
@@ -125,7 +130,11 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  /* distinct from panel surface so bubbles read clearly */
+  background: var(--color-bg, var(--hq-bg, #f4f5f7));
 }
+
+/* Base message — always solid so missing role class never goes transparent */
 .mova-ai-msg {
   max-width: 95%;
   padding: 0.65rem 0.85rem;
@@ -134,19 +143,25 @@
   line-height: 1.45;
   white-space: pre-wrap;
   word-break: break-word;
+  background: var(--color-surface, var(--hq-surface, #ffffff));
+  color: var(--color-text, var(--hq-text, #111827));
+  border: 1px solid var(--color-border, var(--hq-border, #e5e7eb));
 }
 .mova-ai-msg.user {
   align-self: flex-end;
   background: #2563eb;
   color: #fff;
+  border-color: transparent;
   border-bottom-right-radius: 4px;
 }
 .mova-ai-msg.assistant {
   align-self: flex-start;
-  background: var(--hq-bg, #f3f4f6);
-  color: var(--hq-text, #111827);
+  /* solid surface, NOT the same as the messages area bg */
+  background: var(--color-surface, var(--hq-surface, #ffffff));
+  color: var(--color-text, var(--hq-text, #111827));
   border-bottom-left-radius: 4px;
 }
+
 .mova-ai-msg .mova-ai-actions {
   margin-top: 0.55rem;
   display: flex;
@@ -172,27 +187,27 @@
   display: block;
   margin-top: 0.35rem;
   font-size: 0.65rem;
-  color: var(--hq-muted, #6b7280);
+  color: var(--color-muted, var(--hq-muted, #6b7280));
 }
 
 .mova-ai-composer {
-  border-top: 1px solid var(--hq-border, #e5e7eb);
+  border-top: 1px solid var(--color-border, var(--hq-border, #e5e7eb));
   padding: 0.75rem 1rem 1rem;
   flex-shrink: 0;
-  background: var(--hq-surface, #fff);
+  background: var(--color-surface, var(--hq-surface, #ffffff));
 }
 .mova-ai-composer textarea {
   width: 100%;
   min-height: 2.75rem;
   max-height: 8rem;
   resize: vertical;
-  border: 1px solid var(--hq-border, #e5e7eb);
+  border: 1px solid var(--color-border, var(--hq-border, #e5e7eb));
   border-radius: 10px;
   padding: 0.55rem 0.75rem;
   font: inherit;
   font-size: 0.875rem;
-  background: var(--hq-bg, #f9fafb);
-  color: var(--hq-text, #111827);
+  background: var(--color-bg, var(--hq-input-bg, var(--hq-bg, #f9fafb)));
+  color: var(--color-text, var(--hq-text, #111827));
   box-sizing: border-box;
 }
 .mova-ai-composer textarea:focus {
@@ -208,7 +223,7 @@
 }
 .mova-ai-composer-row .hint {
   font-size: 0.7rem;
-  color: var(--hq-muted, #6b7280);
+  color: var(--color-muted, var(--hq-muted, #6b7280));
 }
 .mova-ai-send {
   border: none;
@@ -225,9 +240,7 @@
   cursor: not-allowed;
 }
 
-body.mova-ai-open {
-  /* optional: subtle shift on wide screens */
-}
+body.mova-ai-open { /* optional layout shift */ }
 @media (min-width: 1100px) {
   body.mova-ai-open .hq-content {
     margin-right: min(380px, 100vw);
@@ -236,7 +249,7 @@ body.mova-ai-open {
 }
 
 .mova-ai-empty {
-  color: var(--hq-muted, #6b7280);
+  color: var(--color-muted, var(--hq-muted, #6b7280));
   font-size: 0.85rem;
   text-align: center;
   padding: 1.5rem 1rem;
@@ -246,17 +259,15 @@ body.mova-ai-open {
   font-size: 0.75rem;
   padding: 0.1rem 0.35rem;
   border-radius: 4px;
-  border: 1px solid var(--hq-border, #e5e7eb);
-  background: var(--hq-surface, #fff);
+  border: 1px solid var(--color-border, var(--hq-border, #e5e7eb));
+  background: var(--color-surface, var(--hq-surface, #fff));
 }
 
-
-/* Thinking / working indicator */
 .mova-ai-msg.thinking {
   align-self: flex-start;
   background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(124, 58, 237, 0.1));
   border: 1px solid rgba(124, 58, 237, 0.15);
-  color: var(--hq-text, #111827);
+  color: var(--color-text, var(--hq-text, #111827));
   min-width: 12rem;
 }
 .mova-ai-thinking-row {
@@ -291,8 +302,9 @@ body.mova-ai-open {
   display: block;
   margin-top: 0.4rem;
   font-size: 0.72rem;
-  color: var(--hq-muted, #6b7280);
+  color: var(--color-muted, var(--hq-muted, #6b7280));
 }
+
 .mova-ai-msg .mova-ai-actions button.mova-ai-apply {
   display: inline-flex;
   align-items: center;
@@ -313,7 +325,7 @@ body.mova-ai-open {
 .mova-ai-session-row {
   display: flex;
   align-items: stretch;
-  border-bottom: 1px solid var(--hq-border, #f3f4f6);
+  border-bottom: 1px solid var(--color-border, var(--hq-border, #f3f4f6));
 }
 .mova-ai-session-row .mova-ai-session-item {
   flex: 1;
@@ -322,7 +334,7 @@ body.mova-ai-open {
 .mova-ai-session-del {
   border: none;
   background: transparent;
-  color: var(--hq-muted, #6b7280);
+  color: var(--color-muted, var(--hq-muted, #6b7280));
   padding: 0 0.75rem;
   cursor: pointer;
 }
@@ -330,20 +342,22 @@ body.mova-ai-open {
 .mova-ai-sessions-empty {
   padding: 1rem;
   font-size: 0.85rem;
-  color: var(--hq-muted, #6b7280);
+  color: var(--color-muted, var(--hq-muted, #6b7280));
   text-align: center;
 }
+
 .mova-ai-greet {
   font-size: 1.05rem;
   font-weight: 600;
-  color: var(--hq-text, #111827);
+  color: var(--color-text, var(--hq-text, #111827));
   margin: 0 0 0.5rem;
 }
 .mova-ai-greet-sub {
   margin: 0;
   font-size: 0.85rem;
-  color: var(--hq-muted, #6b7280);
+  color: var(--color-muted, var(--hq-muted, #6b7280));
 }
+
 .mova-ai-msg-tools {
   display: flex;
   gap: 0.25rem;
@@ -352,7 +366,7 @@ body.mova-ai-open {
 .mova-ai-tool {
   border: none;
   background: transparent;
-  color: var(--hq-muted, #6b7280);
+  color: var(--color-muted, var(--hq-muted, #6b7280));
   width: 1.75rem;
   height: 1.75rem;
   border-radius: 6px;
@@ -367,6 +381,7 @@ body.mova-ai-open {
   background: rgba(37, 99, 235, 0.1);
   color: #2563eb;
 }
+
 .mova-ai-code {
   margin: 0.5rem 0 0;
   padding: 0.65rem 0.75rem;
@@ -378,6 +393,7 @@ body.mova-ai-open {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
 .mova-ai-sessions {
   flex: 1;
   max-height: none;
