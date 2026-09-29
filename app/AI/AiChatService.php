@@ -383,7 +383,12 @@ class AiChatService
                 $maxTokens = ($longRunning || $isCoding) ? 4000 : 2400;
                 $timeout = ($longRunning || $isCoding) ? 300 : 90;
             }
-            $raw = $this->assist->chatRaw($messages, $maxTokens, $timeout);
+            // Long / coding jobs: async submit+poll so proxy timeouts cannot kill a 1–5 min RunPod delay.
+            if ($longRunning || $isCoding) {
+                $raw = $this->assist->chatRawAsync($messages, $maxTokens, max(600, $timeout * 3), null);
+            } else {
+                $raw = $this->assist->chatRaw($messages, $maxTokens, $timeout);
+            }
             $parsed = $this->parseJsonReply($raw);
             if ($parsed !== null) {
                 return [

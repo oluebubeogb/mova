@@ -152,8 +152,9 @@ class AiJobService
         $kind = (string) $row['kind'];
         $isCoding = $kind === 'coding';
         // Allow long runs for coding / background
-        @set_time_limit($isCoding ? 600 : 180);
-        @ini_set('max_execution_time', (string) ($isCoding ? 600 : 180));
+        @set_time_limit($isCoding ? 1200 : 300);
+        @ini_set('max_execution_time', (string) ($isCoding ? 1200 : 300));
+        @ignore_user_abort(true);
 
         $pageContext = [];
         if (!empty($row['page_context'])) {
