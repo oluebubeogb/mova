@@ -260,7 +260,7 @@ class AiChatService
         }
 
         $entityId = (int) ($pageContext['entityId'] ?? 0);
-        $paletteHelp = "Mova Style palette keys (ONLY these — do not invent 'link' or other keys): "
+        $paletteHelp = "Mova Style palette keys (ONLY these for design-token actions — do not invent 'link' or other keys): "
             . "primary, secondary, accent, background, surface, text, muted, border. "
             . "Links on the public site typically use primary (or accent for emphasis). "
             . "If the user says 'link color', map it to primary and say so in the reply.";
@@ -269,11 +269,36 @@ class AiChatService
             ? "The user is editing content id={$entityId}. If they ask to add, expand, continue, or revise the article, use update_content with payload id={$entityId}, mode=append (or replace), and body HTML — do NOT create_content."
             : "When creating new pages use create_content (draft only).";
 
+        // CSS / design-token usage for generated HTML+CSS (matches VariableService + public theme)
+        $cssVarHelp = "CSS VARIABLE RULES (mandatory when writing CSS):\n"
+            . "- NEVER write bare token names as property values (wrong: background-color: surface; color: text; border: 1px solid border).\n"
+            . "- ALWAYS use CSS custom properties with the var() function and a sensible fallback hex/rgb.\n"
+            . "- Built-in light palette CSS names (use these exact --names):\n"
+            . "  --color-primary, --color-secondary, --color-accent, --color-bg, --color-surface, --color-text, --color-muted, --color-border\n"
+            . "  Note: Style key 'background' maps to --color-bg (not --color-background).\n"
+            . "- Dark counterparts exist as --color-primary-dark, --color-bg-dark, --color-surface-dark, --color-text-dark, etc.\n"
+            . "- Other system vars: --max-width, --radius-sm/--radius-md/--radius-lg, --radius-button, --radius-card, --space-section, --space-element, --font-sans, --shadow-sm, --shadow-md.\n"
+            . "- Custom site vars (from Design → Variables) are available as --{name} or --mova-{slug}; prefer var(--name, fallback) when known.\n"
+            . "- Preferred syntax examples (match modern Mova page CSS):\n"
+            . "  background: var(--color-bg, #f8faf9);\n"
+            . "  color: var(--color-text, #111816);\n"
+            . "  background-color: var(--color-surface, #fff);\n"
+            . "  color: var(--color-primary, #075b3a);\n"
+            . "  color: var(--color-muted, #66736d);\n"
+            . "  border: 1px solid var(--color-border, #dce5e0);\n"
+            . "  box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.08));\n"
+            . "  border-radius: var(--radius-md, 10px);\n"
+            . "  max-width: var(--max-width, 1200px);\n"
+            . "- For polished UI also use color-mix() with vars when helpful, e.g. color-mix(in srgb, var(--color-primary, #075b3a) 12%, transparent).\n"
+            . "- Scope styles under a clear root class (e.g. .pricing-page) so they do not leak globally; do not redefine :root tokens.\n"
+            . "- HTML: semantic, accessible (aria labels, headings). No <html>/<head>/<body> unless explicitly requested. Prefer paste-ready body fragments.";
+
         $codingHelp = $isCoding
             ? "The user wants code. Put complete HTML and/or CSS in the reply using markdown fences (```html and ```css). "
               . "Do not omit code in favor of navigate links. Prefer a full paste-ready snippet. "
-              . "You may still include navigate actions if useful, but code in reply is required when asked."
-            : "When helpful you may include short code in markdown fences.";
+              . "You may still include navigate actions if useful, but code in reply is required when asked. "
+              . $cssVarHelp
+            : "When helpful you may include short code in markdown fences. If you emit CSS, still follow: " . $cssVarHelp;
 
         $system = "You are Mova AI, the assistant inside Mova CMS HQ. "
             . "Help users navigate HQ, create/update draft content, adjust design colors, and write HTML/CSS when asked. Be concise. "
@@ -292,7 +317,8 @@ class AiChatService
             . '{"type":"insert_code","label":"Insert into body","payload":{"target":"body","mode":"append","language":"html","code":"…"}} '
             . "]}\n"
             . "Use 0–4 actions. navigate paths must start with /hq. Only use palette keys listed above. "
-            . "For coding requests prefer insert_code when the user is editing content.";
+            . "For coding requests prefer insert_code when the user is editing content. "
+            . "CSS in replies MUST use var(--color-*) / var(--radius-*) etc. with fallbacks — never bare names like surface or text as values.";
 
         $messages = [['role' => 'system', 'content' => $system]];
         foreach (array_slice($history, -12) as $row) {
