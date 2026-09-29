@@ -1,0 +1,25 @@
+{
+  "id": "pricing-horizontal-toggle",
+  "name": "Horizontal comparison",
+  "category": "pricing",
+  "description": "Wide three-column comparison with a soft header strip. Featured tier uses solid primary CTA.",
+  "preview": "/assets/templates/previews/pricing-horizontal-toggle.svg",
+  "slots": [
+    "section_title",
+    "section_subtitle",
+    "plans[].name",
+    "plans[].price",
+    "plans[].period",
+    "plans[].features[]",
+    "plans[].cta_label",
+    "plans[].cta_href",
+    "featured_plan_index"
+  ],
+  "constraints": [
+    "Keep root class .tpl-pricing.tpl-pricing--horizontal",
+    "Keep three-column grid on desktop",
+    "Keep featured card treatment",
+    "Do not redefine :root tokens",
+    "Shared styles in templates.css; delta CSS only if required"
+  ]
+}

@@ -113,7 +113,7 @@ HTML;
     <link rel="stylesheet" href="/assets/css/hq-landings.css?v=20260922fullwidth2">
     <?php if ($isAuth): ?>
     <meta name="csrf-token" content="<?= htmlspecialchars(\Mova\Security\Csrf::token()) ?>">
-    <link rel="stylesheet" href="/assets/css/mova-ai-panel.css?v=20260927insert2">
+    <link rel="stylesheet" href="/assets/css/mova-ai-panel.css?v=20260929templates2">
     <?php endif; ?>
 </head>
 <body class="hq hq-vnext <?= $isAuth ? 'hq-authenticated' : 'hq-guest' ?>" data-workspace="<?= htmlspecialchars($workspace) ?>">
@@ -187,6 +187,9 @@ HTML;
             <button type="button" class="mova-ai-icon-btn" id="mova-ai-sessions-toggle" title="Sessions" aria-label="Sessions">
                 <i class="fa-solid fa-clock-rotate-left"></i>
             </button>
+            <button type="button" class="mova-ai-icon-btn" id="mova-ai-guide-toggle" title="Guided template steps" aria-label="Guided steps">
+                <i class="fa-solid fa-table-cells-large"></i>
+            </button>
             <button type="button" class="mova-ai-icon-btn" id="mova-ai-new" title="New chat" aria-label="New chat">
                 <i class="fa-solid fa-plus"></i>
             </button>
@@ -204,6 +207,38 @@ HTML;
             </div>
             <div id="mova-ai-jobs-list"></div>
             <p class="mova-ai-jobs-hint">Queue prompts even while offline — they run when you are back online. Coding tasks get a longer window.</p>
+        </div>
+        <div class="mova-ai-guide" id="mova-ai-guide" hidden>
+            <div class="mova-ai-guide-head">
+                <span>Quick start</span>
+                <button type="button" class="mova-ai-text-btn" id="mova-ai-guide-skip">Skip — free chat</button>
+            </div>
+            <div class="mova-ai-guide-step" data-guide-step="1">
+                <p class="mova-ai-guide-label">What do you want?</p>
+                <div class="mova-ai-guide-chips">
+                    <button type="button" class="mova-ai-chip" data-guide-intent="template">Create from template</button>
+                    <button type="button" class="mova-ai-chip" data-guide-intent="chat">Free chat / code</button>
+                    <button type="button" class="mova-ai-chip" data-guide-intent="colors">Change site colors</button>
+                </div>
+            </div>
+            <div class="mova-ai-guide-step" data-guide-step="2" hidden>
+                <p class="mova-ai-guide-label">Category</p>
+                <div class="mova-ai-guide-chips" id="mova-ai-guide-categories"></div>
+                <a class="mova-ai-guide-link" href="/hq/templates" target="_self">Browse all templates →</a>
+            </div>
+            <div class="mova-ai-guide-step" data-guide-step="3" hidden>
+                <p class="mova-ai-guide-label">Pick a template</p>
+                <div class="mova-ai-guide-templates" id="mova-ai-guide-templates"></div>
+            </div>
+            <div class="mova-ai-guide-step" data-guide-step="4" hidden>
+                <p class="mova-ai-guide-label">Brief <span id="mova-ai-guide-picked"></span></p>
+                <textarea id="mova-ai-guide-brief" rows="3" placeholder="e.g. Gym Lite $10 / Pro $75 / Pro Max $350. Feature Pro. Slightly green."></textarea>
+                <div class="mova-ai-guide-chips">
+                    <button type="button" class="mova-ai-chip is-toggle" data-guide-opt="keep_colors">Keep site colors</button>
+                    <button type="button" class="mova-ai-chip is-toggle" data-guide-opt="featured_middle">Featured middle</button>
+                </div>
+                <button type="button" class="mova-ai-send mova-ai-guide-generate" id="mova-ai-guide-generate">Generate from template</button>
+            </div>
         </div>
         <div class="mova-ai-messages" id="mova-ai-messages"></div>
         <div class="mova-ai-composer">
@@ -227,7 +262,7 @@ HTML;
 
     <script src="/assets/js/theme.js" defer></script>
     <script src="/assets/js/hq-search-index.js?v=20260926siteai"></script>
-    <script src="/assets/js/hq-nav.js?v=20260926siteai" defer></script>
+    <script src="/assets/js/hq-nav.js?v=20260929templates2" defer></script>
     <script src="/assets/js/hq-layers.js" defer></script>
     <?php if ($isAuth): ?>
     <script>
@@ -242,7 +277,7 @@ HTML;
       })()
     };
     </script>
-    <script src="/assets/js/mova-ai-panel.js?v=20260927insert2" defer></script>
+    <script src="/assets/js/mova-ai-panel.js?v=20260929templates2" defer></script>
     <script>
     (function () {
       var btn = document.getElementById('mova-ai-header-btn');

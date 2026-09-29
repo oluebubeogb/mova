@@ -68,17 +68,23 @@ class AiAssistService
      *
      * @param list<array{role:string,content:string}> $messages
      */
-    public function chatRaw(array $messages, int $maxTokens = 800, int $timeoutSeconds = 90): string
+    public function chatRaw(array $messages, int $maxTokens = 800, int $timeoutSeconds = 90, ?float $temperature = null): string
     {
         $endpoint = rtrim($this->setting('ai_api_url', self::DEFAULT_API_URL), '/') . '/chat/completions';
         $model = $this->setting('ai_model', self::DEFAULT_MODEL) ?: self::DEFAULT_MODEL;
         $key = $this->setting('ai_api_key', self::DEFAULT_API_KEY);
         $timeoutSeconds = max(15, min(600, $timeoutSeconds));
 
+        // Slightly higher temperature for longer/creative coding replies; keep default calm for chat
+        if ($temperature === null) {
+            $temperature = $maxTokens >= 3000 ? 0.7 : 0.5;
+        }
+        $temperature = max(0.0, min(1.2, (float) $temperature));
+
         $payload = json_encode([
             'model' => $model,
             'messages' => $messages,
-            'temperature' => 0.5,
+            'temperature' => $temperature,
             'max_tokens' => $maxTokens,
         ]);
 

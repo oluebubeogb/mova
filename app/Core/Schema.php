@@ -729,6 +729,7 @@ class Schema
         self::migratePhase9($db);
         self::migratePhase10($db);
         self::migratePhase11($db);
+        self::migratePhase12($db);
     }
 
     /**
@@ -931,6 +932,29 @@ class Schema
         ");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_ai_jobs_user_status ON ai_jobs(user_id, status, updated_at)");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_ai_jobs_session ON ai_jobs(session_id)");
+    }
+
+    /** Design templates — optional DB overrides of seed files in resources/templates */
+    private static function migratePhase12(\PDO $db): void
+    {
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS design_templates (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                template_id TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                category TEXT NOT NULL DEFAULT 'general',
+                description TEXT,
+                preview TEXT,
+                body_html TEXT NOT NULL,
+                styles_css TEXT,
+                meta_json TEXT,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        ");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_design_templates_category ON design_templates(category, enabled, sort_order)");
     }
 
     public static function isInstalled(): bool

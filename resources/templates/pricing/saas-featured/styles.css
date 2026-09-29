@@ -1,0 +1,6 @@
+/* pricing-saas-featured — layout-specific extras only.
+   Shared card/grid styles live in /assets/css/templates.css */
+
+.tpl-pricing--saas .tpl-card--featured {
+  padding-top: 1.9rem;
+}

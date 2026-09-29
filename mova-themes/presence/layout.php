@@ -99,6 +99,7 @@ if (isset($seo) && is_object($seo)) {
     <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer"></noscript>
     <style>@font-face{font-family:"Font Awesome 6 Free";font-display:swap}@font-face{font-family:"Font Awesome 6 Brands";font-display:swap}</style>
     <link rel="stylesheet" href="/assets/css/mova.css">
+    <link rel="stylesheet" href="/assets/css/templates.css?v=20260929">
     <style>.logo img{border:none!important;outline:none!important;box-shadow:none!important;}</style>
     <?php
     // Self-contained: load Presence CSS from theme folder (no /assets dependency)

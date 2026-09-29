@@ -25,6 +25,19 @@ $router->get('/ai/sessions', function () {
     return (new Response())->json(['ok' => true, 'sessions' => $svc->listSessions($uid)]);
 });
 
+// Design template catalog (seeds + DB overrides) for AI panel / future Templates page
+$router->get('/ai/templates', function () {
+    requireAuth();
+    $list = class_exists(\Mova\Theme\TemplateService::class)
+        ? \Mova\Theme\TemplateService::listAll()
+        : [];
+    return (new Response())->json([
+        'ok' => true,
+        'shared_css' => \Mova\Theme\TemplateService::sharedCssUrl(),
+        'templates' => $list,
+    ]);
+});
+
 $router->post('/ai/sessions', function (Request $req) {
     requireAuth();
     if (!Csrf::validate()) {
@@ -87,6 +100,7 @@ $router->post('/ai/chat', function (Request $req) {
         'area' => (string) $req->post('area', ''),
         'layer' => (string) $req->post('layer', ''),
         'entityId' => (int) $req->post('entity_id', 0) ?: null,
+        'templateId' => trim((string) $req->post('template_id', '')) ?: null,
     ];
     $svc = new AiChatService();
     $result = $svc->chat($uid, $sessionId, $message, $pageContext);
@@ -132,6 +146,7 @@ $router->post('/ai/jobs', function (Request $req) {
         'area' => (string) $req->post('area', ''),
         'layer' => (string) $req->post('layer', ''),
         'entityId' => (int) $req->post('entity_id', 0) ?: null,
+        'templateId' => trim((string) $req->post('template_id', '')) ?: null,
     ];
     if ($message === '') {
         return (new Response())->json(['error' => 'Empty message'], 400);

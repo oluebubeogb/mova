@@ -35,12 +35,14 @@
       var m = (window.location.pathname || '').match(/\/hq\/content\/edit\/(\d+)/);
       if (m) entityId = parseInt(m[1], 10) || 0;
     }
-    return {
+    var out = {
       route: ctx.route || window.location.pathname + window.location.search,
       area: ctx.area || (document.body && document.body.getAttribute('data-workspace')) || '',
       layer: ctx.layer || new URLSearchParams(window.location.search).get('layer') || '',
       entity_id: entityId
     };
+    if (state.templateId) out.template_id = state.templateId;
+    return out;
   }
 
   function el(id) {
@@ -114,7 +116,8 @@
     busy: false,
     view: 'chat',
     bgMode: true,
-    activeJobs: {}
+    activeJobs: {},
+    templateId: null
   };
 
   function setOpen(open) {
@@ -568,6 +571,7 @@
     body.set('area', ctx.area || '');
     body.set('layer', ctx.layer || '');
     if (ctx.entity_id) body.set('entity_id', String(ctx.entity_id));
+    if (ctx.template_id) body.set('template_id', String(ctx.template_id));
 
     return fetch('/hq/ai/jobs', {
       method: 'POST',
@@ -994,7 +998,7 @@
     var useBg = state.bgMode;
     if (bgCheck) useBg = !!bgCheck.checked;
     // Auto-background for coding-looking prompts
-    var looksCode = /\b(html|css|javascript|code|snippet|pricelist|price list)\b/i.test(text) || text.indexOf('```') !== -1;
+    var looksCode = /\b(html|css|javascript|code|snippet|pricelist|price list|template:)\b/i.test(text) || text.indexOf('```') !== -1 || !!state.templateId;
     if (looksCode) useBg = true;
 
     if (useBg) {
@@ -1048,6 +1052,7 @@
     body.set('area', ctx.area);
     body.set('layer', ctx.layer);
     if (ctx.entity_id) body.set('entity_id', String(ctx.entity_id));
+    if (ctx.template_id) body.set('template_id', String(ctx.template_id));
 
     fetch('/hq/ai/chat', {
       method: 'POST',
@@ -1180,7 +1185,183 @@
     showSessionsView(false);
     if (state.sessionId) loadSession(state.sessionId);
     else showEmpty();
+
+    bindGuide();
+    try {
+      var pendingTpl = sessionStorage.getItem('mova_ai_template_id');
+      var openGuide = sessionStorage.getItem('mova_ai_open_guide');
+      if (pendingTpl) {
+        useTemplate(pendingTpl);
+        sessionStorage.removeItem('mova_ai_template_id');
+      }
+      if (openGuide === '1') {
+        setGuideOpen(true);
+        sessionStorage.removeItem('mova_ai_open_guide');
+        if (!preferOpen) setOpen(true);
+      }
+    } catch (e3) {}
   }
+
+  /* —— Guided template flow —— */
+  var guideCache = null;
+
+  function setGuideOpen(open) {
+    var g = el('mova-ai-guide');
+    if (!g) return;
+    g.hidden = !open;
+    if (open) {
+      showSessionsView(false);
+      showJobsView(false);
+    }
+  }
+
+  function guideShowStep(n) {
+    document.querySelectorAll('.mova-ai-guide-step').forEach(function (step) {
+      var sn = parseInt(step.getAttribute('data-guide-step'), 10);
+      step.hidden = sn !== n;
+    });
+  }
+
+  function loadGuideTemplates(category) {
+    var box = el('mova-ai-guide-templates');
+    var catBox = el('mova-ai-guide-categories');
+    if (!box) return;
+    box.innerHTML = '<p class="mova-ai-jobs-loading">Loading templates…</p>';
+    var done = function (list) {
+      guideCache = list || [];
+      var cats = {};
+      guideCache.forEach(function (t) {
+        var c = t.category || 'general';
+        cats[c] = (cats[c] || 0) + 1;
+      });
+      if (catBox) {
+        var html = '<button type="button" class="mova-ai-chip' + (!category ? ' is-active' : '') + '" data-guide-cat="">All</button>';
+        Object.keys(cats).forEach(function (c) {
+          html += '<button type="button" class="mova-ai-chip' + (category === c ? ' is-active' : '') + '" data-guide-cat="' + escapeHtml(c) + '">' + escapeHtml(c) + '</button>';
+        });
+        catBox.innerHTML = html;
+        catBox.querySelectorAll('[data-guide-cat]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            loadGuideTemplates(btn.getAttribute('data-guide-cat') || '');
+            guideShowStep(3);
+          });
+        });
+      }
+      var filtered = !category ? guideCache : guideCache.filter(function (t) { return t.category === category; });
+      if (!filtered.length) {
+        box.innerHTML = '<p class="mova-ai-jobs-empty">No templates in this category.</p>';
+        return;
+      }
+      box.innerHTML = filtered.map(function (t) {
+        var img = t.preview ? '<img src="' + escapeHtml(t.preview) + '" alt="">' : '<span style="width:56px;height:34px;background:#e2e8f0;border-radius:4px;display:inline-block"></span>';
+        return '<button type="button" class="mova-ai-guide-tpl" data-tpl-id="' + escapeHtml(t.id) + '">' +
+          img +
+          '<span class="mova-ai-guide-tpl-copy"><strong>' + escapeHtml(t.name) + '</strong><span>' + escapeHtml(t.description || t.id) + '</span></span></button>';
+      }).join('');
+      box.querySelectorAll('[data-tpl-id]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          useTemplate(btn.getAttribute('data-tpl-id'));
+          guideShowStep(4);
+          box.querySelectorAll('.mova-ai-guide-tpl').forEach(function (b) { b.classList.remove('is-active'); });
+          btn.classList.add('is-active');
+        });
+      });
+    };
+    if (guideCache) {
+      done(guideCache);
+      return;
+    }
+    fetch('/hq/ai/templates', { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) { done((data && data.templates) || []); })
+      .catch(function () {
+        box.innerHTML = '<p class="mova-ai-jobs-empty">Could not load templates.</p>';
+      });
+  }
+
+  function useTemplate(id) {
+    if (!id) return;
+    state.templateId = id;
+    var picked = el('mova-ai-guide-picked');
+    if (picked) picked.textContent = '· ' + id;
+    guideShowStep(4);
+    setGuideOpen(true);
+  }
+
+  function bindGuide() {
+    var toggle = el('mova-ai-guide-toggle');
+    if (toggle) {
+      toggle.addEventListener('click', function () {
+        var g = el('mova-ai-guide');
+        var open = g && g.hidden;
+        setGuideOpen(!!open);
+        if (open) guideShowStep(1);
+      });
+    }
+    var skip = el('mova-ai-guide-skip');
+    if (skip) {
+      skip.addEventListener('click', function () {
+        state.templateId = null;
+        setGuideOpen(false);
+        var ta = el('mova-ai-input');
+        if (ta) ta.focus();
+      });
+    }
+    document.querySelectorAll('[data-guide-intent]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var intent = btn.getAttribute('data-guide-intent');
+        if (intent === 'template') {
+          loadGuideTemplates('');
+          guideShowStep(2);
+        } else if (intent === 'colors') {
+          setGuideOpen(false);
+          var ta = el('mova-ai-input');
+          if (ta) {
+            ta.value = 'Set primary color to a greenish tone and keep the rest of the palette balanced.';
+            ta.focus();
+          }
+        } else {
+          setGuideOpen(false);
+          var ta2 = el('mova-ai-input');
+          if (ta2) ta2.focus();
+        }
+      });
+    });
+    document.querySelectorAll('[data-guide-opt]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        btn.classList.toggle('is-active');
+      });
+    });
+    var gen = el('mova-ai-guide-generate');
+    if (gen) {
+      gen.addEventListener('click', function () {
+        if (!state.templateId) {
+          guideShowStep(2);
+          loadGuideTemplates('');
+          return;
+        }
+        var brief = (el('mova-ai-guide-brief') && el('mova-ai-guide-brief').value || '').trim();
+        var opts = [];
+        document.querySelectorAll('[data-guide-opt].is-active').forEach(function (b) {
+          opts.push(b.getAttribute('data-guide-opt'));
+        });
+        var msg = 'template:' + state.templateId + '\n\n';
+        msg += brief || 'Adapt this template for my site. Keep structure and classes.';
+        if (opts.indexOf('keep_colors') !== -1) msg += '\nUse existing site color variables.';
+        if (opts.indexOf('featured_middle') !== -1) msg += '\nKeep the middle plan featured.';
+        var ta = el('mova-ai-input');
+        if (ta) ta.value = msg;
+        setGuideOpen(false);
+        send();
+      });
+    }
+  }
+
+  window.MovaAiPanel = {
+    useTemplate: useTemplate,
+    openGuide: function () { setGuideOpen(true); guideShowStep(1); },
+    open: function () { setOpen(true); }
+  };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bind);

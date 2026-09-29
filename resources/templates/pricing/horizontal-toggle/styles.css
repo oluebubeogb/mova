@@ -1,0 +1,14 @@
+/* pricing-horizontal-toggle — soft banner strip above the grid */
+
+.tpl-pricing--horizontal .tpl-pricing__banner {
+  margin-bottom: 1.75rem;
+  padding: 1.35rem 1.25rem;
+  text-align: center;
+  background: color-mix(in srgb, var(--color-primary, #2563eb) 6%, var(--color-bg, #f8f9fb));
+  border: 1px solid color-mix(in srgb, var(--color-primary, #2563eb) 12%, var(--color-border, #e5e7eb));
+  border-radius: var(--radius-lg, 16px);
+}
+
+.tpl-pricing--horizontal .tpl-pricing__subtitle {
+  margin-bottom: 0;
+}

@@ -542,3 +542,130 @@ body.mova-ai-open { /* optional layout shift */ }
   max-height: 280px;
   overflow: auto;
 }
+
+/* Guided template steps */
+.mova-ai-guide {
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 0.65rem 0.75rem 0.85rem;
+  max-height: 42vh;
+  overflow: auto;
+}
+.mova-ai-guide-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+.mova-ai-guide-label {
+  margin: 0 0 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #334155;
+}
+.mova-ai-guide-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+.mova-ai-chip {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #0f172a;
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mova-ai-chip:hover,
+.mova-ai-chip.is-active {
+  border-color: #2563eb;
+  color: #2563eb;
+  background: #eff6ff;
+}
+.mova-ai-chip.is-toggle.is-active {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+.mova-ai-guide-templates {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.35rem;
+}
+.mova-ai-guide-tpl {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 8px;
+  padding: 0.4rem 0.5rem;
+  cursor: pointer;
+}
+.mova-ai-guide-tpl:hover,
+.mova-ai-guide-tpl.is-active {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px #2563eb22;
+}
+.mova-ai-guide-tpl img {
+  width: 56px;
+  height: 34px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #f1f5f9;
+  flex-shrink: 0;
+}
+.mova-ai-guide-tpl-copy {
+  min-width: 0;
+}
+.mova-ai-guide-tpl-copy strong {
+  display: block;
+  font-size: 0.8rem;
+  color: #0f172a;
+}
+.mova-ai-guide-tpl-copy span {
+  display: block;
+  font-size: 0.7rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mova-ai-guide-link {
+  display: inline-block;
+  font-size: 0.75rem;
+  color: #2563eb;
+  margin-bottom: 0.25rem;
+}
+#mova-ai-guide-brief {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  font: inherit;
+  font-size: 0.85rem;
+  resize: vertical;
+  margin-bottom: 0.5rem;
+}
+.mova-ai-guide-generate {
+  width: 100%;
+  margin-top: 0.25rem;
+}
+#mova-ai-guide-picked {
+  font-weight: 500;
+  color: #64748b;
+  text-transform: none;
+  letter-spacing: 0;
+}

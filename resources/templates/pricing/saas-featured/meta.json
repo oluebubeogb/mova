@@ -1,0 +1,26 @@
+{
+  "id": "pricing-saas-featured",
+  "name": "SaaS pricing — featured middle",
+  "category": "pricing",
+  "description": "Three equal-height cards; middle tier highlighted with badge and solid CTA. Best for memberships and SaaS plans.",
+  "preview": "/assets/templates/previews/pricing-saas-featured.svg",
+  "slots": [
+    "section_title",
+    "section_subtitle",
+    "plans[].name",
+    "plans[].price",
+    "plans[].period",
+    "plans[].features[]",
+    "plans[].cta_label",
+    "plans[].cta_href",
+    "featured_plan_index"
+  ],
+  "constraints": [
+    "Keep root class .tpl-pricing.tpl-pricing--saas",
+    "Keep .tpl-pricing__grid--3 and card structure",
+    "Keep one plan with .tpl-card--featured and .tpl-card__badge",
+    "Do not redefine :root or global tokens",
+    "Shared styles live in templates.css — only emit extra CSS if the user needs a one-off tweak",
+    "Only change copy, prices, features, CTAs, and which plan is featured"
+  ]
+}

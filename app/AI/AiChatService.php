@@ -260,6 +260,16 @@ class AiChatService
         }
 
         $entityId = (int) ($pageContext['entityId'] ?? 0);
+        $templateId = null;
+        $templateHelp = '';
+        if (class_exists(\Mova\Theme\TemplateService::class)) {
+            $explicit = (string) ($pageContext['templateId'] ?? $options['template_id'] ?? '');
+            $templateId = \Mova\Theme\TemplateService::detectIdFromMessage($message, $explicit !== '' ? $explicit : null);
+            if ($templateId) {
+                $templateHelp = \Mova\Theme\TemplateService::promptBlock($templateId) . "\n";
+                $isCoding = true;
+            }
+        }
         $paletteHelp = "Mova Style palette keys (ONLY these for design-token actions — do not invent 'link' or other keys): "
             . "primary, secondary, accent, background, surface, text, muted, border. "
             . "Links on the public site typically use primary (or accent for emphasis). "
@@ -293,10 +303,24 @@ class AiChatService
             . "- Scope styles under a clear root class (e.g. .pricing-page) so they do not leak globally; do not redefine :root tokens.\n"
             . "- HTML: semantic, accessible (aria labels, headings). No <html>/<head>/<body> unless explicitly requested. Prefer paste-ready body fragments.";
 
+        $designHelp = "DESIGN QUALITY (mandatory for UI/layout/pricing/cards):\n"
+            . "- Aim for production-grade, editorial UI — not a bare white box with plain text.\n"
+            . "- Hierarchy: clear section title, plan name, large price with currency, short period label (e.g. /mo), feature list, primary CTA button.\n"
+            . "- Cards: equal-height grid (CSS grid or flex), generous padding (1.5–2rem), rounded corners (var(--radius-lg) or ~1rem), soft multi-layer shadow, subtle border with var(--color-border).\n"
+            . "- Highlight one recommended tier (middle or highest): scale slightly, primary-tinted border or top accent bar, 'Most popular' badge, stronger CTA (solid primary button).\n"
+            . "- Features: checklist style with ✓ or icon; included items normal; higher tiers show everything from lower tiers plus extras.\n"
+            . "- Buttons: solid primary for main CTA, outline/ghost for secondary; min-height ~2.75–3.25rem; hover lift (translateY) + stronger shadow.\n"
+            . "- Spacing rhythm: consistent gaps (1rem–1.5rem between cards, 0.65–0.85rem between list items).\n"
+            . "- Typography: plan name bold 1.1–1.25rem; price 2–2.75rem weight 700–800; muted labels for period and features.\n"
+            . "- Responsive: 3 columns → 1 column under ~720px; cards stack cleanly; no horizontal overflow.\n"
+            . "- Polish: use color-mix with primary/accent for soft fills; avoid flat grey-only UIs; never leave empty whitespace that looks unfinished.\n"
+            . "- Scope under one root class (e.g. .pricing-page). HTML + CSS both required unless user asked for one only.\n";
+
         $codingHelp = $isCoding
             ? "The user wants code. Put complete HTML and/or CSS in the reply using markdown fences (```html and ```css). "
               . "Do not omit code in favor of navigate links. Prefer a full paste-ready snippet. "
               . "You may still include navigate actions if useful, but code in reply is required when asked. "
+              . $designHelp
               . $cssVarHelp
             : "When helpful you may include short code in markdown fences. If you emit CSS, still follow: " . $cssVarHelp;
 
@@ -305,8 +329,10 @@ class AiChatService
             . "Never publish content. Never invent HQ URLs — use the map. "
             . "{$paletteHelp} {$contentHelp} {$codingHelp} "
             . "When the user should open a screen, include navigate actions.\n\n"
+            . $templateHelp
             . HqMap::asPromptBlock(35) . "\n\n"
-            . "Current page: route={$route} area={$area} layer={$layer} entityId={$entityId}\n"
+            . "Current page: route={$route} area={$area} layer={$layer} entityId={$entityId}"
+            . ($templateId ? " templateId={$templateId}" : '') . "\n"
             . "Top map matches for this message:\n" . ($matchLines ? implode("\n", $matchLines) : "(none)") . "\n\n"
             . "Respond with ONLY valid JSON (no markdown fences around the JSON itself):\n"
             . '{"reply":"string — may contain markdown and ```html / ```css code fences","actions":[ '
