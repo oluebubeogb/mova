@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- HQ AI coding replies now instruct the model to emit correct Mova CSS variables (`var(--color-primary, …)`, `var(--color-bg, …)`, etc. with fallbacks) instead of invalid bare token names like `surface` or `text` as CSS values
+- Coding system prompt documents the full built-in palette map (background → `--color-bg`), radius/spacing/shadow vars, custom `--{name}` / `--mova-*` vars, and scoped modern syntax aligned with public theme pages
+
 ### Planned
 - Further Studio panel refinements
 - Additional content-type and assembly tooling
