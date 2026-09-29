@@ -261,8 +261,8 @@ HTML;
 <?php endif; ?>
 
     <script src="/assets/js/theme.js" defer></script>
-    <script src="/assets/js/hq-search-index.js?v=20260926siteai"></script>
-    <script src="/assets/js/hq-nav.js?v=20260929templates2" defer></script>
+    <script src="/assets/js/hq-search-index.js?v=20260929templates3"></script>
+    <script src="/assets/js/hq-nav.js?v=20260929templates3" defer></script>
     <script src="/assets/js/hq-layers.js" defer></script>
     <?php if ($isAuth): ?>
     <script>

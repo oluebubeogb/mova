@@ -361,8 +361,28 @@ class AiChatService
         }
 
         try {
-            $maxTokens = ($longRunning || $isCoding) ? 6000 : 2400;
-            $timeout = ($longRunning || $isCoding) ? 300 : 90;
+            // Template + coding: full seed HTML is already in the system prompt.
+            // High max_tokens (e.g. 6000) often causes small Ollama/vLLM hosts to return
+            // empty content → "Invalid AI response". Prefer a moderate completion budget.
+            if ($templateId) {
+                $maxTokens = 2800;
+                $timeout = 240;
+                $systemMsg = $messages[0] ?? null;
+                $tail = [];
+                foreach (array_reverse($messages) as $m) {
+                    if (($m['role'] ?? '') === 'system') {
+                        continue;
+                    }
+                    array_unshift($tail, $m);
+                    if (count($tail) >= 4) {
+                        break;
+                    }
+                }
+                $messages = $systemMsg ? array_merge([$systemMsg], $tail) : $tail;
+            } else {
+                $maxTokens = ($longRunning || $isCoding) ? 4000 : 2400;
+                $timeout = ($longRunning || $isCoding) ? 300 : 90;
+            }
             $raw = $this->assist->chatRaw($messages, $maxTokens, $timeout);
             $parsed = $this->parseJsonReply($raw);
             if ($parsed !== null) {

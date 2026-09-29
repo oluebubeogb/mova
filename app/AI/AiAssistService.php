@@ -107,14 +107,41 @@ class AiAssistService
 
         $raw = @file_get_contents($endpoint, false, $ctx);
         if ($raw === false) {
-            throw new \RuntimeException('No response from AI provider');
+            $err = error_get_last();
+            $hint = is_array($err) && !empty($err['message']) ? $err['message'] : 'connection failed or timed out';
+            throw new \RuntimeException('No response from AI provider (' . $hint . '). Check ai_api_url, network, and server timeout.');
         }
         $data = json_decode($raw, true);
-        $text = $data['choices'][0]['message']['content'] ?? null;
-        if (!$text) {
-            throw new \RuntimeException($data['error']['message'] ?? 'Invalid AI response');
+        if (!is_array($data)) {
+            $snippet = mb_substr(preg_replace('/\s+/', ' ', $raw) ?? '', 0, 240);
+            throw new \RuntimeException('AI provider returned non-JSON. First bytes: ' . $snippet);
         }
-        return trim($text);
+        if (!empty($data['error'])) {
+            $errMsg = is_array($data['error'])
+                ? (string) ($data['error']['message'] ?? json_encode($data['error']))
+                : (string) $data['error'];
+            $code = is_array($data['error']) ? (string) ($data['error']['code'] ?? $data['error']['type'] ?? '') : '';
+            throw new \RuntimeException(
+                'AI provider error' . ($code !== '' ? " [{$code}]" : '') . ': ' . $errMsg
+            );
+        }
+        $text = $data['choices'][0]['message']['content'] ?? null;
+        // Some OpenAI-compatible servers put text in other shapes
+        if (($text === null || $text === '') && isset($data['choices'][0]['text'])) {
+            $text = $data['choices'][0]['text'];
+        }
+        if ($text === null || $text === '') {
+            $finish = $data['choices'][0]['finish_reason'] ?? ($data['choices'][0]['finishReason'] ?? '');
+            $keys = implode(', ', array_keys($data));
+            throw new \RuntimeException(
+                'Invalid AI response (empty content'
+                . ($finish !== '' ? ", finish_reason={$finish}" : '')
+                . "). Top-level keys: {$keys}. "
+                . 'Often means context too long, model OOM, or max_tokens too high for the host. '
+                . 'Try a shorter brief, smaller model load, or raise the AI server timeout/VRAM.'
+            );
+        }
+        return trim((string) $text);
     }
 
     private function callProvider(string $action, string $title, string $body, string $excerpt): string

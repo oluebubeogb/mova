@@ -15,6 +15,7 @@
                 { label: 'Content',   href: '/hq/content-hub' },
                 { label: 'Audience',  href: '/hq/audience' },
                 { label: 'Design',    href: '/hq/design' },
+                { label: 'Templates', href: '/hq/templates' },
                 { label: 'Extend',    href: '/hq/extend' },
                 { label: 'Operations', href: '/hq/operations' },
                 { label: 'Settings',  href: '/hq/settings' }
