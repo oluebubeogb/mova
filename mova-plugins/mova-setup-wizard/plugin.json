@@ -1,0 +1,7 @@
+{
+  "name": "Quick Setup Wizard",
+  "version": "1.1.0",
+  "description": "Phase 1+2: school/org setup with pages, palette, nav, footer columns, AiAssist page expansion, and Site AI knowledge seeding. Always active on new installs.",
+  "author": "Mova",
+  "requires": "1.1.0"
+}

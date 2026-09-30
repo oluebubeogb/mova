@@ -31,6 +31,17 @@
       <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
     </a>
 
+    <a class="hq-landing-card hq-landing-card-primary" href="/hq/setup-wizard">
+      <div class="hq-landing-card-inner">
+        <div class="hq-landing-icon is-mix"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+        <div class="hq-landing-card-body">
+          <strong>Quick Setup Wizard</strong>
+          <span>School or org site in minutes — pages, palette, nav, footer</span>
+        </div>
+      </div>
+      <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
+    </a>
+
     <a class="hq-landing-card" href="/hq/content-hub">
       <div class="hq-landing-card-inner">
         <div class="hq-landing-icon"><i class="fa-solid fa-file-lines"></i></div>

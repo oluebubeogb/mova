@@ -57,6 +57,7 @@ $routeFiles = [
     'webhooks',
     'ai',
     'site_ai',
+    'setup_wizard',
     'health',
     'sites',
     'plugins',

@@ -4,6 +4,7 @@
  */
 window.MOVA_HQ_SEARCH_INDEX = [
   { title: 'Overview', href: '/hq', group: 'Overview', keywords: 'overview dashboard home start', body: 'Mova HQ home. Jump into content, audience, design, extend, and operations workspaces.' },
+  { title: 'Quick Setup Wizard', href: '/hq/setup-wizard', group: 'Overview', keywords: 'setup wizard school organization pack palette footer quick start onboarding', body: 'Create a school or organization site in minutes: pages, brand palette, navigation, and footer columns.' },
   { title: 'Content hub', href: '/hq/content-hub', group: 'Content', keywords: 'content hub workspace', body: 'Create, organize, and manage posts, media, galleries, types, taxonomy, and assemblies.' },
   { title: 'All content', href: '/hq/content', group: 'Content', keywords: 'posts pages articles list draft published', body: 'Browse and filter all content by status: draft, review, published, archived, trash.' },
   { title: 'New content', href: '/hq/content/new', group: 'Content', keywords: 'create write post page', body: 'Start a new piece of content with the visual or Dev Mode editor.' },
