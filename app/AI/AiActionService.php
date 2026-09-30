@@ -51,6 +51,7 @@ class AiActionService
 
         $body = (string) ($payload['body'] ?? '');
         $excerpt = trim((string) ($payload['excerpt'] ?? ''));
+        $meta = $this->normalizeContentMeta($payload['meta'] ?? null);
         $repo = new ContentRepository();
         $slug = trim((string) ($payload['slug'] ?? ''));
         if ($slug === '') {
@@ -59,7 +60,7 @@ class AiActionService
             $slug = $repo->generateSlug($slug);
         }
 
-        $id = $repo->create([
+        $createData = [
             'type' => $type,
             'title' => $title,
             'slug' => $slug,
@@ -67,7 +68,12 @@ class AiActionService
             'body' => $body,
             'status' => 'draft',
             'author_id' => $userId,
-        ]);
+        ];
+        if ($meta !== []) {
+            $createData['meta'] = $meta;
+        }
+
+        $id = $repo->create($createData);
 
         return [
             'ok' => true,
@@ -77,6 +83,7 @@ class AiActionService
                 'title' => $title,
                 'slug' => $slug,
                 'path' => '/hq/content/edit/' . $id,
+                'excerpt' => $excerpt,
             ],
         ];
     }
@@ -175,6 +182,7 @@ class AiActionService
         $newBody = (string) ($payload['body'] ?? '');
         $title = trim((string) ($payload['title'] ?? ''));
         $excerpt = trim((string) ($payload['excerpt'] ?? ''));
+        $meta = $this->normalizeContentMeta($payload['meta'] ?? null);
 
         $data = [];
         if ($newBody !== '') {
@@ -190,6 +198,9 @@ class AiActionService
         }
         if ($excerpt !== '') {
             $data['excerpt'] = $excerpt;
+        }
+        if ($meta !== []) {
+            $data['meta'] = $meta;
         }
 
         // Keep as draft unless already published — never auto-publish
@@ -216,6 +227,38 @@ class AiActionService
                 'soft' => true,
             ],
         ];
+    }
+
+
+    /**
+     * Accept SEO / content meta from AI payloads.
+     * @param mixed $meta
+     * @return array<string,string>
+     */
+    private function normalizeContentMeta($meta): array
+    {
+        if (!is_array($meta)) {
+            return [];
+        }
+        $allowed = [
+            'seo_title',
+            'meta_description',
+            'og_title',
+            'og_description',
+            'robots',
+            'canonical',
+        ];
+        $out = [];
+        foreach ($allowed as $key) {
+            if (!isset($meta[$key])) {
+                continue;
+            }
+            $val = trim((string) $meta[$key]);
+            if ($val !== '') {
+                $out[$key] = $val;
+            }
+        }
+        return $out;
     }
 
     private function normalizeHex(string $v, string $fallback): string

@@ -447,6 +447,39 @@
     return h || 'html';
   }
 
+  /** Lightweight syntax highlight for AI code blocks (no external lib). */
+  function highlightCode(code, lang) {
+    var s = escapeHtml(String(code || ''));
+    var L = (lang || '').toLowerCase();
+    if (L === 'html' || L === 'xml' || L === 'markup') {
+      // comments
+      s = s.replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span class="tok-comment">$1</span>');
+      // tags + attributes
+      s = s.replace(/(&lt;\/?[a-zA-Z][\w:-]*)/g, '<span class="tok-tag">$1</span>');
+      s = s.replace(/\s([a-zA-Z_:][\w:.-]*)(=)/g, ' <span class="tok-attr">$1</span>$2');
+      s = s.replace(/(=)(&quot;[^&]*&quot;|&#39;[^&]*&#39;)/g, '$1<span class="tok-str">$2</span>');
+      return s;
+    }
+    if (L === 'css' || L === 'scss') {
+      s = s.replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="tok-comment">$1</span>');
+      s = s.replace(/(#[0-9a-fA-F]{3,8}|\d+\.?\d*(?:px|rem|em|%|vh|vw|s|ms)?)/g, '<span class="tok-number">$1</span>');
+      s = s.replace(/([a-zA-Z-]+)(\s*:)/g, '<span class="tok-property">$1</span>$2');
+      s = s.replace(/(^|\n)([^{}\/]+)(\{)/gm, function (_, a, sel, b) {
+        return a + '<span class="tok-selector">' + sel + '</span>' + b;
+      });
+      return s;
+    }
+    if (L === 'js' || L === 'javascript') {
+      s = s.replace(/(\/\*[\s\S]*?\*\/|\/\/[^\n]*)/g, '<span class="tok-comment">$1</span>');
+      s = s.replace(/\b(const|let|var|function|return|if|else|for|while|class|new|this|typeof|async|await|import|export|from|default)\b/g, '<span class="tok-keyword">$1</span>');
+      s = s.replace(/(&quot;[^&]*&quot;|&#39;[^&]*&#39;|`[^`]*`)/g, '<span class="tok-str">$1</span>');
+      s = s.replace(/\b(\d+\.?\d*)\b/g, '<span class="tok-number">$1</span>');
+      return s;
+    }
+    return s;
+  }
+
+
   function writeTextarea(el, code, mode) {
     if (!el) return false;
     var next = mode === 'replace' ? code : ((el.value ? el.value.replace(/\s*$/, '') + '\n\n' : '') + code);
@@ -772,7 +805,7 @@
         '<button type="button" class="mova-ai-code-btn" data-code-copy="' + idx + '">Copy</button>' +
         '<button type="button" class="mova-ai-code-btn" data-code-insert="' + idx + '">Insert</button>' +
         '</div>' +
-        '<pre class="mova-ai-code"><code>' + escapeHtml(cleaned) + '</code></pre></div>';
+        '<pre class="mova-ai-code"><code>' + highlightCode(cleaned, langLabel) + '</code></pre></div>';
     });
     div.innerHTML = html;
     div.querySelectorAll('[data-code-copy]').forEach(function (btn) {

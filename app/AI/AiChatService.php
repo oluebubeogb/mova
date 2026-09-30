@@ -276,8 +276,19 @@ class AiChatService
             . "If the user says 'link color', map it to primary and say so in the reply.";
 
         $contentHelp = $entityId > 0
-            ? "The user is editing content id={$entityId}. If they ask to add, expand, continue, or revise the article, use update_content with payload id={$entityId}, mode=append (or replace), and body HTML — do NOT create_content."
-            : "When creating new pages use create_content (draft only).";
+            ? "The user is editing content id={$entityId}. If they ask to add, expand, continue, revise, or write the article, use update_content with payload id={$entityId}, mode=append (or replace when they say rewrite/replace), and a FULL body HTML — do NOT create_content."
+            : "When creating new pages/posts use create_content (draft only). Always fill a complete body, excerpt, and SEO fields — never create an empty draft.";
+
+        $qualityHelp = "CONTENT QUALITY (mandatory for articles/pages):\n"
+            . "- MODE: Default to normal editor content (semantic HTML body). Only produce pure code fences / insert_code / CSS/JS when the user clearly asks for code, dev mode, studio, assembly, elements, or a template.\n"
+            . "- RICH DRAFTS: create_content and update_content payloads MUST include:\n"
+            . "  title (accurate), type (page|article|guide|…), body (full HTML, not placeholders),\n"
+            . "  excerpt (1–2 sentences, ~140–160 chars),\n"
+            . "  meta: {seo_title, meta_description} (SEO title ≤60 chars, meta description ≤155–160 chars).\n"
+            . "- BODY HTML: Use semantic tags — <article>, <section>, <h2>/<h3>, <p>, <ul>/<ol>, <blockquote>, <figure> when useful. Avoid bare <div> soup. No <html>/<head>/<body> wrappers.\n"
+            . "- DEPTH: Write real paragraphs (not just bullet titles). Expand each point with explanation, example, or insight. Aim for useful, original content the user can publish after a light edit.\n"
+            . "- Prefer putting the full article into the create_content/update_content action body so the draft is ready in the editor. Keep the chat reply short (summary + what you did).\n"
+            . "- Never invent HQ URLs. Never publish. Never leave body empty or with placeholder-only text like 'Point one — expand with your research.'.\n";
 
         // CSS / design-token usage for generated HTML+CSS (matches VariableService + public theme)
         $cssVarHelp = "CSS VARIABLE RULES (mandatory when writing CSS):\n"
@@ -317,17 +328,27 @@ class AiChatService
             . "- Scope under one root class (e.g. .pricing-page). HTML + CSS both required unless user asked for one only.\n";
 
         $codingHelp = $isCoding
-            ? "The user wants code. Put complete HTML and/or CSS in the reply using markdown fences (```html and ```css). "
-              . "Do not omit code in favor of navigate links. Prefer a full paste-ready snippet. "
-              . "You may still include navigate actions if useful, but code in reply is required when asked. "
+            ? "The user wants code (dev mode / studio / assembly / elements). Put complete HTML and/or CSS and/or JS in the reply using markdown fences (```html, ```css, ```js). "
+              . "Do not omit code in favor of navigate links. Prefer a full paste-ready snippet with moderate comments for human debugging. "
+              . "Use meaningful class names and ids where needed. Remember site CSS variables. "
+              . "You may still include navigate or insert_code actions. "
               . $designHelp
               . $cssVarHelp
-            : "When helpful you may include short code in markdown fences. If you emit CSS, still follow: " . $cssVarHelp;
+            : "Default is normal editor content (not code). Only emit long code fences when the user asks for code, HTML/CSS/JS, dev mode, studio, or a template. "
+              . "If you emit CSS, still follow: " . $cssVarHelp;
+
+        $modesHelp = "MOVA MODES (awareness):\n"
+            . "- Normal editor: classic body field — use semantic HTML in create/update_content. Target this unless user asks for code.\n"
+            . "- Dev mode (mova-dev-editor): Monaco HTML/CSS/JS panels; body + meta raw_css / raw_js. Prefer insert_code or full code fences with comments, classes, ids, and site vars.\n"
+            . "- Studio: multi-column workspace (structure + elements + Monaco + live preview). Same fields as Dev Mode (body, raw_css, raw_js, editor_mode=studio).\n"
+            . "- Assembly: reusable page sections/blocks. Prefer structured section markup.\n"
+            . "- Elements: styling panels for components. Prefer clean class-based HTML that Elements can style.\n";
 
         $system = "You are Mova AI, the assistant inside Mova CMS HQ. "
-            . "Help users navigate HQ, create/update draft content, adjust design colors, and write HTML/CSS when asked. Be concise. "
+            . "Help users navigate HQ, create/update draft content, adjust design colors, and write HTML/CSS/JS when asked. "
+            . "Be concise in chat replies; put substance into draft actions. "
             . "Never publish content. Never invent HQ URLs — use the map. "
-            . "{$paletteHelp} {$contentHelp} {$codingHelp} "
+            . "{$paletteHelp} {$contentHelp} {$qualityHelp} {$modesHelp} {$codingHelp} "
             . "When the user should open a screen, include navigate actions.\n\n"
             . $templateHelp
             . HqMap::asPromptBlock(35) . "\n\n"
@@ -335,15 +356,16 @@ class AiChatService
             . ($templateId ? " templateId={$templateId}" : '') . "\n"
             . "Top map matches for this message:\n" . ($matchLines ? implode("\n", $matchLines) : "(none)") . "\n\n"
             . "Respond with ONLY valid JSON (no markdown fences around the JSON itself):\n"
-            . '{"reply":"string — may contain markdown and ```html / ```css code fences","actions":[ '
+            . '{"reply":"string — short summary; may contain markdown and ```html / ```css / ```js code fences","actions":[ '
             . '{"type":"navigate","label":"Open …","path":"/hq/..."}, '
-            . '{"type":"create_content","label":"Create draft","payload":{"title":"…","type":"page","body":"…"}}, '
-            . '{"type":"update_content","label":"Update draft","payload":{"id":' . max($entityId, 0) . ',"mode":"append","body":"…"}}, '
+            . '{"type":"create_content","label":"Create draft","payload":{"title":"…","type":"page","body":"<article>…</article>","excerpt":"…","meta":{"seo_title":"…","meta_description":"…"}}}, '
+            . '{"type":"update_content","label":"Update draft","payload":{"id":' . max($entityId, 0) . ',"mode":"append|replace","body":"…","excerpt":"…","meta":{"seo_title":"…","meta_description":"…"}}}, '
             . '{"type":"update_design_tokens","label":"Apply colors","payload":{"colors":{"primary":"#2563eb","accent":"#7c3aed"}}}, '
             . '{"type":"insert_code","label":"Insert into body","payload":{"target":"body","mode":"append","language":"html","code":"…"}} '
             . "]}\n"
             . "Use 0–4 actions. navigate paths must start with /hq. Only use palette keys listed above. "
-            . "For coding requests prefer insert_code when the user is editing content. "
+            . "For normal writing put the full article into create_content/update_content body (with excerpt + meta). "
+            . "For coding requests prefer insert_code when the user is already editing content, otherwise show code fences. "
             . "CSS in replies MUST use var(--color-*) / var(--radius-*) etc. with fallbacks — never bare names like surface or text as values.";
 
         $messages = [['role' => 'system', 'content' => $system]];
@@ -549,29 +571,79 @@ class AiChatService
     {
         $m = mb_strtolower($message);
         return (bool) preg_match('/\b(create|new|write|draft)\b.*\b(page|post|article|about\s*us|content)\b/i', $m)
-            || (bool) preg_match('/\babout\s*us\b/i', $m) && preg_match('/\b(create|new|write|make)\b/i', $m);
+            || ((bool) preg_match('/\babout\s*us\b/i', $m) && (bool) preg_match('/\b(create|new|write|make)\b/i', $m))
+            || (bool) preg_match('/\b(write|create|draft)\s+(?:on|about|an?\s+article\s+(?:on|about))\b/i', $m);
+    }
+
+    /** Extract a sensible title from a free-form create request. */
+    private function extractTitleFromMessage(string $message): string
+    {
+        if (preg_match('/about\s*us/i', $message) && !preg_match('/\b(create|new|write|draft)\b.+\b(page|post|article)\b.+/i', $message)) {
+            return 'About Us';
+        }
+        // Quoted title
+        if (preg_match('/[\"\x{201C}\x{201D}]([^\"\x{201C}\x{201D}]{3,100})[\"\x{201C}\x{201D}]/u', $message, $m)) {
+            return trim($m[1]);
+        }
+        // "create a page/post/article titled/called/on/about X"
+        if (preg_match('/(?:create|new|write|draft)\s+(?:a\s+|an\s+)?(?:page|post|article|content)\s+(?:on|about|for|called|titled|named)?\s*[\"\']?([^\"\'.\n]{3,100})/i', $message, $m)) {
+            $t = trim($m[1]);
+            $t = preg_replace('/\s+(as\s+a\s+new\s+draft|please|now).*$/i', '', $t) ?? $t;
+            return trim($t, " \t.,;:-");
+        }
+        // "Write on X" / "Write about X"
+        if (preg_match('/\b(?:write|draft)\s+(?:on|about)\s+(.+)$/iu', $message, $m)) {
+            $t = trim($m[1]);
+            $t = preg_replace('/\s*,\s*i\s+want.+$/i', '', $t) ?? $t;
+            $t = preg_replace('/\s+as\s+a\s+new\s+draft.*$/i', '', $t) ?? $t;
+            return trim($t, " \t.,;:-");
+        }
+        // "New content The Impacts of..."
+        if (preg_match('/\bnew\s+content\s+(.+)$/iu', $message, $m)) {
+            return trim($m[1], " \t.,;:-");
+        }
+        // Fallback: first ~8 words after create/write/draft, cleaned
+        if (preg_match('/\b(?:create|write|draft)\b\s+(.+)/iu', $message, $m)) {
+            $words = preg_split('/\s+/', trim($m[1])) ?: [];
+            $slice = array_slice($words, 0, 10);
+            $t = implode(' ', $slice);
+            $t = preg_replace('/\b(page|post|article|content|draft)\b/i', '', $t) ?? $t;
+            $t = trim(preg_replace('/\s+/', ' ', $t) ?? $t);
+            if (mb_strlen($t) >= 3) {
+                return mb_substr($t, 0, 100);
+            }
+        }
+        return 'Untitled draft';
     }
 
     /** @return array{type:string,label:string,payload:array} */
     private function buildCreateContentAction(string $message): array
     {
-        $title = 'About Us';
-        if (preg_match('/about\s*us/i', $message)) {
-            $title = 'About Us';
-        } elseif (preg_match('/(?:create|new|write|draft)\s+(?:a\s+|an\s+)?(?:page|post|article)\s+(?:on|about|for|called|titled)?\s*[\"\']?([^\"\'.\n]+)/i', $message, $m)) {
-            $title = trim($m[1]);
-        } elseif (preg_match('/[\"\']([^\"\']{3,80})[\"\']/', $message, $m)) {
-            $title = trim($m[1]);
-        }
-
-        $body = '<p>This is a draft created by Mova AI. Edit and publish when ready.</p>';
-        if (preg_match('/about\s*us/i', $message)) {
-            $body = '<h2>Who we are</h2><p>We are building something meaningful. Update this section with your story.</p>'
-                . '<h2>What we do</h2><p>Describe your products, services, or mission here.</p>'
-                . '<h2>Get in touch</h2><p>Add contact details or a call to action.</p>';
-        }
+        $title = $this->extractTitleFromMessage($message);
 
         $type = preg_match('/\b(article|post)\b/i', $message) ? 'article' : 'page';
+
+        // Heuristic-only fallback body (LLM path should supply real content).
+        // Keep it structural and non-empty so the editor is never blank.
+        if (preg_match('/about\s*us/i', $message)) {
+            $body = '<article class="mova-article">'
+                . '<section><h2>Who we are</h2><p>We are building something meaningful. Replace this paragraph with your story, mission, and the people behind the work.</p></section>'
+                . '<section><h2>What we do</h2><p>Describe your products, services, or core activities. Add concrete examples so visitors understand the value you deliver.</p></section>'
+                . '<section><h2>Get in touch</h2><p>Add contact details, a short call to action, or a link to your contact page.</p></section>'
+                . '</article>';
+            $excerpt = 'Learn who we are, what we do, and how to get in touch.';
+            $seoTitle = 'About Us';
+            $metaDesc = 'Discover our story, mission, and how to reach us.';
+        } else {
+            $body = '<article class="mova-article">'
+                . '<section><h2>Introduction</h2><p>This draft was started by Mova AI for «' . htmlspecialchars($title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '». Open the editor and ask the AI to expand each section with full paragraphs, examples, and SEO-ready wording — or paste your own content here.</p></section>'
+                . '<section><h2>Key points</h2><p>Replace this section with the main arguments, benefits, or steps relevant to the topic. Aim for clear headings and real prose, not placeholder bullets.</p></section>'
+                . '<section><h2>Conclusion</h2><p>Summarize the takeaway and suggest a next step for the reader.</p></section>'
+                . '</article>';
+            $excerpt = mb_substr('Overview of ' . $title . ' — edit this excerpt for SEO.', 0, 160);
+            $seoTitle = mb_substr($title, 0, 60);
+            $metaDesc = mb_substr('Read about ' . $title . '. Practical insights and clear takeaways.', 0, 160);
+        }
 
         return [
             'type' => 'create_content',
@@ -580,6 +652,11 @@ class AiChatService
                 'title' => $title,
                 'type' => $type,
                 'body' => $body,
+                'excerpt' => $excerpt,
+                'meta' => [
+                    'seo_title' => $seoTitle,
+                    'meta_description' => $metaDesc,
+                ],
             ],
         ];
     }
@@ -656,18 +733,26 @@ class AiChatService
     /** @return array{type:string,label:string,payload:array} */
     private function buildUpdateContentAction(string $message, int $entityId): array
     {
-        $body = '<h2>Further points</h2><p>Expanded content generated by Mova AI. Edit as needed.</p>';
+        // Heuristic fallback only — LLM should supply full prose.
+        $mode = preg_match('/\b(replace|rewrite|overwrite)\b/i', $message) ? 'replace' : 'append';
+        $body = '<section><h2>Further points</h2><p>Expanded content generated by Mova AI. Ask the AI again for a full rewrite of this section if you need deeper paragraphs, examples, and SEO-ready wording.</p></section>';
         if (preg_match('/advantage/i', $message) && preg_match('/nigeria|nigerian/i', $message)) {
-            $body = '<h2>Advantages for Nigerian education</h2>'
+            $body = '<section><h2>Advantages for Nigerian education</h2>'
                 . '<ul>'
-                . '<li><strong>Human capital:</strong> Stronger literacy and skills raise employability and entrepreneurship.</li>'
-                . '<li><strong>National development:</strong> Educated citizens support better governance, health outcomes, and innovation.</li>'
-                . '<li><strong>Equity and mobility:</strong> Access to quality schooling helps reduce poverty across regions.</li>'
-                . '<li><strong>Digital readiness:</strong> STEM and digital skills prepare youth for a modern economy.</li>'
-                . '<li><strong>Social cohesion:</strong> Shared learning experiences can strengthen community and civic trust.</li>'
-                . '</ul>';
-        } elseif (preg_match('/advantage/i', $message)) {
-            $body = '<h2>Key advantages</h2><ul><li>Point one — expand with your research.</li><li>Point two.</li><li>Point three.</li></ul>';
+                . '<li><strong>Human capital:</strong> Stronger literacy and skills raise employability and entrepreneurship across regions.</li>'
+                . '<li><strong>National development:</strong> Educated citizens support better governance, health outcomes, and local innovation.</li>'
+                . '<li><strong>Equity and mobility:</strong> Access to quality schooling helps reduce poverty and open pathways for young people.</li>'
+                . '<li><strong>Digital readiness:</strong> STEM and digital skills prepare youth for a modern, connected economy.</li>'
+                . '<li><strong>Social cohesion:</strong> Shared learning experiences can strengthen community trust and civic participation.</li>'
+                . '</ul></section>';
+        } elseif (preg_match('/advantage|disadvantage|pros?\b|cons?\b/i', $message)) {
+            $body = '<section><h2>Key considerations</h2>'
+                . '<p>Use this section to explore the main advantages and drawbacks in full sentences. Replace the outline below with researched points, short examples, and a balanced conclusion.</p>'
+                . '<ul>'
+                . '<li><strong>Advantage:</strong> Describe the benefit and why it matters for the reader.</li>'
+                . '<li><strong>Advantage:</strong> Add a second benefit with a concrete illustration.</li>'
+                . '<li><strong>Drawback:</strong> Acknowledge a real limitation and how couples or teams can mitigate it.</li>'
+                . '</ul></section>';
         }
 
         return [
@@ -675,7 +760,7 @@ class AiChatService
             'label' => 'Update current draft',
             'payload' => [
                 'id' => $entityId,
-                'mode' => 'append',
+                'mode' => $mode,
                 'body' => $body,
             ],
         ];

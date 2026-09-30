@@ -386,12 +386,14 @@ body.mova-ai-open { /* optional layout shift */ }
   margin: 0.5rem 0 0;
   padding: 0.65rem 0.75rem;
   border-radius: 8px;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--mova-ai-code-bg, var(--color-bg, #f1f5f9));
+  color: var(--mova-ai-code-fg, var(--color-text, #0f172a));
   font-size: 0.75rem;
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  line-height: 1.45;
 }
 
 .mova-ai-sessions {
@@ -500,21 +502,21 @@ body.mova-ai-open { /* optional layout shift */ }
   margin: 0;
 }
 
-/* Code blocks */
+/* Code blocks — adapt to light / dark HQ theme */
 .mova-ai-code-wrap {
   margin: 0.5rem 0;
-  border: 1px solid var(--mova-ai-border, #e2e8f0);
+  border: 1px solid var(--mova-ai-border, var(--color-border, #e2e8f0));
   border-radius: 8px;
   overflow: hidden;
-  background: #0f172a;
+  background: var(--mova-ai-code-bg, var(--color-bg, #f1f5f9));
 }
 .mova-ai-code-bar {
   display: flex;
   align-items: center;
   gap: 0.35rem;
   padding: 0.3rem 0.5rem;
-  background: #1e293b;
-  color: #94a3b8;
+  background: var(--mova-ai-code-bar, var(--color-surface, #e2e8f0));
+  color: var(--mova-ai-muted, var(--color-muted, #64748b));
   font-size: 0.72rem;
 }
 .mova-ai-code-bar span {
@@ -523,17 +525,17 @@ body.mova-ai-open { /* optional layout shift */ }
   letter-spacing: 0.04em;
 }
 .mova-ai-code-btn {
-  border: 1px solid #334155;
-  background: #0f172a;
-  color: #e2e8f0;
+  border: 1px solid var(--mova-ai-border, var(--color-border, #cbd5e1));
+  background: var(--mova-ai-code-bg, var(--color-bg, #f8fafc));
+  color: var(--mova-ai-code-fg, var(--color-text, #0f172a));
   border-radius: 4px;
   padding: 0.15rem 0.4rem;
   font-size: 0.7rem;
   cursor: pointer;
 }
 .mova-ai-code-btn:hover {
-  border-color: #60a5fa;
-  color: #fff;
+  border-color: var(--color-primary, #2563eb);
+  color: var(--color-primary, #2563eb);
 }
 .mova-ai-code-wrap .mova-ai-code {
   margin: 0;
@@ -541,6 +543,114 @@ body.mova-ai-open { /* optional layout shift */ }
   border-radius: 0;
   max-height: 280px;
   overflow: auto;
+}
+
+/* Lightweight syntax colors (CodeMirror-like) */
+.mova-ai-code .tok-tag { color: #0550ae; }
+.mova-ai-code .tok-attr { color: #953800; }
+.mova-ai-code .tok-str { color: #0a3069; }
+.mova-ai-code .tok-comment { color: #6e7781; font-style: italic; }
+.mova-ai-code .tok-keyword { color: #cf222e; }
+.mova-ai-code .tok-number { color: #0550ae; }
+.mova-ai-code .tok-selector { color: #116329; }
+.mova-ai-code .tok-property { color: #0550ae; }
+
+/* Dark mode: HQ dark class, data-theme, or system preference */
+html.dark .mova-ai-code-wrap,
+html[data-theme="dark"] .mova-ai-code-wrap,
+body.dark .mova-ai-code-wrap,
+.hq-dark .mova-ai-code-wrap,
+@media (prefers-color-scheme: dark) {
+  /* handled below with more specific rules */
+}
+html.dark .mova-ai-code-wrap,
+html[data-theme="dark"] .mova-ai-code-wrap,
+body.dark .mova-ai-code-wrap,
+.hq-dark .mova-ai-code-wrap {
+  background: #0f172a;
+  border-color: #334155;
+}
+html.dark .mova-ai-code-bar,
+html[data-theme="dark"] .mova-ai-code-bar,
+body.dark .mova-ai-code-bar,
+.hq-dark .mova-ai-code-bar {
+  background: #1e293b;
+  color: #94a3b8;
+}
+html.dark .mova-ai-code,
+html[data-theme="dark"] .mova-ai-code,
+body.dark .mova-ai-code,
+.hq-dark .mova-ai-code {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+html.dark .mova-ai-code-btn,
+html[data-theme="dark"] .mova-ai-code-btn,
+body.dark .mova-ai-code-btn,
+.hq-dark .mova-ai-code-btn {
+  border-color: #334155;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+html.dark .mova-ai-code .tok-tag,
+html[data-theme="dark"] .mova-ai-code .tok-tag,
+body.dark .mova-ai-code .tok-tag,
+.hq-dark .mova-ai-code .tok-tag { color: #7dd3fc; }
+html.dark .mova-ai-code .tok-attr,
+html[data-theme="dark"] .mova-ai-code .tok-attr,
+body.dark .mova-ai-code .tok-attr,
+.hq-dark .mova-ai-code .tok-attr { color: #fcd34d; }
+html.dark .mova-ai-code .tok-str,
+html[data-theme="dark"] .mova-ai-code .tok-str,
+body.dark .mova-ai-code .tok-str,
+.hq-dark .mova-ai-code .tok-str { color: #86efac; }
+html.dark .mova-ai-code .tok-comment,
+html[data-theme="dark"] .mova-ai-code .tok-comment,
+body.dark .mova-ai-code .tok-comment,
+.hq-dark .mova-ai-code .tok-comment { color: #94a3b8; }
+html.dark .mova-ai-code .tok-keyword,
+html[data-theme="dark"] .mova-ai-code .tok-keyword,
+body.dark .mova-ai-code .tok-keyword,
+.hq-dark .mova-ai-code .tok-keyword { color: #f9a8d4; }
+html.dark .mova-ai-code .tok-number,
+html[data-theme="dark"] .mova-ai-code .tok-number,
+body.dark .mova-ai-code .tok-number,
+.hq-dark .mova-ai-code .tok-number { color: #93c5fd; }
+html.dark .mova-ai-code .tok-selector,
+html[data-theme="dark"] .mova-ai-code .tok-selector,
+body.dark .mova-ai-code .tok-selector,
+.hq-dark .mova-ai-code .tok-selector { color: #86efac; }
+html.dark .mova-ai-code .tok-property,
+html[data-theme="dark"] .mova-ai-code .tok-property,
+body.dark .mova-ai-code .tok-property,
+.hq-dark .mova-ai-code .tok-property { color: #7dd3fc; }
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]):not(.light) .mova-ai-code-wrap {
+    background: #0f172a;
+    border-color: #334155;
+  }
+  html:not([data-theme="light"]):not(.light) .mova-ai-code-bar {
+    background: #1e293b;
+    color: #94a3b8;
+  }
+  html:not([data-theme="light"]):not(.light) .mova-ai-code {
+    background: #0f172a;
+    color: #e2e8f0;
+  }
+  html:not([data-theme="light"]):not(.light) .mova-ai-code-btn {
+    border-color: #334155;
+    background: #0f172a;
+    color: #e2e8f0;
+  }
+  html:not([data-theme="light"]):not(.light) .mova-ai-code .tok-tag { color: #7dd3fc; }
+  html:not([data-theme="light"]):not(.light) .mova-ai-code .tok-attr { color: #fcd34d; }
+  html:not([data-theme="light"]):not(.light) .mova-ai-code .tok-str { color: #86efac; }
+  html:not([data-theme="light"]):not(.light) .mova-ai-code .tok-comment { color: #94a3b8; }
+  html:not([data-theme="light"]):not(.light) .mova-ai-code .tok-keyword { color: #f9a8d4; }
+  html:not([data-theme="light"]):not(.light) .mova-ai-code .tok-number { color: #93c5fd; }
+  html:not([data-theme="light"]):not(.light) .mova-ai-code .tok-selector { color: #86efac; }
+  html:not([data-theme="light"]):not(.light) .mova-ai-code .tok-property { color: #7dd3fc; }
 }
 
 /* Guided template steps */
