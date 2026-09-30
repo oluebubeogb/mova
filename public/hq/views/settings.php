@@ -73,6 +73,26 @@
                       <input type="text" name="ai_provider" value="<?= htmlspecialchars($settings['ai_provider'] ?? 'Mova AI') ?>" placeholder="Mova AI"></div>
                   </div>
                 </div>
+                <h3 style="margin-top:1.5rem;">Mova Image</h3>
+                <p class="field-hint">
+                    AI image generation for the media library. Leave fields empty to use platform defaults
+                    (same gateway host as Mova AI, path <code>/v1/images/jobs</code>). Real provider keys stay on the proxy.
+                </p>
+                <div class="form-section">
+                  <div class="form-grid">
+                    <div class="form-group span-2"><label>Image API key</label>
+                      <div class="password-field">
+                        <input type="password" name="ai_img_api_key" value="<?= htmlspecialchars($settings['ai_img_api_key'] ?? '') ?>" autocomplete="new-password" placeholder="mova-ai-key (default)">
+                        <button type="button" class="password-toggle" aria-label="Show password"><i class="fa-solid fa-eye"></i><i class="fa-solid fa-eye-slash"></i></button>
+                      </div></div>
+                    <div class="form-group span-2"><label>Image API base URL</label>
+                      <input type="url" name="ai_img_api_url" value="<?= htmlspecialchars($settings['ai_img_api_url'] ?? '') ?>" placeholder="https://movaai.collab.name.ng/v1"></div>
+                    <div class="form-group"><label>Image model</label>
+                      <input type="text" name="ai_img_model" value="<?= htmlspecialchars($settings['ai_img_model'] ?? '') ?>" placeholder="mova-img"></div>
+                    <div class="form-group"><label>Image provider label</label>
+                      <input type="text" name="ai_img_provider" value="<?= htmlspecialchars($settings['ai_img_provider'] ?? '') ?>" placeholder="Mova Image"></div>
+                  </div>
+                </div>
             </div>
             </div>
         </div>

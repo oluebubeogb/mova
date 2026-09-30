@@ -35,6 +35,7 @@ $router->post('/settings', function (Request $req) {
         
         'imap_host', 'imap_port', 'imap_encryption', 'imap_username', 'imap_password',
         'ai_api_key', 'ai_api_url', 'ai_model', 'ai_provider',
+        'ai_img_api_key', 'ai_img_api_url', 'ai_img_model', 'ai_img_provider',
     ];
     foreach ($keys as $key) {
         if ($key === 'comments_enabled') {
