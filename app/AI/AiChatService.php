@@ -126,6 +126,53 @@ class AiChatService
 
         $entityId = (int) ($pageContext['entityId'] ?? 0);
 
+        // Lift real HTML from the model reply into any empty/stub create|update body;
+        // also sanitize titles that still include user instruction phrases.
+        $replyHtml = $this->extractHtmlFromReply($reply);
+        foreach ($actions as $i => $action) {
+            $type = (string) ($action['type'] ?? '');
+            if ($type !== 'create_content' && $type !== 'update_content') {
+                continue;
+            }
+            $payload = is_array($action['payload'] ?? null) ? $action['payload'] : [];
+            if (!empty($payload['title'])) {
+                $cleaned = $this->cleanTitleCandidate((string) $payload['title']);
+                if ($cleaned !== '' && $cleaned !== (string) $payload['title']) {
+                    $payload['title'] = $cleaned;
+                }
+            }
+            $body = (string) ($payload['body'] ?? '');
+            if ($this->isStubBody($body) && $replyHtml !== '') {
+                $payload['body'] = $replyHtml;
+                if (trim((string) ($payload['excerpt'] ?? '')) === '') {
+                    $plain = trim(preg_replace('/\s+/', ' ', strip_tags($replyHtml)) ?? '');
+                    $payload['excerpt'] = mb_substr($plain, 0, 160);
+                }
+                $meta = is_array($payload['meta'] ?? null) ? $payload['meta'] : [];
+                if (trim((string) ($meta['seo_title'] ?? '')) === '' && !empty($payload['title'])) {
+                    $meta['seo_title'] = mb_substr((string) $payload['title'], 0, 60);
+                }
+                if (trim((string) ($meta['meta_description'] ?? '')) === '') {
+                    $plain = trim(preg_replace('/\s+/', ' ', strip_tags($replyHtml)) ?? '');
+                    $meta['meta_description'] = mb_substr($plain, 0, 155);
+                }
+                if ($meta !== []) {
+                    $payload['meta'] = $meta;
+                }
+            }
+            // If body still stub and we have no reply HTML, try to rebuild title at least
+            if ($type === 'create_content' && $this->isStubBody((string) ($payload['body'] ?? ''))) {
+                $payload['title'] = $this->extractTitleFromMessage($message);
+                if (empty($payload['meta']['seo_title'])) {
+                    $payload['meta'] = array_merge(
+                        is_array($payload['meta'] ?? null) ? $payload['meta'] : [],
+                        ['seo_title' => mb_substr((string) $payload['title'], 0, 60)]
+                    );
+                }
+            }
+            $actions[$i]['payload'] = $payload;
+        }
+
         // Prefer updating the open draft over creating a new one
         if ($entityId > 0 && !$this->hasActionType($actions, 'update_content')
             && ($this->looksLikeContinueContent($message) || $this->looksLikeCreateContent($message))) {
@@ -133,7 +180,8 @@ class AiChatService
             $actions[] = $this->buildUpdateContentAction($message, $entityId);
         } elseif (!$this->hasActionType($actions, 'create_content') && !$this->hasActionType($actions, 'update_content')
             && $this->looksLikeCreateContent($message)) {
-            $actions[] = $this->buildCreateContentAction($message);
+            // Pass reply HTML so heuristic create is not a dead stub when the model wrote in the reply
+            $actions[] = $this->buildCreateContentAction($message, $replyHtml);
         }
 
         // Heuristic: color change intent
@@ -251,8 +299,14 @@ class AiChatService
         $area = (string) ($pageContext['area'] ?? '');
         $layer = (string) ($pageContext['layer'] ?? '');
         $kind = (string) ($options['kind'] ?? 'chat');
-        $longRunning = !empty($options['long_running']) || $kind === 'coding';
         $isCoding = $kind === 'coding' || (bool) preg_match('/\b(html|css|javascript|code|snippet|pricelist|price list)\b/i', $message);
+        // Full article drafts need the same budget as coding jobs
+        $isContentWrite = (bool) preg_match(
+            '/\b(write|draft|create|compose|author)\b.{0,40}\b(article|page|post|content|essay|blog)\b/i',
+            $message
+        ) || (bool) preg_match('/\b(write|draft)\s+(me\s+)?(a\s+)?(draft|article|page|post)?\s*(on|about)\b/i', $message)
+          || (bool) preg_match('/\b(insightful|seo[- ]?friendly|in[- ]depth|long[- ]form)\b/i', $message);
+        $longRunning = !empty($options['long_running']) || $kind === 'coding' || $isContentWrite;
 
         $matchLines = [];
         foreach (array_slice($mapMatches, 0, 5) as $m) {
@@ -288,7 +342,9 @@ class AiChatService
             . "- BODY HTML: Use semantic tags — <article>, <section>, <h2>/<h3>, <p>, <ul>/<ol>, <blockquote>, <figure> when useful. Avoid bare <div> soup. No <html>/<head>/<body> wrappers.\n"
             . "- DEPTH: Write real paragraphs (not just bullet titles). Expand each point with explanation, example, or insight. Aim for useful, original content the user can publish after a light edit.\n"
             . "- Prefer putting the full article into the create_content/update_content action body so the draft is ready in the editor. Keep the chat reply short (summary + what you did).\n"
-            . "- Never invent HQ URLs. Never publish. Never leave body empty or with placeholder-only text like 'Point one — expand with your research.'.\n";
+            . "- CRITICAL: body must be the finished article HTML the user can publish after a light edit. FORBIDDEN in body: 'This draft was started by Mova AI', 'Open the editor and ask the AI to expand', 'Replace this section', 'Point one — expand with your research', or any similar placeholder.\n"
+            . "- Title must be the topic only (e.g. 'Importance of Colonization in Africa'). Strip user instructions like 'the content should be insightful', 'SEO friendly', 'write me a draft'.\n"
+            . "- Never invent HQ URLs. Never publish. Never leave body empty.\n";
 
         // CSS / design-token usage for generated HTML+CSS (matches VariableService + public theme)
         $cssVarHelp = "CSS VARIABLE RULES (mandatory when writing CSS):\n"
@@ -570,9 +626,45 @@ class AiChatService
     private function looksLikeCreateContent(string $message): bool
     {
         $m = mb_strtolower($message);
-        return (bool) preg_match('/\b(create|new|write|draft)\b.*\b(page|post|article|about\s*us|content)\b/i', $m)
+        return (bool) preg_match('/\b(create|new|write|draft|compose)\b.*\b(page|post|article|about\s*us|content|essay|blog)\b/i', $m)
             || ((bool) preg_match('/\babout\s*us\b/i', $m) && (bool) preg_match('/\b(create|new|write|make)\b/i', $m))
-            || (bool) preg_match('/\b(write|create|draft)\s+(?:on|about|an?\s+article\s+(?:on|about))\b/i', $m);
+            || (bool) preg_match('/\b(write|create|draft)\s+(?:me\s+)?(?:a\s+)?(?:draft|article|page|post)?\s*(?:on|about)\b/i', $m)
+            || (bool) preg_match('/\bwrite\s+me\s+a\s+draft\b/i', $m);
+    }
+
+    /** Strip instructional clauses so titles stay topical. */
+    private function cleanTitleCandidate(string $t): string
+    {
+        $t = trim($t);
+        // Drop trailing instruction phrases
+        $t = preg_replace(
+            '/\s*[,.]?\s*(the\s+)?content\s+should\s+be\b.*$/iu',
+            '',
+            $t
+        ) ?? $t;
+        $t = preg_replace(
+            '/\s*[,.]?\s*(make\s+it|keep\s+it|please\s+make\s+it|it\s+should\s+be|should\s+be)\s+(insightful|seo[- ]?friendly|detailed|long|short|comprehensive).*$/iu',
+            '',
+            $t
+        ) ?? $t;
+        $t = preg_replace(
+            '/\s*[,.]?\s*(seo[- ]?friendly|insightful|in[- ]depth|well[- ]researched|with\s+examples).*$/iu',
+            '',
+            $t
+        ) ?? $t;
+        $t = preg_replace('/\s*[,.]?\s*(as\s+a\s+new\s+draft|please|now|thanks).*$/iu', '', $t) ?? $t;
+        $t = preg_replace('/\s*,\s*i\s+want\b.*$/iu', '', $t) ?? $t;
+        // Leading filler from "write me a draft on X"
+        $t = preg_replace('/^(me\s+)?(a\s+)?(draft|article|page|post|content)\s+(on|about)\s+/iu', '', $t) ?? $t;
+        $t = preg_replace('/^(me\s+a\s+draft\s+on\s+)/iu', '', $t) ?? $t;
+        $t = preg_replace('/^(on|about)\s+/iu', '', $t) ?? $t;
+        $t = trim(preg_replace('/\s+/', ' ', $t) ?? $t);
+        $t = trim($t, " \t.,;:-\"'");
+        // Title-case lightly if all lower / all upper
+        if ($t !== '' && (mb_strtolower($t) === $t || mb_strtoupper($t) === $t)) {
+            $t = mb_convert_case($t, MB_CASE_TITLE, 'UTF-8');
+        }
+        return mb_substr($t, 0, 100);
     }
 
     /** Extract a sensible title from a free-form create request. */
@@ -582,50 +674,103 @@ class AiChatService
             return 'About Us';
         }
         // Quoted title
-        if (preg_match('/[\"\x{201C}\x{201D}]([^\"\x{201C}\x{201D}]{3,100})[\"\x{201C}\x{201D}]/u', $message, $m)) {
-            return trim($m[1]);
+        if (preg_match('/["\x{201C}\x{201D}]([^"\x{201C}\x{201D}]{3,100})["\x{201C}\x{201D}]/u', $message, $m)) {
+            $t = $this->cleanTitleCandidate($m[1]);
+            if (mb_strlen($t) >= 3) {
+                return $t;
+            }
+        }
+        // "write me a draft on TOPIC" / "write a draft about TOPIC"
+        if (preg_match('/\b(?:write|create|draft|compose)\s+(?:me\s+)?(?:a\s+)?(?:new\s+)?(?:draft|article|page|post|content)?\s*(?:on|about)\s+(.+)$/iu', $message, $m)) {
+            $t = $this->cleanTitleCandidate($m[1]);
+            if (mb_strlen($t) >= 3) {
+                return $t;
+            }
         }
         // "create a page/post/article titled/called/on/about X"
-        if (preg_match('/(?:create|new|write|draft)\s+(?:a\s+|an\s+)?(?:page|post|article|content)\s+(?:on|about|for|called|titled|named)?\s*[\"\']?([^\"\'.\n]{3,100})/i', $message, $m)) {
-            $t = trim($m[1]);
-            $t = preg_replace('/\s+(as\s+a\s+new\s+draft|please|now).*$/i', '', $t) ?? $t;
-            return trim($t, " \t.,;:-");
-        }
-        // "Write on X" / "Write about X"
-        if (preg_match('/\b(?:write|draft)\s+(?:on|about)\s+(.+)$/iu', $message, $m)) {
-            $t = trim($m[1]);
-            $t = preg_replace('/\s*,\s*i\s+want.+$/i', '', $t) ?? $t;
-            $t = preg_replace('/\s+as\s+a\s+new\s+draft.*$/i', '', $t) ?? $t;
-            return trim($t, " \t.,;:-");
-        }
-        // "New content The Impacts of..."
-        if (preg_match('/\bnew\s+content\s+(.+)$/iu', $message, $m)) {
-            return trim($m[1], " \t.,;:-");
-        }
-        // Fallback: first ~8 words after create/write/draft, cleaned
-        if (preg_match('/\b(?:create|write|draft)\b\s+(.+)/iu', $message, $m)) {
-            $words = preg_split('/\s+/', trim($m[1])) ?: [];
-            $slice = array_slice($words, 0, 10);
-            $t = implode(' ', $slice);
-            $t = preg_replace('/\b(page|post|article|content|draft)\b/i', '', $t) ?? $t;
-            $t = trim(preg_replace('/\s+/', ' ', $t) ?? $t);
+        if (preg_match('/(?:create|new|write|draft)\s+(?:a\s+|an\s+)?(?:page|post|article|content)\s+(?:on|about|for|called|titled|named)?\s*["\']?([^"\'.\n]{3,120})/i', $message, $m)) {
+            $t = $this->cleanTitleCandidate($m[1]);
             if (mb_strlen($t) >= 3) {
-                return mb_substr($t, 0, 100);
+                return $t;
+            }
+        }
+        // "New content The Impacts of..." / "create a new content TOPIC"
+        if (preg_match('/\b(?:create\s+)?(?:a\s+)?new\s+content\s+(.+)$/iu', $message, $m)) {
+            $t = $this->cleanTitleCandidate($m[1]);
+            if (mb_strlen($t) >= 3) {
+                return $t;
+            }
+        }
+        // Fallback: text after create/write/draft, cleaned
+        if (preg_match('/\b(?:create|write|draft|compose)\b\s+(.+)/iu', $message, $m)) {
+            $t = $this->cleanTitleCandidate($m[1]);
+            $t = preg_replace('/\b(a\s+)?(new\s+)?(page|post|article|content|draft)\b/i', '', $t) ?? $t;
+            $t = $this->cleanTitleCandidate($t);
+            if (mb_strlen($t) >= 3) {
+                return $t;
             }
         }
         return 'Untitled draft';
     }
 
+    /**
+     * True when body is empty or our known heuristic placeholder.
+     */
+    private function isStubBody(string $body): bool
+    {
+        $b = trim($body);
+        if ($b === '') {
+            return true;
+        }
+        if (mb_strlen(strip_tags($b)) < 80) {
+            return true;
+        }
+        $low = mb_strtolower($b);
+        foreach ([
+            'this draft was started by mova ai',
+            'open the editor and ask the ai to expand',
+            'replace this section with the main arguments',
+            'point one — expand with your research',
+            'edit and publish when ready',
+        ] as $needle) {
+            if (str_contains($low, $needle)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Pull first substantial HTML fence (or raw HTML block) from an assistant reply.
+     */
+    private function extractHtmlFromReply(string $reply): string
+    {
+        if (preg_match('/```(?:html|xml|markup)?\s*([\s\S]*?)```/i', $reply, $m)) {
+            $html = trim($m[1]);
+            if ($html !== '' && (str_contains($html, '<') || mb_strlen($html) > 40)) {
+                return $html;
+            }
+        }
+        // Loose: largest chunk that looks like HTML sections
+        if (preg_match('/((?:<article[\s\S]*?<\/article>)|(?:<section[\s\S]*?<\/section>){2,})/i', $reply, $m)) {
+            return trim($m[1]);
+        }
+        return '';
+    }
+
     /** @return array{type:string,label:string,payload:array} */
-    private function buildCreateContentAction(string $message): array
+    private function buildCreateContentAction(string $message, string $replyHtml = ''): array
     {
         $title = $this->extractTitleFromMessage($message);
+        $type = preg_match('/\b(article|post|essay|blog)\b/i', $message) ? 'article' : 'page';
 
-        $type = preg_match('/\b(article|post)\b/i', $message) ? 'article' : 'page';
-
-        // Heuristic-only fallback body (LLM path should supply real content).
-        // Keep it structural and non-empty so the editor is never blank.
-        if (preg_match('/about\s*us/i', $message)) {
+        if ($replyHtml !== '' && !$this->isStubBody($replyHtml)) {
+            $body = $replyHtml;
+            $plain = trim(preg_replace('/\s+/', ' ', strip_tags($body)) ?? '');
+            $excerpt = mb_substr($plain, 0, 160);
+            $seoTitle = mb_substr($title, 0, 60);
+            $metaDesc = mb_substr($plain, 0, 155);
+        } elseif (preg_match('/about\s*us/i', $message)) {
             $body = '<article class="mova-article">'
                 . '<section><h2>Who we are</h2><p>We are building something meaningful. Replace this paragraph with your story, mission, and the people behind the work.</p></section>'
                 . '<section><h2>What we do</h2><p>Describe your products, services, or core activities. Add concrete examples so visitors understand the value you deliver.</p></section>'
@@ -635,14 +780,18 @@ class AiChatService
             $seoTitle = 'About Us';
             $metaDesc = 'Discover our story, mission, and how to reach us.';
         } else {
+            // Last-resort skeleton only when LLM produced no body — still structured, never instruction-stuffed title
+            $safe = htmlspecialchars($title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
             $body = '<article class="mova-article">'
-                . '<section><h2>Introduction</h2><p>This draft was started by Mova AI for «' . htmlspecialchars($title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '». Open the editor and ask the AI to expand each section with full paragraphs, examples, and SEO-ready wording — or paste your own content here.</p></section>'
-                . '<section><h2>Key points</h2><p>Replace this section with the main arguments, benefits, or steps relevant to the topic. Aim for clear headings and real prose, not placeholder bullets.</p></section>'
-                . '<section><h2>Conclusion</h2><p>Summarize the takeaway and suggest a next step for the reader.</p></section>'
+                . '<section><h2>Introduction</h2><p>' . $safe . ' is a topic that rewards careful, balanced analysis. This section should open with context, define key terms, and state why the subject still matters today.</p></section>'
+                . '<section><h2>Historical context</h2><p>Outline the main periods, actors, and forces involved. Prefer specific examples over vague claims so the reader can follow the argument.</p></section>'
+                . '<section><h2>Key arguments</h2><p>Develop the central claims in full paragraphs. For each point, explain the mechanism, give an illustration, and note limits or counter-arguments.</p></section>'
+                . '<section><h2>Contemporary relevance</h2><p>Connect the historical picture to present-day institutions, debates, or development questions without reducing the past to a single slogan.</p></section>'
+                . '<section><h2>Conclusion</h2><p>Summarize the strongest takeaway and leave the reader with a clear, nuanced closing thought.</p></section>'
                 . '</article>';
-            $excerpt = mb_substr('Overview of ' . $title . ' — edit this excerpt for SEO.', 0, 160);
+            $excerpt = mb_substr('An insightful overview of ' . $title . '.', 0, 160);
             $seoTitle = mb_substr($title, 0, 60);
-            $metaDesc = mb_substr('Read about ' . $title . '. Practical insights and clear takeaways.', 0, 160);
+            $metaDesc = mb_substr('Explore ' . $title . ' with clear arguments, context, and practical takeaways.', 0, 160);
         }
 
         return [
