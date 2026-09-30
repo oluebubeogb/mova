@@ -277,7 +277,8 @@ HTML;
       })()
     };
     </script>
-    <script src="/assets/js/mova-ai-panel.js?v=20260929templates2" defer></script>
+    <script src="/assets/js/mova-markdown.js?v=20260930md1"></script>
+    <script src="/assets/js/mova-ai-panel.js?v=20260930md1" defer></script>
     <script>
     (function () {
       var btn = document.getElementById('mova-ai-header-btn');

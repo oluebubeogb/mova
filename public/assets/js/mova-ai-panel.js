@@ -550,6 +550,24 @@
     return ok;
   }
 
+  /** Convert Markdown → HTML only for visual/body inserts (never for CSS/JS/code). */
+  function prepareBodyInsert(code, lang) {
+    var L = (lang || '').toLowerCase();
+    if (L === 'css' || L === 'js' || L === 'javascript' || L === 'typescript' || L === 'json') {
+      return code;
+    }
+    var md = window.MovaMarkdown;
+    if (!md || typeof md.maybeToHtml !== 'function') return code;
+    // Structured HTML or explicit html language → leave as-is
+    if (L === 'html' || L === 'xml' || (md.looksLikeHtml && md.looksLikeHtml(code))) {
+      return code;
+    }
+    if (md.looksLikeMarkdown && md.looksLikeMarkdown(code)) {
+      return md.toHtml(code);
+    }
+    return code;
+  }
+
   function insertIntoFocused(code, mode) {
     var ae = document.activeElement;
     if (ae && (ae.tagName === 'TEXTAREA' || (ae.tagName === 'INPUT' && ae.type === 'text'))) {
@@ -557,8 +575,15 @@
       return writeTextarea(ae, code, mode);
     }
     if (ae && ae.isContentEditable) {
-      if (mode === 'replace') ae.innerHTML = code;
-      else ae.insertAdjacentHTML('beforeend', code);
+      var html = prepareBodyInsert(code, '');
+      if (mode === 'replace') ae.innerHTML = html;
+      else ae.insertAdjacentHTML('beforeend', html);
+      if (window.movaVisualEditor && ae === window.movaVisualEditor.el) {
+        try {
+          var bi = document.getElementById('body-input');
+          if (bi) bi.value = ae.innerHTML;
+        } catch (e) {}
+      }
       return true;
     }
     return false;
@@ -571,12 +596,15 @@
     var mode = action.payload.mode || 'append';
     if (!code.trim()) return false;
 
+    // Body-oriented inserts: convert MD → HTML when appropriate
+    var bodyCode = prepareBodyInsert(code, lang);
+
     // 1) Focused field outside AI panel
-    if (insertIntoFocused(code, mode)) return true;
-    // 2) Studio
+    if (insertIntoFocused(bodyCode, mode)) return true;
+    // 2) Studio (always raw code — never MD-convert CSS/JS/HTML source)
     if (insertIntoStudio(code, lang, mode)) return true;
-    // 3) Content edit
-    if (insertIntoContent(code, mode)) return true;
+    // 3) Content edit (visual body may need MD → HTML)
+    if (insertIntoContent(bodyCode, mode)) return true;
     // 4) Any obvious code area on page
     var fallback = document.querySelector('textarea.studio-code-area, textarea[name="raw_css"], textarea[name="raw_js"], textarea[name="custom_css"]');
     if (fallback) return writeTextarea(fallback, code, mode);

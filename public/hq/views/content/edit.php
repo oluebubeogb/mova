@@ -645,7 +645,7 @@ if (!empty($content['published_at'])) {
     </div>
 </div>
 <input type="hidden" id="mova-csrf" value="<?= htmlspecialchars(\Mova\Security\Csrf::token()) ?>">
-
+<script src="/assets/js/mova-markdown.js?v=20260930md1"></script>
 <script>
 (function () {
     const editor = document.getElementById('editor');
@@ -655,6 +655,36 @@ if (!empty($content['published_at'])) {
 
     function focusEditor() {
         editor.focus();
+    }
+
+    // Bridge for AI panel / external tools — keeps visual editor + hidden body in sync
+    window.movaVisualEditor = {
+        getHtml: function () {
+            return editor ? editor.innerHTML : '';
+        },
+        setHtml: function (html) {
+            if (!editor) return;
+            editor.innerHTML = html || '';
+            if (bodyInput) bodyInput.value = editor.innerHTML;
+            try { editor.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+        },
+        appendHtml: function (html) {
+            if (!editor) return;
+            editor.insertAdjacentHTML('beforeend', html || '');
+            if (bodyInput) bodyInput.value = editor.innerHTML;
+            try { editor.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+        },
+        el: editor
+    };
+
+    // Markdown paste → HTML (plain MD only; rich HTML paste unchanged)
+    if (editor && window.MovaMarkdown && typeof window.MovaMarkdown.bindPaste === 'function') {
+        window.MovaMarkdown.bindPaste(editor, {
+            bodyInput: bodyInput,
+            onChange: function (html) {
+                if (bodyInput) bodyInput.value = html;
+            }
+        });
     }
 
     function insertHTML(html) {

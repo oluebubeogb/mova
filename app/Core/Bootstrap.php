@@ -62,6 +62,10 @@ class Bootstrap
                 if (class_exists(\Mova\Assembly\AssemblyService::class)) {
                     \Mova\Assembly\AssemblyService::registerRenderFilter();
                 }
+                // Markdown → HTML only for non-HTML bodies (before shortcodes)
+                if (class_exists(\Mova\Content\Markdown::class)) {
+                    \Mova\Content\Markdown::registerRenderFilter();
+                }
             }
         } catch (\Throwable $e) {
             // isolate extension boot failures
