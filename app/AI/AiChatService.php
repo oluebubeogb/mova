@@ -175,7 +175,9 @@ class AiChatService
 
         // Prefer update ONLY when the user is clearly revising the open draft.
         // Never strip a model create_content for a new topic just because another draft is open.
-        $wantsNewDraft = $this->looksLikeCreateContent($message)
+        $wantsChatOnly = (bool) preg_match('/(?:^|\n)\s*chat\s*:/i', $message);
+        $wantsNewDraft = !$wantsChatOnly
+            && $this->looksLikeCreateContent($message)
             && !$this->looksLikeContinueContent($message);
         $wantsContinue = $entityId > 0 && $this->looksLikeContinueContent($message) && !$wantsNewDraft;
 
@@ -314,14 +316,24 @@ class AiChatService
         $area = (string) ($pageContext['area'] ?? '');
         $layer = (string) ($pageContext['layer'] ?? '');
         $kind = (string) ($options['kind'] ?? 'chat');
-        $isCoding = $kind === 'coding' || (bool) preg_match('/\b(html|css|javascript|code|snippet|pricelist|price list)\b/i', $message);
-        // Full article drafts need the same budget as coding jobs
-        $isContentWrite = (bool) preg_match(
-            '/\b(write|draft|create|compose|author)\b.{0,40}\b(article|page|post|content|essay|blog)\b/i',
-            $message
-        ) || (bool) preg_match('/\b(write|draft)\s+(me\s+)?(a\s+)?(draft|article|page|post)?\s*(on|about)\b/i', $message)
-          || (bool) preg_match('/\b(insightful|seo[- ]?friendly|in[- ]depth|long[- ]form)\b/i', $message);
-        $longRunning = !empty($options['long_running']) || $kind === 'coding' || $isContentWrite;
+        // Explicit directives (prefix-style — not topics like "Code of conduct")
+        $wantsCodeDirective = (bool) preg_match('/(?:^|\n)\s*code\s*:/i', $message)
+            || (bool) preg_match('/\bcode\s*:\s*(html|css|js|javascript|php|sql|json)?/i', $message);
+        $wantsChatDirective = (bool) preg_match('/(?:^|\n)\s*chat\s*:/i', $message);
+        // Coding only when explicit — NOT "code of conduct" / "code of ethics"
+        $isCoding = $kind === 'coding'
+            || $wantsCodeDirective
+            || (bool) preg_match('/\b(html|css|javascript|snippet|pricelist|price\s*list)\b/i', $message)
+            || (bool) preg_match('/\b(write|show|give|generate)\s+(me\s+)?(some\s+)?(html|css|js|javascript)\b/i', $message)
+            || (bool) preg_match('/\b(source\s+code|code\s+snippet|code\s+block)\b/i', $message);
+        $isContentWrite = !$wantsChatDirective && (
+            (bool) preg_match(
+                '/\b(write|draft|create|compose|author)\b.{0,40}\b(article|page|post|content|essay|blog)\b/i',
+                $message
+            ) || (bool) preg_match('/\b(write|draft)\s+(me\s+)?(a\s+)?(draft|article|page|post)?\s*(on|about)\b/i', $message)
+              || (bool) preg_match('/\b(insightful|seo[- ]?friendly|in[- ]depth|long[- ]form)\b/i', $message)
+        );
+        $longRunning = !empty($options['long_running']) || $kind === 'coding' || $isContentWrite || $isCoding;
 
         $matchLines = [];
         foreach (array_slice($mapMatches, 0, 5) as $m) {
@@ -349,17 +361,20 @@ class AiChatService
             : "When creating new pages/posts use create_content (draft only). Always fill a complete body, excerpt, and SEO fields — never create an empty draft.";
 
         $qualityHelp = "CONTENT QUALITY (mandatory for articles/pages):\n"
-            . "- MODE: Default to normal editor content (semantic HTML body). Only produce pure code fences / insert_code / CSS/JS when the user clearly asks for code, dev mode, studio, assembly, elements, or a template.\n"
-            . "- RICH DRAFTS: create_content and update_content payloads MUST include:\n"
-            . "  title (accurate), type (page|article|guide|…), body (full HTML, not placeholders),\n"
-            . "  excerpt (1–2 sentences, ~140–160 chars),\n"
-            . "  meta: {seo_title, meta_description} (SEO title ≤60 chars, meta description ≤155–160 chars).\n"
-            . "- BODY HTML: Use semantic tags — <article>, <section>, <h2>/<h3>, <p>, <ul>/<ol>, <blockquote>, <figure> when useful. Avoid bare <div> soup. No <html>/<head>/<body> wrappers.\n"
-            . "- DEPTH: Write real paragraphs (not just bullet titles). Expand each point with explanation, example, or insight. Aim for useful, original content the user can publish after a light edit.\n"
-            . "- Prefer putting the full article into the create_content/update_content action body so the draft is ready in the editor. Keep the chat reply short (summary + what you did).\n"
-            . "- CRITICAL: body must be the finished article HTML the user can publish after a light edit. FORBIDDEN in body: 'This draft was started by Mova AI', 'Open the editor and ask the AI to expand', 'Replace this section', 'Point one — expand with your research', or any similar placeholder.\n"
-            . "- Title must be the topic only (e.g. 'Importance of Colonization in Africa'). Strip user instructions like 'the content should be insightful', 'SEO friendly', 'write me a draft'.\n"
-            . "- Never invent HQ URLs. Never publish. Never leave body empty.\n";
+            . "- MODE DIRECTIVES:\n"
+            . "  • Default: CMS draft via create_content/update_content (semantic HTML). Do not wrap the whole article in ``` fences.\n"
+            . "  • code: … — source code in the CHAT as markdown fences (```html / ```css / ```js). Prefer insert_code when an editor is open. Topics like 'Code of conduct' are NOT code mode.\n"
+            . "  • chat: … — answer only in the chat reply with clean markdown (headings, lists, tables). Do NOT create/update drafts unless the user also asks to save a draft.\n"
+            . "  • Enter code mode only for explicit 'code:' or clear HTML/CSS/JS/snippet/template/dev/studio requests — never because the topic contains the word 'code'.\n"
+            . "- RICH DRAFTS: create_content/update_content MUST include title, type, full body HTML, excerpt, meta.seo_title, meta.meta_description.\n"
+            . "- BODY HTML: semantic tags — <article>, <section>, <h2>/<h3>, <p>, <ul>/<ol>, <table> when useful. No <html>/<head>/<body> wrappers.\n"
+            . "- DEPTH & COMPLETENESS (be hardworking — complete on the first try):\n"
+            . "  • If asked for a 12-row table, return exactly 12 data rows plus header — not 3.\n"
+            . "  • If asked for N examples, sections, FAQs, or items, produce all N — never a short sample with 'and so on'.\n"
+            . "  • Write real paragraphs with explanation and examples.\n"
+            . "- Prefer full article in the action body; keep chat reply short unless user used chat:.\n"
+            . "- CRITICAL: finished body only. FORBIDDEN placeholders like 'This draft was started by Mova AI' or 'Replace this section'.\n"
+            . "- Title = topic only (strip 'insightful', 'SEO friendly', etc.). Never invent HQ URLs. Never publish. Never leave body empty.\n";
 
         // CSS / design-token usage for generated HTML+CSS (matches VariableService + public theme)
         $cssVarHelp = "CSS VARIABLE RULES (mandatory when writing CSS):\n"
@@ -399,14 +414,18 @@ class AiChatService
             . "- Scope under one root class (e.g. .pricing-page). HTML + CSS both required unless user asked for one only.\n";
 
         $codingHelp = $isCoding
-            ? "The user wants code (dev mode / studio / assembly / elements). Put complete HTML and/or CSS and/or JS in the reply using markdown fences (```html, ```css, ```js). "
-              . "Do not omit code in favor of navigate links. Prefer a full paste-ready snippet with moderate comments for human debugging. "
-              . "Use meaningful class names and ids where needed. Remember site CSS variables. "
-              . "You may still include navigate or insert_code actions. "
+            ? "CODE MODE (code: or clear HTML/CSS/JS request). Put complete source in the reply using markdown fences (```html, ```css, ```js). "
+              . "Do not omit code. Prefer a full paste-ready snippet with moderate comments. Use classes/ids and site CSS variables. "
+              . "You may include navigate or insert_code actions. "
               . $designHelp
               . $cssVarHelp
-            : "Default is normal editor content (not code). Only emit long code fences when the user asks for code, HTML/CSS/JS, dev mode, studio, or a template. "
-              . "If you emit CSS, still follow: " . $cssVarHelp;
+            : ($wantsChatDirective
+                ? "CHAT MODE (chat:). Answer fully in the reply with clean markdown (## headings, lists, tables) that pastes well into editors. "
+                  . "Do not call create_content/update_content unless they also ask to save a draft. "
+                  . "If you emit CSS, still follow: " . $cssVarHelp
+                : "Default is normal editor content (not code). Only emit long code fences for code: or clear HTML/CSS/JS/dev/studio/template requests. "
+                  . "Do NOT treat topics like 'Code of conduct' as code mode. "
+                  . "If you emit CSS, still follow: " . $cssVarHelp);
 
         $modesHelp = "MOVA MODES (awareness):\n"
             . "- Normal editor: classic body field — use semantic HTML in create/update_content. Target this unless user asks for code.\n"
