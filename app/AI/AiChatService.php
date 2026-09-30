@@ -173,15 +173,30 @@ class AiChatService
             $actions[$i]['payload'] = $payload;
         }
 
-        // Prefer updating the open draft over creating a new one
-        if ($entityId > 0 && !$this->hasActionType($actions, 'update_content')
-            && ($this->looksLikeContinueContent($message) || $this->looksLikeCreateContent($message))) {
-            $actions = array_values(array_filter($actions, static fn($a) => ($a['type'] ?? '') !== 'create_content'));
+        // Prefer update ONLY when the user is clearly revising the open draft.
+        // Never strip a model create_content for a new topic just because another draft is open.
+        $wantsNewDraft = $this->looksLikeCreateContent($message)
+            && !$this->looksLikeContinueContent($message);
+        $wantsContinue = $entityId > 0 && $this->looksLikeContinueContent($message) && !$wantsNewDraft;
+
+        if ($wantsContinue && !$this->hasActionType($actions, 'update_content')) {
+            // Keep any good create_content only if title clearly differs; otherwise force update on open id
+            $hasCreate = $this->hasActionType($actions, 'create_content');
+            if ($hasCreate) {
+                // Model asked to create while user is continuing — convert to update on open draft
+                $actions = array_values(array_filter($actions, static fn($a) => ($a['type'] ?? '') !== 'create_content'));
+            }
             $actions[] = $this->buildUpdateContentAction($message, $entityId);
-        } elseif (!$this->hasActionType($actions, 'create_content') && !$this->hasActionType($actions, 'update_content')
-            && $this->looksLikeCreateContent($message)) {
+        } elseif ($wantsNewDraft && !$this->hasActionType($actions, 'create_content')
+            && !$this->hasActionType($actions, 'update_content')) {
             // Pass reply HTML so heuristic create is not a dead stub when the model wrote in the reply
             $actions[] = $this->buildCreateContentAction($message, $replyHtml);
+        } elseif ($wantsNewDraft && $this->hasActionType($actions, 'update_content') && $entityId > 0) {
+            // Model wrongly targeted update while user asked for a brand-new draft — force create
+            $actions = array_values(array_filter($actions, static fn($a) => ($a['type'] ?? '') !== 'update_content'));
+            if (!$this->hasActionType($actions, 'create_content')) {
+                $actions[] = $this->buildCreateContentAction($message, $replyHtml);
+            }
         }
 
         // Heuristic: color change intent
@@ -458,7 +473,7 @@ class AiChatService
                 }
                 $messages = $systemMsg ? array_merge([$systemMsg], $tail) : $tail;
             } else {
-                $maxTokens = ($longRunning || $isCoding) ? 4000 : 2400;
+                $maxTokens = ($longRunning || $isCoding) ? 5000 : 2400;
                 $timeout = ($longRunning || $isCoding) ? 300 : 90;
             }
             // Long / coding jobs: async submit+poll so proxy timeouts cannot kill a 1–5 min RunPod delay.
@@ -475,12 +490,12 @@ class AiChatService
                     'provider' => $this->assist->providerLabel(),
                 ];
             }
-            // Model returned prose or raw JSON — never show JSON blob to user
-            $maybe = $this->parseJsonReply($raw);
-            if ($maybe !== null) {
+            // Model returned prose or broken JSON — try recovery before giving up
+            $recovered = $this->recoverActionsFromBrokenJson($raw);
+            if ($recovered !== null) {
                 return [
-                    'reply' => self::stripLeakedJson($maybe['reply'] !== '' ? $maybe['reply'] : 'Done.'),
-                    'actions' => $maybe['actions'] ?: $this->actionsFromMatches($mapMatches),
+                    'reply' => self::stripLeakedJson($recovered['reply'] !== '' ? $recovered['reply'] : 'Draft recovered from model output.'),
+                    'actions' => $recovered['actions'],
                     'provider' => $this->assist->providerLabel(),
                 ];
             }
@@ -554,11 +569,28 @@ class AiChatService
     private function parseJsonReply(string $raw): ?array
     {
         $raw = trim($raw);
-        if (preg_match('/\{.*\}/s', $raw, $m)) {
+        // Strip markdown fences around the whole JSON payload
+        if (preg_match('/^```(?:json)?\s*([\s\S]*?)```\s*$/i', $raw, $fm)) {
+            $raw = trim($fm[1]);
+        }
+        // Prefer outermost JSON object
+        if (preg_match('/\{[\s\S]*\}/', $raw, $m)) {
             $raw = $m[0];
         }
         $data = json_decode($raw, true);
         if (!is_array($data)) {
+            // Common model failures: trailing commas, smart quotes, unescaped control chars
+            $fixed = $raw;
+            $fixed = str_replace(["\u201c", "\u201d", "\u2018", "\u2019", "“", "”", "‘", "’"], ['"', '"', "'", "'", '"', '"', "'", "'"], $fixed);
+            $fixed = preg_replace('/,\s*([}\]])/', '$1', $fixed) ?? $fixed;
+            $data = json_decode($fixed, true);
+        }
+        if (!is_array($data)) {
+            // Last resort: recover create_content from a broken JSON blob
+            $recovered = $this->recoverActionsFromBrokenJson($raw);
+            if ($recovered !== null) {
+                return $recovered;
+            }
             return null;
         }
         $reply = trim((string) ($data['reply'] ?? ''));
@@ -610,6 +642,126 @@ class AiChatService
             }
         }
         return ['reply' => $reply, 'actions' => array_slice($actions, 0, 6)];
+    }
+
+
+    /**
+     * When the model returns almost-JSON with a huge HTML body that breaks json_decode,
+     * recover title/body/excerpt/meta with targeted regex so the draft is not lost.
+     *
+     * @return array{reply:string,actions:list<array>}|null
+     */
+    private function recoverActionsFromBrokenJson(string $raw): ?array
+    {
+        $reply = '';
+        if (preg_match('/"reply"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"/s', $raw, $m)) {
+            $reply = stripcslashes($m[1]);
+        } elseif (preg_match('/"reply"\\s*:\\s*"(.*?)"\\s*,\\s*"actions"/s', $raw, $m)) {
+            $reply = stripcslashes($m[1]);
+        }
+
+        $title = '';
+        if (preg_match('/"title"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"/', $raw, $m)) {
+            $title = stripcslashes($m[1]);
+        }
+        $title = $this->cleanTitleCandidate($title);
+
+        $body = '';
+        // Greedy body capture between "body":" and the next ","excerpt" or ","meta"
+        if (preg_match('/"body"\\s*:\\s*"(.*?)"\\s*,\\s*"(?:excerpt|meta|type)"/s', $raw, $m)) {
+            $body = stripcslashes($m[1]);
+        } elseif (preg_match('/"body"\\s*:\\s*"(.*?)"/s', $raw, $m)) {
+            $body = stripcslashes($m[1]);
+        }
+        // Prefer fenced HTML in the raw stream if body still empty
+        if ($this->isStubBody($body)) {
+            $fromFence = $this->extractHtmlFromReply($raw);
+            if ($fromFence !== '') {
+                $body = $fromFence;
+            }
+        }
+
+        $excerpt = '';
+        if (preg_match('/"excerpt"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"/', $raw, $m)) {
+            $excerpt = stripcslashes($m[1]);
+        }
+        $seoTitle = '';
+        if (preg_match('/"seo_title"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"/', $raw, $m)) {
+            $seoTitle = stripcslashes($m[1]);
+        }
+        $metaDesc = '';
+        if (preg_match('/"meta_description"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"/', $raw, $m)) {
+            $metaDesc = stripcslashes($m[1]);
+        }
+
+        $typeHint = 'page';
+        if (preg_match('/"type"\\s*:\\s*"(article|page|guide|documentation|faq|custom)"/', $raw, $m)) {
+            $typeHint = $m[1];
+        }
+
+        $isCreate = (bool) preg_match('/"type"\\s*:\\s*"create_content"/', $raw);
+        $isUpdate = (bool) preg_match('/"type"\\s*:\\s*"update_content"/', $raw);
+        $updateId = 0;
+        if (preg_match('/"id"\\s*:\\s*(\\d+)/', $raw, $m)) {
+            $updateId = (int) $m[1];
+        }
+
+        if ($title === '' && $body === '') {
+            return null;
+        }
+        if ($title === '') {
+            $title = 'Recovered draft';
+        }
+        if ($excerpt === '' && $body !== '') {
+            $excerpt = mb_substr(trim(preg_replace('/\\s+/', ' ', strip_tags($body)) ?? ''), 0, 160);
+        }
+        $meta = [];
+        if ($seoTitle !== '') {
+            $meta['seo_title'] = mb_substr($seoTitle, 0, 60);
+        } else {
+            $meta['seo_title'] = mb_substr($title, 0, 60);
+        }
+        if ($metaDesc !== '') {
+            $meta['meta_description'] = mb_substr($metaDesc, 0, 160);
+        } elseif ($excerpt !== '') {
+            $meta['meta_description'] = mb_substr($excerpt, 0, 160);
+        }
+
+        $actions = [];
+        if ($isUpdate && $updateId > 0 && $body !== '') {
+            $actions[] = [
+                'type' => 'update_content',
+                'label' => 'Update draft',
+                'payload' => [
+                    'id' => $updateId,
+                    'mode' => 'replace',
+                    'body' => $body,
+                    'title' => $title,
+                    'excerpt' => $excerpt,
+                    'meta' => $meta,
+                ],
+            ];
+        } elseif ($body !== '' || $title !== '') {
+            $actions[] = [
+                'type' => 'create_content',
+                'label' => 'Create draft: ' . $title,
+                'payload' => [
+                    'title' => $title,
+                    'type' => $typeHint,
+                    'body' => $body !== '' ? $body : '<p></p>',
+                    'excerpt' => $excerpt,
+                    'meta' => $meta,
+                ],
+            ];
+        }
+
+        if ($actions === []) {
+            return null;
+        }
+        if ($reply === '') {
+            $reply = 'Recovered draft «' . $title . '» from a partial model response.';
+        }
+        return ['reply' => $reply, 'actions' => $actions];
     }
 
     /** @param list<array<string,mixed>> $actions */
@@ -876,7 +1028,17 @@ class AiChatService
     private function looksLikeContinueContent(string $message): bool
     {
         $m = mb_strtolower($message);
-        return (bool) preg_match('/\b(add|expand|continue|extend|append|improve|rewrite|update|include|advantages|more\s+on|section)\b/i', $m);
+        // Explicit continuation of the open draft — not a brand-new topic request
+        if ($this->looksLikeCreateContent($message) && preg_match('/\b(new|another|different|separate)\b/i', $m)) {
+            return false;
+        }
+        if (preg_match('/\b(write|create|draft)\s+(me\s+)?(a\s+)?(new\s+)?(draft|article|page|post)\s+(on|about)\b/i', $m)) {
+            return false;
+        }
+        return (bool) preg_match(
+            '/\b(add\s+to\s+(it|this|the\s+draft)|expand\s+(it|this|the)|continue\s+(writing|it|this)|extend\s+(it|this)|append|improve\s+(it|this|the\s+draft)|rewrite\s+(it|this|the)|update\s+(the\s+)?(draft|body|article|content)|more\s+on\s+this|add\s+(a\s+)?section)\b/i',
+            $m
+        );
     }
 
     /** @return array{type:string,label:string,payload:array} */
