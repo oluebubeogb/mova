@@ -120,13 +120,15 @@ return [
         'from_name'  => 'Mova',
     ],
 
-    // Mova AI (self-hosted OpenAI-compatible endpoint)
-    // Override in HQ → Settings → Mova AI, or via the settings table.
+    // Mova AI — platform defaults (RunPod public IBM Granite 4.0 H Small).
+    // Secret key is NEVER stored here: set RUNPOD_API_KEY in the environment.
+    // Leave HQ Settings → Mova AI fields blank to use these defaults.
+    // Fill Settings only when overriding with a custom provider.
     'ai' => [
-        'ai_api_url'  => 'https://movaai.collab.name.ng/v1',
-        'ai_api_key'  => 'mova-ai-key',
-        'ai_model'    => 'qwen2.5:7b',
-        'ai_provider' => 'Mova AI',
+        'ai_api_url'  => 'https://api.runpod.ai/v2/granite-4-0-h-small/openai/v1',
+        'ai_api_key'  => '', // always empty in config; use getenv('RUNPOD_API_KEY')
+        'ai_model'    => 'ibm-granite/granite-4.0-h-small',
+        'ai_provider' => 'RunPod IBM Granite 4.0 H Small',
     ],
 
     // Reserved routes (cannot be used as content slugs)

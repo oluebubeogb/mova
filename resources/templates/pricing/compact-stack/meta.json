@@ -1,0 +1,24 @@
+{
+  "id": "pricing-compact-stack",
+  "name": "Compact stack",
+  "category": "pricing",
+  "description": "Narrow single-column stack of plans. Good for mobile-first or sidebar placement.",
+  "preview": "/assets/templates/previews/pricing-compact-stack.svg",
+  "slots": [
+    "section_title",
+    "plans[].name",
+    "plans[].price",
+    "plans[].period",
+    "plans[].features[]",
+    "plans[].cta_label",
+    "plans[].cta_href",
+    "featured_plan_index"
+  ],
+  "constraints": [
+    "Keep root class .tpl-pricing.tpl-pricing--stack",
+    "Keep vertical stack (one column)",
+    "Keep featured treatment on the chosen plan",
+    "Do not redefine :root tokens",
+    "Prefer shared templates.css; only emit delta CSS if needed"
+  ]
+}

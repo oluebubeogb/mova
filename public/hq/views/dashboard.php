@@ -64,6 +64,17 @@
       <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
     </a>
 
+    <a class="hq-landing-card" href="/hq/templates">
+      <div class="hq-landing-card-inner">
+        <div class="hq-landing-icon is-mix"><i class="fa-solid fa-table-cells-large"></i></div>
+        <div class="hq-landing-card-body">
+          <strong>Templates</strong>
+          <span>Pricing & layout seeds for Mova AI</span>
+        </div>
+      </div>
+      <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
+    </a>
+
     <a class="hq-landing-card" href="/hq/extend">
       <div class="hq-landing-card-inner">
         <div class="hq-landing-icon is-mix"><i class="fa-solid fa-puzzle-piece"></i></div>

@@ -1554,4 +1554,20 @@
   } else {
     boot();
   }
+
+  // Public API for Mova AI panel insert
+  try {
+    window.MovaStudio = {
+      getHtml: getHtml,
+      setHtml: setHtml,
+      getCss: getCss,
+      setCss: setCss,
+      getJs: getJs,
+      setJs: setJs,
+      appendHtml: function (v) { setHtml((getHtml() || '') + (v || '')); },
+      appendCss: function (v) { setCss((getCss() || '') + '\n' + (v || '')); },
+      appendJs: function (v) { setJs((getJs() || '') + '\n' + (v || '')); }
+    };
+  } catch (e) {}
+
 })();

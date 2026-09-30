@@ -709,3 +709,49 @@ $router->get('/variables/export', function () {
         'title' => 'Export variables',
     ]);
 });
+
+// ---- Design templates (Phase 2 catalog) ----
+$router->get('/templates', function () {
+    if ($r = mova_design_guard()) {
+        return $r;
+    }
+    $templates = class_exists(\Mova\Theme\TemplateService::class)
+        ? \Mova\Theme\TemplateService::listAll()
+        : [];
+    $category = trim((string) ($_GET['category'] ?? ''));
+    if ($category !== '') {
+        $templates = array_values(array_filter(
+            $templates,
+            static fn ($t) => ($t['category'] ?? '') === $category
+        ));
+    }
+    $categories = [];
+    foreach (\Mova\Theme\TemplateService::listAll() as $t) {
+        $c = (string) ($t['category'] ?? 'general');
+        $categories[$c] = ($categories[$c] ?? 0) + 1;
+    }
+    return renderHq('design/templates', [
+        'title' => 'Design templates',
+        'templates' => $templates,
+        'categories' => $categories,
+        'activeCategory' => $category,
+        'sharedCss' => \Mova\Theme\TemplateService::sharedCssUrl(),
+    ]);
+});
+
+$router->get('/templates/{id}', function (Request $req, array $params = []) {
+    if ($r = mova_design_guard()) {
+        return $r;
+    }
+    $id = (string) ($params['id'] ?? '');
+    $tpl = \Mova\Theme\TemplateService::get($id);
+    if ($tpl === null) {
+        return (new Response())->redirect('/hq/templates');
+    }
+    return renderHq('design/template-detail', [
+        'title' => $tpl['meta']['name'] ?? $id,
+        'template' => $tpl,
+        'id' => $id,
+        'sharedCss' => \Mova\Theme\TemplateService::sharedCssUrl(),
+    ]);
+});

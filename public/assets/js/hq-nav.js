@@ -15,6 +15,7 @@
                 { label: 'Content',   href: '/hq/content-hub' },
                 { label: 'Audience',  href: '/hq/audience' },
                 { label: 'Design',    href: '/hq/design' },
+                { label: 'Templates', href: '/hq/templates' },
                 { label: 'Extend',    href: '/hq/extend' },
                 { label: 'Operations', href: '/hq/operations' },
                 { label: 'Settings',  href: '/hq/settings' }
@@ -107,6 +108,7 @@
         design: {
             sectionName: 'Design',
             items: [
+                { label: 'Templates',  href: '/hq/templates' },
                 { label: 'Brand',      href: '/hq/brand' },
                 { label: 'Style',      href: '/hq/style' },
                 { label: 'Layout',     href: '/hq/layout' },
@@ -114,6 +116,13 @@
                 { label: 'Elements',   href: '/hq/elements' },
                 { label: 'Variables',  href: '/hq/variables' },
                 { label: 'Reset defaults', href: '/hq/design/reset' }
+            ]
+        },
+        'design.templates': {
+            sectionName: 'Design',
+            items: [
+                { label: 'All templates', href: '/hq/templates', match: { path: '/hq/templates' } },
+                { label: 'Pricing', href: '/hq/templates?category=pricing' }
             ]
         },
         'design.variables': {
@@ -280,6 +289,7 @@
         }
 
         // Design
+        if (path.startsWith('/hq/templates')) return { key: 'design.templates', params, section };
         if (path.startsWith('/hq/brand')) return { key: 'design.brand', params, section };
         if (path.startsWith('/hq/style')) return { key: 'design.style', params, section };
         if (path.startsWith('/hq/layout')) return { key: 'design.layout', params, section };
@@ -508,7 +518,8 @@
         { title: 'Campaigns',        href: '/hq/mail',            keywords: 'campaigns newsletter', group: 'Audience' },
         { title: 'Sequences',        href: '/hq/sequences',       keywords: 'sequences automation', group: 'Audience' },
         { title: 'Insights',         href: '/hq/insights',        keywords: 'insights analytics', group: 'Audience' },
-        { title: 'Design',           href: '/hq/design',          keywords: 'design brand style layout variables', group: 'Design' },
+        { title: 'Design',           href: '/hq/design',          keywords: 'design brand style layout variables templates', group: 'Design' },
+        { title: 'Design templates', href: '/hq/templates',       keywords: 'templates pricing cards layout ai design catalog', group: 'Design' },
         { title: 'Brand',            href: '/hq/brand',           keywords: 'brand identity logo dark', group: 'Design' },
         { title: 'Style',            href: '/hq/style',           keywords: 'style colors typography hex', group: 'Design' },
         { title: 'Layout',           href: '/hq/layout',          keywords: 'layout header footer nav', group: 'Design' },

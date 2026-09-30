@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "shared_css": "/assets/css/templates.css",
+  "templates": [
+    {
+      "id": "pricing-saas-featured",
+      "path": "pricing/saas-featured",
+      "category": "pricing"
+    },
+    {
+      "id": "pricing-compact-stack",
+      "path": "pricing/compact-stack",
+      "category": "pricing"
+    },
+    {
+      "id": "pricing-horizontal-toggle",
+      "path": "pricing/horizontal-toggle",
+      "category": "pricing"
+    }
+  ]
+}

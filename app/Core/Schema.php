@@ -728,6 +728,8 @@ class Schema
         self::migratePhase8($db);
         self::migratePhase9($db);
         self::migratePhase10($db);
+        self::migratePhase11($db);
+        self::migratePhase12($db);
     }
 
     /**
@@ -899,6 +901,60 @@ class Schema
         ");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_ai_sessions_user ON ai_sessions(user_id, updated_at)");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_ai_messages_session ON ai_messages(session_id, id)");
+    }
+
+
+    /** Mova AI background jobs (long-running / coding) */
+    private static function migratePhase11(\PDO $db): void
+    {
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS ai_jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                session_id INTEGER,
+                status TEXT NOT NULL DEFAULT 'queued',
+                kind TEXT NOT NULL DEFAULT 'chat',
+                prompt TEXT NOT NULL,
+                page_context TEXT,
+                progress TEXT,
+                reply TEXT,
+                actions TEXT,
+                provider TEXT,
+                error TEXT,
+                client_key TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                started_at TEXT,
+                finished_at TEXT,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (session_id) REFERENCES ai_sessions(id) ON DELETE SET NULL
+            )
+        ");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_ai_jobs_user_status ON ai_jobs(user_id, status, updated_at)");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_ai_jobs_session ON ai_jobs(session_id)");
+    }
+
+    /** Design templates — optional DB overrides of seed files in resources/templates */
+    private static function migratePhase12(\PDO $db): void
+    {
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS design_templates (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                template_id TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                category TEXT NOT NULL DEFAULT 'general',
+                description TEXT,
+                preview TEXT,
+                body_html TEXT NOT NULL,
+                styles_css TEXT,
+                meta_json TEXT,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        ");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_design_templates_category ON design_templates(category, enabled, sort_order)");
     }
 
     public static function isInstalled(): bool

@@ -126,6 +126,14 @@ class HqMap
                 'description' => 'Design tokens and CSS variables',
             ],
             [
+                'id' => 'design.templates',
+                'label' => 'Design — Templates',
+                'path' => '/hq/templates',
+                'workspace' => 'design',
+                'keywords' => ['templates', 'pricing template', 'design templates', 'layout templates', 'pricelist template'],
+                'description' => 'Design template catalog for AI-adapted layouts',
+            ],
+            [
                 'id' => 'appearance',
                 'label' => 'Appearance',
                 'path' => '/hq/appearance',

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- HQ AI coding replies now instruct the model to emit correct Mova CSS variables (`var(--color-primary, …)`, `var(--color-bg, …)`, etc. with fallbacks) instead of invalid bare token names like `surface` or `text` as CSS values
+- Coding system prompt documents the full built-in palette map (background → `--color-bg`), radius/spacing/shadow vars, custom `--{name}` / `--mova-*` vars, and scoped modern syntax aligned with public theme pages
+
+### Improved
+- HQ AI coding prompt adds **DESIGN QUALITY** rules for pricing/cards/UI: hierarchy, featured tier, CTAs, shadows, checklist features, responsive grid, and production-grade polish (helps smaller models like Qwen 2.5 7B produce stronger layouts)
+- Coding chat completions use a slightly higher temperature (0.7 when max_tokens ≥ 3000) for more creative UI output while normal chat stays at 0.5
+
+### Added
+- **Design templates (Phase 1)**: seed library under `resources/templates/` with 3 pricing templates (saas-featured, compact-stack, horizontal-toggle), static SVG previews, and shared `/assets/css/templates.css` always loaded on public themes
+- `TemplateService` — lists seeds, resolves optional `design_templates` DB overrides, builds AI prompt blocks, detects `template:id` from messages
+- HQ API `GET /hq/ai/templates` catalog; chat/jobs accept optional `template_id`
+- Schema migration phase 12: `design_templates` table for hybrid overrides
+
+### Added (Phase 2)
+- **Design Templates page** at `/hq/templates` (catalog + detail with live preview, static SVG thumbs, Use in AI)
+- AI panel **guided steps** (intent → category → template → brief → generate); skip to free chat still works
+- Nav + HQ search + HqMap entries for Templates; `template_id` on chat/jobs from panel
+
 ### Planned
 - Further Studio panel refinements
 - Additional content-type and assembly tooling
