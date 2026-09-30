@@ -2,17 +2,55 @@
 
 <div class="toolbar">
     <h2 style="margin:0;font-size:1rem;">Media library</h2>
-    <form id="upload-form" enctype="multipart/form-data">
-        <?= Csrf::field() ?>
-        <label class="btn-primary" style="cursor:pointer;">
-            Upload
-            <input type="file" name="file" id="file-input" accept="image/*" multiple hidden>
-        </label>
-    </form>
+    <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
+        <form id="upload-form" enctype="multipart/form-data" style="display:inline;">
+            <?= Csrf::field() ?>
+            <label class="btn-primary" style="cursor:pointer;margin:0;">
+                Upload
+                <input type="file" name="file" id="file-input" accept="image/*" multiple hidden>
+            </label>
+        </form>
+        <button type="button" class="btn-ghost" id="btn-generate-image" title="Generate image with AI">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Generate image
+        </button>
+    </div>
 </div>
 
 <div id="upload-status"></div>
 <div id="upload-queue" style="margin:0.75rem 0;display:flex;flex-direction:column;gap:0.4rem;"></div>
+<div id="gen-status" style="margin:0.5rem 0;"></div>
+
+<!-- AI image generate modal -->
+<div id="gen-image-modal" hidden style="position:fixed;inset:0;background:rgba(15,23,42,0.45);z-index:80;display:none;align-items:center;justify-content:center;padding:1rem;">
+  <div role="dialog" aria-labelledby="gen-image-title" style="background:var(--hq-surface,#fff);border-radius:12px;max-width:520px;width:100%;padding:1.25rem 1.35rem;box-shadow:0 20px 50px rgba(0,0,0,0.18);border:1px solid var(--hq-border,#e2e8f0);">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:0.85rem;">
+      <h3 id="gen-image-title" style="margin:0;font-size:1.05rem;">Generate image</h3>
+      <button type="button" class="btn-ghost btn-sm" id="gen-image-close" aria-label="Close">&times;</button>
+    </div>
+    <p style="margin:0 0 0.85rem;font-size:0.85rem;color:var(--hq-muted);">Runs in the background via Mova Image. You can leave this page — the file appears in the library when ready.</p>
+    <div class="form-group" style="margin-bottom:0.75rem;">
+      <label for="gen-prompt" style="display:block;font-weight:600;margin-bottom:0.35rem;">Prompt</label>
+      <textarea id="gen-prompt" rows="4" style="width:100%;border-radius:8px;border:1px solid var(--hq-border);padding:0.55rem 0.65rem;font:inherit;" placeholder="A modern tea shop interior, warm afternoon light, minimalist wood design…"></textarea>
+    </div>
+    <div class="form-group" style="margin-bottom:0.75rem;">
+      <label for="gen-negative" style="display:block;font-weight:600;margin-bottom:0.35rem;">Negative prompt <span style="font-weight:400;color:var(--hq-muted);">(optional)</span></label>
+      <textarea id="gen-negative" rows="2" style="width:100%;border-radius:8px;border:1px solid var(--hq-border);padding:0.55rem 0.65rem;font:inherit;" placeholder="blurry, low-res, watermark, text, logo…"></textarea>
+    </div>
+    <div class="form-group" style="margin-bottom:1rem;">
+      <span style="display:block;font-weight:600;margin-bottom:0.4rem;">Aspect</span>
+      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;" id="gen-aspect-group">
+        <label class="btn-ghost btn-sm" style="cursor:pointer;"><input type="radio" name="gen-aspect" value="square" checked> Square 720×720</label>
+        <label class="btn-ghost btn-sm" style="cursor:pointer;"><input type="radio" name="gen-aspect" value="landscape"> Landscape 1280×720</label>
+        <label class="btn-ghost btn-sm" style="cursor:pointer;"><input type="radio" name="gen-aspect" value="portrait"> Portrait 720×1280</label>
+      </div>
+    </div>
+    <div id="gen-progress" style="font-size:0.85rem;color:var(--hq-muted);min-height:1.25rem;margin-bottom:0.75rem;"></div>
+    <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
+      <button type="button" class="btn-ghost" id="gen-image-cancel">Cancel</button>
+      <button type="button" class="btn-primary" id="gen-image-submit"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate</button>
+    </div>
+  </div>
+</div>
 
 <?php if (empty($items)): ?>
     <p class="empty">No media yet. Upload an image to get started.</p>
@@ -317,5 +355,178 @@
             }
         });
     });
+
+
+    // —— AI image generation ——
+    (function () {
+        var modal = document.getElementById('gen-image-modal');
+        var openBtn = document.getElementById('btn-generate-image');
+        var closeBtn = document.getElementById('gen-image-close');
+        var cancelBtn = document.getElementById('gen-image-cancel');
+        var submitBtn = document.getElementById('gen-image-submit');
+        var promptEl = document.getElementById('gen-prompt');
+        var negEl = document.getElementById('gen-negative');
+        var progressEl = document.getElementById('gen-progress');
+        var statusEl = document.getElementById('gen-status');
+        var pollTimer = null;
+        var busy = false;
+
+        function showModal() {
+            if (!modal) return;
+            modal.hidden = false;
+            modal.style.display = 'flex';
+            if (promptEl) promptEl.focus();
+        }
+        function hideModal() {
+            if (!modal) return;
+            modal.hidden = true;
+            modal.style.display = 'none';
+        }
+        function setBusy(on) {
+            busy = !!on;
+            if (submitBtn) submitBtn.disabled = busy;
+            if (promptEl) promptEl.disabled = busy;
+            if (negEl) negEl.disabled = busy;
+        }
+        function selectedAspect() {
+            var r = document.querySelector('input[name="gen-aspect"]:checked');
+            return r ? r.value : 'square';
+        }
+
+        if (openBtn) openBtn.addEventListener('click', showModal);
+        if (closeBtn) closeBtn.addEventListener('click', function () { if (!busy) hideModal(); });
+        if (cancelBtn) cancelBtn.addEventListener('click', function () { if (!busy) hideModal(); });
+        if (modal) modal.addEventListener('click', function (e) {
+            if (e.target === modal && !busy) hideModal();
+        });
+
+        function pollJob(jobId) {
+            return fetch('/hq/media/jobs/' + jobId, { credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.ok || !data.job) throw new Error(data.error || 'Job not found');
+                    return data.job;
+                });
+        }
+
+        function kickProcess(jobId) {
+            var body = new URLSearchParams();
+            body.set('_mova_csrf', csrfToken);
+            // Fire-and-forget style: long request may outlive the page
+            return fetch('/hq/media/jobs/' + jobId + '/process', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: body.toString()
+            }).then(function (r) { return r.json(); }).catch(function () {
+                return null; // disconnect / timeout is OK — poll continues
+            });
+        }
+
+        function onDone(job) {
+            setBusy(false);
+            hideModal();
+            var act = (job.actions && job.actions[0]) ? job.actions[0] : null;
+            var msg = 'Image generated.';
+            if (act && act.url) {
+                msg = 'Image ready — added to the media library.';
+            }
+            if (statusEl) {
+                statusEl.innerHTML = '<div class="alert alert-success">' + esc(msg) + ' <a href="/hq/media">Refresh</a> to see it at the top.</div>';
+            }
+            // Soft reload so the new item appears
+            setTimeout(function () { window.location.href = '/hq/media?generated=1'; }, 600);
+        }
+
+        function onFail(err) {
+            setBusy(false);
+            if (progressEl) progressEl.textContent = '';
+            if (statusEl) {
+                statusEl.innerHTML = '<div class="alert alert-error">' + esc(err || 'Generation failed') + '</div>';
+            }
+            if (progressEl) progressEl.textContent = err || 'Failed';
+        }
+
+        function startPolling(jobId) {
+            var attempts = 0;
+            function tick() {
+                attempts++;
+                pollJob(jobId).then(function (job) {
+                    if (progressEl) {
+                        progressEl.textContent = job.progress || job.status || 'Working…';
+                    }
+                    if (job.status === 'done') {
+                        onDone(job);
+                        return;
+                    }
+                    if (job.status === 'failed' || job.status === 'cancelled') {
+                        onFail(job.error || 'Generation failed');
+                        return;
+                    }
+                    // Keep polling up to ~20 minutes
+                    if (attempts < 240) {
+                        pollTimer = setTimeout(tick, attempts < 10 ? 2500 : 4000);
+                    } else {
+                        onFail('Still running after a long wait. Refresh the media library later — the job may still complete.');
+                    }
+                }).catch(function (e) {
+                    if (attempts < 240) {
+                        pollTimer = setTimeout(tick, 4000);
+                    } else {
+                        onFail(e.message || 'Polling failed');
+                    }
+                });
+            }
+            tick();
+        }
+
+        if (submitBtn) {
+            submitBtn.addEventListener('click', function () {
+                var prompt = (promptEl && promptEl.value || '').trim();
+                if (!prompt) {
+                    if (progressEl) progressEl.textContent = 'Please enter a prompt.';
+                    return;
+                }
+                setBusy(true);
+                if (progressEl) progressEl.textContent = 'Queuing…';
+                if (statusEl) statusEl.innerHTML = '';
+
+                var body = new URLSearchParams();
+                body.set('_mova_csrf', csrfToken);
+                body.set('prompt', prompt);
+                body.set('aspect', selectedAspect());
+                body.set('negative_prompt', (negEl && negEl.value) || '');
+                body.set('client_key', 'img-' + Date.now());
+
+                fetch('/hq/media/generate', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRF-TOKEN': csrfToken
+                    },
+                    body: body.toString()
+                })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.ok || !data.job || !data.job.id) {
+                        throw new Error(data.error || 'Could not queue job');
+                    }
+                    var jobId = data.job.id;
+                    if (progressEl) progressEl.textContent = data.job.progress || 'Queued — starting…';
+                    // Kick worker (survives tab close via ignore_user_abort)
+                    kickProcess(jobId);
+                    startPolling(jobId);
+                })
+                .catch(function (e) {
+                    onFail(e.message || 'Request failed');
+                });
+            });
+        }
+    })();
+
 })();
 </script>

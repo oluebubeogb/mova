@@ -135,6 +135,121 @@ class MediaService
         return $this->find($id);
     }
 
+    /**
+     * Ingest AI-generated (or remote) image bytes into the media library.
+     * Runs the same WebP variant pipeline as uploads when enabled.
+     *
+     * @param array{alt_text?:string,original_name?:string,width?:int,height?:int} $meta
+     */
+    public function ingestGenerated(string $binary, string $mime, ?int $userId = null, array $meta = []): array
+    {
+        if ($binary === '') {
+            throw new \InvalidArgumentException('Empty image data');
+        }
+
+        $mime = strtolower(trim($mime));
+        if ($mime === '' || strpos($mime, 'image/') !== 0) {
+            $finfo = new \finfo(FILEINFO_MIME_TYPE);
+            $detected = $finfo->buffer($binary);
+            $mime = (is_string($detected) && strpos($detected, 'image/') === 0) ? $detected : 'image/png';
+        }
+
+        $extMap = [
+            'image/jpeg' => 'jpg',
+            'image/jpg' => 'jpg',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            'image/gif' => 'gif',
+        ];
+        $ext = $extMap[$mime] ?? 'png';
+
+        $filename = $this->uniqueFilename($ext);
+        $subdir = date('Y/m');
+        $uploadsRoot = Bootstrap::path('uploads');
+        if ($uploadsRoot === '') {
+            throw new \RuntimeException('Upload path is not configured.');
+        }
+        $uploadDir = $uploadsRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $subdir);
+        if (!is_dir($uploadDir)) {
+            if (!@mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
+                throw new \RuntimeException('Cannot create upload folder: ' . $subdir);
+            }
+        }
+
+        $dest = $uploadDir . DIRECTORY_SEPARATOR . $filename;
+        if (@file_put_contents($dest, $binary) === false) {
+            throw new \RuntimeException('Failed to write generated image');
+        }
+
+        $width = isset($meta['width']) ? (int) $meta['width'] : null;
+        $height = isset($meta['height']) ? (int) $meta['height'] : null;
+        $info = @getimagesize($dest);
+        if ($info) {
+            $width = (int) $info[0];
+            $height = (int) $info[1];
+        }
+
+        $variants = [];
+        if (Bootstrap::config('media.convert_to_webp', true) && function_exists('imagewebp') && $ext !== 'svg') {
+            $variants = $this->processImage($dest, $subdir, $filename, $width, $height);
+        }
+
+        $relativePath = $subdir . '/' . $filename;
+        $fileHash = @hash_file('sha256', $dest) ?: null;
+
+        $storeFilename = $filename;
+        $storeMime = $mime;
+        $storeExt = $ext;
+        $storeSize = @filesize($dest) ?: strlen($binary);
+        $storePath = $relativePath;
+        $storeW = $width;
+        $storeH = $height;
+
+        if ($variants !== []) {
+            usort($variants, static function ($a, $b) {
+                return ((int) ($b['width'] ?? 0)) <=> ((int) ($a['width'] ?? 0));
+            });
+            $primary = $variants[0];
+            $storePath = $primary['path'];
+            $storeFilename = basename($primary['path']);
+            $storeMime = 'image/webp';
+            $storeExt = 'webp';
+            $storeSize = (int) ($primary['size'] ?? 0);
+            $storeW = (int) ($primary['width'] ?? $width);
+            $storeH = (int) ($primary['height'] ?? $height);
+            if (is_file($dest) && $storePath !== $relativePath) {
+                @unlink($dest);
+            }
+        }
+
+        $originalName = (string) ($meta['original_name'] ?? ('ai-generated.' . $storeExt));
+        $alt = (string) ($meta['alt_text'] ?? '');
+
+        $id = Database::insert('media', [
+            'filename'      => $storeFilename,
+            'original_name' => $originalName,
+            'mime_type'     => $storeMime,
+            'extension'     => $storeExt,
+            'size'          => $storeSize,
+            'width'         => $storeW,
+            'height'        => $storeH,
+            'alt_text'      => $alt,
+            'path'          => $storePath,
+            'variants'      => json_encode($variants),
+            'file_hash'     => $fileHash,
+            'focal_x'       => 0.5,
+            'focal_y'       => 0.5,
+            'uploaded_by'   => $userId,
+            'created_at'    => date('c'),
+        ]);
+
+        $row = $this->find($id);
+        if (!$row) {
+            throw new \RuntimeException('Media row not found after ingest');
+        }
+        return $row;
+    }
+
     public function find(int $id): ?array
     {
         $row = Database::fetch("SELECT * FROM media WHERE id = :id", ['id' => $id]);

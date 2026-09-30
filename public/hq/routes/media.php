@@ -7,6 +7,8 @@ use Mova\Core\Response;
 use Mova\Auth\Auth;
 use Mova\Security\Csrf;
 use Mova\Media\MediaService;
+use Mova\AI\AiJobService;
+use Mova\AI\ImageGenService;
 
 /** @var \Mova\Core\Router $router */
 
@@ -189,4 +191,102 @@ $router->post('/media/gallery-exclude/{id}', function (Request $req, array $para
             'success' => (bool) $ok,
             'exclude_from_gallery' => (int) ($row['exclude_from_gallery'] ?? ($exclude ? 1 : 0)),
         ]));
+});
+
+
+$router->post('/media/generate', function (Request $req) {
+    requireAuth();
+    if (!Csrf::validate()) {
+        return (new Response())
+            ->header('Content-Type', 'application/json')
+            ->status(403)
+            ->body(json_encode(['ok' => false, 'error' => 'Forbidden']));
+    }
+    $user = Auth::user();
+    $uid = $user ? (int) ($user['id'] ?? 0) : 0;
+    $prompt = trim((string) $req->post('prompt', ''));
+    $aspect = strtolower(trim((string) $req->post('aspect', 'square')));
+    $negative = trim((string) $req->post('negative_prompt', ''));
+    if ($prompt === '') {
+        return (new Response())
+            ->header('Content-Type', 'application/json')
+            ->status(400)
+            ->body(json_encode(['ok' => false, 'error' => 'Prompt is required']));
+    }
+    if (!isset(\Mova\AI\ImageGenService::ASPECTS[$aspect])) {
+        $aspect = 'square';
+    }
+    try {
+        $jobs = new \Mova\AI\AiJobService();
+        $job = $jobs->enqueue(
+            $uid,
+            $prompt,
+            null,
+            [
+                'aspect' => $aspect,
+                'negative_prompt' => $negative,
+                'size' => (new \Mova\AI\ImageGenService())->sizeForAspect($aspect),
+                'route' => '/hq/media',
+                'area' => 'content',
+            ],
+            'image',
+            $req->post('client_key') ? (string) $req->post('client_key') : null
+        );
+        return (new Response())
+            ->header('Content-Type', 'application/json')
+            ->body(json_encode(['ok' => true, 'job' => $job]));
+    } catch (\Throwable $e) {
+        return (new Response())
+            ->header('Content-Type', 'application/json')
+            ->status(400)
+            ->body(json_encode(['ok' => false, 'error' => $e->getMessage()]));
+    }
+});
+
+$router->get('/media/jobs/{id}', function (Request $req, array $params) {
+    requireAuth();
+    $uid = (int) Auth::id();
+    $id = (int) ($params['id'] ?? 0);
+    $jobs = new \Mova\AI\AiJobService();
+    $job = $jobs->getJob($id, $uid);
+    if (!$job || ($job['kind'] ?? '') !== 'image') {
+        return (new Response())
+            ->header('Content-Type', 'application/json')
+            ->status(404)
+            ->body(json_encode(['ok' => false, 'error' => 'Not found']));
+    }
+    return (new Response())
+        ->header('Content-Type', 'application/json')
+        ->body(json_encode(['ok' => true, 'job' => $job]));
+});
+
+/** Process a single image job (long-running; ignore_user_abort inside service). */
+$router->post('/media/jobs/{id}/process', function (Request $req, array $params) {
+    requireAuth();
+    if (!Csrf::validate()) {
+        return (new Response())
+            ->header('Content-Type', 'application/json')
+            ->status(403)
+            ->body(json_encode(['ok' => false, 'error' => 'Forbidden']));
+    }
+    $uid = (int) Auth::id();
+    $id = (int) ($params['id'] ?? 0);
+    $jobs = new \Mova\AI\AiJobService();
+    $existing = $jobs->getJob($id, $uid);
+    if (!$existing || ($existing['kind'] ?? '') !== 'image') {
+        return (new Response())
+            ->header('Content-Type', 'application/json')
+            ->status(404)
+            ->body(json_encode(['ok' => false, 'error' => 'Not found']));
+    }
+    // Already finished — return as-is
+    if (in_array($existing['status'] ?? '', ['done', 'failed', 'cancelled'], true)) {
+        return (new Response())
+            ->header('Content-Type', 'application/json')
+            ->body(json_encode(['ok' => true, 'job' => $existing]));
+    }
+    $job = $jobs->processJob($id, $uid);
+    return (new Response())
+        ->header('Content-Type', 'application/json')
+        ->body(json_encode(['ok' => true, 'job' => $job]));
 });

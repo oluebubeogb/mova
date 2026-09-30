@@ -150,10 +150,12 @@ class AiJobService
         );
 
         $kind = (string) $row['kind'];
+        $isImage = $kind === 'image';
         $isCoding = $kind === 'coding';
-        // Allow long runs for coding / background
-        @set_time_limit($isCoding ? 1200 : 300);
-        @ini_set('max_execution_time', (string) ($isCoding ? 1200 : 300));
+        // Allow long runs for coding / image generation / background
+        $limit = $isImage ? 1200 : ($isCoding ? 1200 : 300);
+        @set_time_limit($limit);
+        @ini_set('max_execution_time', (string) $limit);
         @ignore_user_abort(true);
 
         $pageContext = [];
@@ -164,24 +166,58 @@ class AiJobService
             }
         }
 
-        $sessionId = !empty($row['session_id']) ? (int) $row['session_id'] : null;
-        $chat = new AiChatService();
-
         // Update progress mid-flight (best effort)
         $this->touchProgress($jobId, self::progressForKind($kind, 2));
 
         try {
-            $result = $chat->chat(
-                $userId,
-                $sessionId,
-                (string) $row['prompt'],
-                $pageContext,
-                [
-                    'long_running' => true,
-                    'kind' => $kind,
-                    'skip_user_message' => false,
-                ]
-            );
+            if ($isImage) {
+                $img = new ImageGenService();
+                $aspect = (string) ($pageContext['aspect'] ?? 'square');
+                $negative = (string) ($pageContext['negative_prompt'] ?? '');
+                $gen = $img->generateAndIngest(
+                    (string) $row['prompt'],
+                    $aspect,
+                    $negative,
+                    $userId,
+                    function (string $msg) use ($jobId) {
+                        $this->touchProgress($jobId, $msg);
+                    }
+                );
+                if (empty($gen['ok'])) {
+                    throw new \RuntimeException((string) ($gen['error'] ?? 'Image generation failed'));
+                }
+                $media = $gen['media'] ?? [];
+                $result = [
+                    'reply' => 'Image generated and added to the media library.',
+                    'actions' => [[
+                        'type' => 'media_created',
+                        'media_id' => (int) ($media['id'] ?? 0),
+                        'url' => (string) ($gen['url'] ?? ''),
+                        'width' => (int) ($media['width'] ?? 0),
+                        'height' => (int) ($media['height'] ?? 0),
+                        'path' => (string) ($media['path'] ?? ''),
+                        'original_name' => (string) ($media['original_name'] ?? ''),
+                        'mime_type' => (string) ($media['mime_type'] ?? ''),
+                        'variants' => $media['variants'] ?? [],
+                    ]],
+                    'provider' => (string) ($gen['provider'] ?? 'Mova Image'),
+                    'session_id' => 0,
+                ];
+            } else {
+                $sessionId = !empty($row['session_id']) ? (int) $row['session_id'] : null;
+                $chat = new AiChatService();
+                $result = $chat->chat(
+                    $userId,
+                    $sessionId,
+                    (string) $row['prompt'],
+                    $pageContext,
+                    [
+                        'long_running' => true,
+                        'kind' => $kind,
+                        'skip_user_message' => false,
+                    ]
+                );
+            }
 
             $finished = date('c');
             Database::query(
@@ -212,6 +248,7 @@ class AiJobService
         }
 
         return $this->getJob($jobId, $userId);
+
     }
 
     public function cancelJob(int $jobId, int $userId): bool
@@ -273,6 +310,10 @@ class AiJobService
 
     public static function detectKind(string $prompt, string $fallback = 'chat'): string
     {
+        // Explicit kinds from callers must not be reclassified
+        if ($fallback === 'image') {
+            return 'image';
+        }
         $q = mb_strtolower($prompt);
         if (preg_match('/\b(html|css|javascript|js|code|snippet|stylesheet|markup|pricing table|pricelist|price list)\b/i', $q)) {
             return 'coding';
@@ -298,6 +339,14 @@ class AiJobService
                 4 => 'Formatting for copy…',
             ];
             return $steps[$step] ?? 'Working…';
+        }
+        if ($kind === 'image') {
+            $steps = [
+                1 => 'Starting image job…',
+                2 => 'Generating image…',
+                3 => 'Saving to library…',
+            ];
+            return $steps[$step] ?? 'Generating…';
         }
         $steps = [
             1 => 'Starting…',
