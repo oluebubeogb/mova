@@ -1,7 +1,9 @@
 <?php
 /** @var list<array{id:string,label:string,description:string}> $packs */
 /** @var bool $ai_available */
+/** @var list $kits */
 $packs = $packs ?? [];
+$kits = $kits ?? [];
 $ai_available = !empty($ai_available);
 $csrf = \Mova\Security\Csrf::token();
 ?>
@@ -123,12 +125,15 @@ $csrf = \Mova\Security\Csrf::token();
       </div>
     </div>
 
-    <!-- Step 3: Structure -->
+    <!-- Step 3: Look + structure -->
     <div class="sw-panel" data-panel="3" hidden>
-      <h2>Pages &amp; footer</h2>
-      <p class="sw-hint">We’ll create the pack’s pages with short placeholders, set primary nav, and add footer columns <strong>above</strong> the usual Feed · llms.txt line. Theme toggle in the header stays.</p>
+      <h2>Choose a look</h2>
+      <p class="sw-hint">Fully built HTML/CSS/JS kits use your site name, tagline, and colors. Header theme toggle and Feed · llms.txt stay.</p>
+      <input type="hidden" name="kit_id" id="sw-kit-id" value="">
+      <div class="sw-kits" id="sw-kits"></div>
+      <h3 style="margin:1.25rem 0 .5rem;font-size:1rem">Pages that will be created</h3>
       <ul class="sw-page-list" id="sw-page-list">
-        <li>Loading pack…</li>
+        <li>Select a look…</li>
       </ul>
       <div class="sw-actions">
         <button type="button" class="sw-btn" data-prev="2">Back</button>
@@ -168,6 +173,7 @@ $csrf = \Mova\Security\Csrf::token();
 <script>
 window.MOVA_SETUP_WIZARD = {
   packs: <?= json_encode($packs, JSON_UNESCAPED_UNICODE) ?>,
+  kits: <?= json_encode($kits ?? [], JSON_UNESCAPED_UNICODE) ?>,
   packDetails: {
     school: { pages: ['Home', 'About us', 'Academics', 'Admissions', 'Contact'] },
     organization: { pages: ['Home', 'About us', 'Programs', 'Team', 'Contact'] },

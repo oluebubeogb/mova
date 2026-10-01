@@ -13,6 +13,7 @@ $boot = dirname(__DIR__, 3) . '/mova-plugins/mova-setup-wizard/src/SetupWizardSe
 if (!is_file($boot)) {
     return;
 }
+require_once dirname($boot, 2) . '/src/KitRepository.php';
 require_once dirname($boot, 2) . '/src/Packs/SchoolPack.php';
 require_once dirname($boot, 2) . '/src/Packs/OrgPack.php';
 require_once $boot;
@@ -23,11 +24,24 @@ $router->get('/setup-wizard', function () {
         return (new Response())->status(403)->body('Forbidden');
     }
     \MovaSetupWizard\SetupWizardService::ensureActivated();
+    $kits = \MovaSetupWizard\KitRepository::list();
     return renderHq('setup_wizard/index', [
         'title' => 'Quick Setup Wizard',
         'packs' => \MovaSetupWizard\SetupWizardService::packList(),
+        'kits' => $kits,
+        'kits_root' => \MovaSetupWizard\KitRepository::kitsRoot(),
         'ai_available' => class_exists(\Mova\AI\AiAssistService::class),
     ]);
+});
+
+$router->get('/setup-wizard/kits', function (Request $req) {
+    requireAuth();
+    if (!Auth::hasRole('owner', 'administrator')) {
+        return (new Response())->json(['ok' => false, 'error' => 'Forbidden'], 403);
+    }
+    $pack = (string) $req->query('pack', '');
+    $kits = \MovaSetupWizard\KitRepository::list($pack !== '' ? $pack : null);
+    return (new Response())->json(['ok' => true, 'kits' => $kits, 'root' => \MovaSetupWizard\KitRepository::kitsRoot()]);
 });
 
 $router->post('/setup-wizard/palettes', function (Request $req) {
@@ -64,6 +78,7 @@ $router->post('/setup-wizard/run', function (Request $req) {
 
     $input = [
         'pack_id' => (string) $req->post('pack_id', 'generic'),
+        'kit_id' => (string) $req->post('kit_id', ''),
         'site_name' => (string) $req->post('site_name', ''),
         'tagline' => (string) $req->post('tagline', ''),
         'seed_text' => (string) $req->post('seed_text', ''),

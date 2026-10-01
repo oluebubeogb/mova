@@ -262,7 +262,30 @@ final class SetupWizardService
     public static function run(array $input): array
     {
         $packId = (string) ($input['pack_id'] ?? 'generic');
+        $kitId = trim((string) ($input['kit_id'] ?? ''));
+        $kit = null;
+        if ($kitId !== '' && class_exists(KitRepository::class)) {
+            $kit = KitRepository::load($kitId);
+        }
         $pack = self::getPack($packId);
+        // Prefer kit pages/nav/footer when a kit is selected
+        if (is_array($kit) && !empty($kit['pages_resolved'])) {
+            $pack['pages'] = [];
+            foreach ($kit['pages_resolved'] as $pr) {
+                $pack['pages'][] = [
+                    'slug' => (string) ($pr['slug'] ?? 'page'),
+                    'title' => (string) ($pr['title'] ?? 'Page'),
+                    'role' => (string) ($pr['role'] ?? 'generic'),
+                    'body' => (string) ($pr['html'] ?? ''),
+                ];
+            }
+            if (!empty($kit['nav']) && is_array($kit['nav'])) {
+                $pack['nav'] = $kit['nav'];
+            }
+            if (!empty($kit['footer_columns']) && is_array($kit['footer_columns'])) {
+                $pack['footer_columns'] = $kit['footer_columns'];
+            }
+        }
         $siteName = trim((string) ($input['site_name'] ?? 'My Site'));
         if ($siteName === '') {
             $siteName = 'My Site';
@@ -333,7 +356,14 @@ final class SetupWizardService
                 'created_by' => self::META_TAG,
                 'wizard_pack' => $packId,
                 'wizard_role' => $role,
+                'wizard_kit' => $kitId,
             ];
+            if (is_array($kit) && !empty($kit['css_combined'])) {
+                $meta['raw_css'] = $kit['css_combined'];
+            }
+            if (is_array($kit) && !empty($kit['js_combined'])) {
+                $meta['raw_js'] = $kit['js_combined'];
+            }
 
             if ($existing && (($existing['meta']['created_by'] ?? '') === self::META_TAG || ($existing['status'] ?? '') === 'draft')) {
                 $repo->update((int) $existing['id'], [

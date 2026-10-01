@@ -24,8 +24,44 @@
       s.classList.toggle('is-active', n === step);
       s.classList.toggle('is-done', n < step);
     });
-    if (step === 3) refreshPageList();
+    if (step === 3) { renderKits(); refreshPageList(); }
     if (step === 4) refreshSummary();
+  }
+
+
+  function kitsForPack(pack) {
+    var all = cfg.kits || [];
+    var map = { school: 'school', organization: 'organization', generic: 'generic' };
+    var want = map[pack] || pack;
+    return all.filter(function (k) { return (k.pack || '') === want; });
+  }
+
+  function renderKits() {
+    var wrap = document.getElementById('sw-kits');
+    if (!wrap) return;
+    var list = kitsForPack(packId());
+    wrap.innerHTML = '';
+    if (!list.length) {
+      wrap.innerHTML = '<p class="sw-hint">No kits found for this pack. Place <code>mova-kits/</code> in the Mova root.</p>';
+      var kid = document.getElementById('sw-kit-id');
+      if (kid) kid.value = '';
+      return;
+    }
+    list.forEach(function (k, idx) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'sw-kit' + (idx === 0 ? ' is-selected' : '');
+      btn.setAttribute('data-kit-id', k.id);
+      btn.innerHTML = '<strong>' + escapeHtml(k.label || k.id) + '</strong><span>' + escapeHtml(k.description || '') + '</span>';
+      btn.addEventListener('click', function () {
+        wrap.querySelectorAll('.sw-kit').forEach(function (x) { x.classList.remove('is-selected'); });
+        btn.classList.add('is-selected');
+        document.getElementById('sw-kit-id').value = k.id;
+        refreshPageList();
+      });
+      wrap.appendChild(btn);
+      if (idx === 0) document.getElementById('sw-kit-id').value = k.id;
+    });
   }
 
   function packId() {
@@ -173,6 +209,8 @@
 
     var fd = new FormData(form);
     fd.set('pack_id', packId());
+    var kidEl = document.getElementById('sw-kit-id');
+    if (kidEl && kidEl.value) fd.set('kit_id', kidEl.value);
     fd.set(cfg.csrfField || '_mova_csrf', cfg.csrf || '');
     if (!fd.get('palette_json') && selectedPalette) {
       fd.set('palette_json', JSON.stringify(selectedPalette));

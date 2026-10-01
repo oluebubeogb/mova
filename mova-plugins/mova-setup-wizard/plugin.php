@@ -10,6 +10,7 @@ declare(strict_types=1);
 
 use Mova\Plugin\PluginManager;
 
+require_once __DIR__ . '/src/KitRepository.php';
 require_once __DIR__ . '/src/SetupWizardService.php';
 require_once __DIR__ . '/src/Packs/SchoolPack.php';
 require_once __DIR__ . '/src/Packs/OrgPack.php';
