@@ -5,7 +5,36 @@ $packs = $packs ?? [];
 $ai_available = !empty($ai_available);
 $csrf = \Mova\Security\Csrf::token();
 ?>
-<link rel="stylesheet" href="/mova-plugins/mova-setup-wizard/assets/css/setup-wizard.css?v=1">
+<style id="sw-critical">
+/* Critical: only one step visible even if external CSS fails */
+.sw-wizard .sw-panel { display: none !important; }
+.sw-wizard .sw-panel.is-active { display: block !important; }
+.sw-progress {
+  display: flex; flex-wrap: wrap; gap: 0.5rem;
+  margin: 1.25rem 0 1.5rem;
+}
+.sw-step {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.45rem 0.85rem; border-radius: 999px;
+  border: 1px solid var(--hq-border, #e5e7eb);
+  background: var(--hq-surface, #fff);
+  color: var(--hq-muted, #6b7280);
+  font-size: 0.875rem; cursor: pointer;
+}
+.sw-step span {
+  display: inline-flex; width: 1.35rem; height: 1.35rem;
+  align-items: center; justify-content: center; border-radius: 50%;
+  background: var(--hq-border, #e5e7eb); font-weight: 600; font-size: 0.75rem;
+}
+.sw-step.is-active {
+  border-color: var(--hq-accent, #2563eb);
+  color: var(--hq-text, #111); font-weight: 600;
+}
+.sw-step.is-active span, .sw-step.is-done span {
+  background: var(--hq-accent, #2563eb); color: #fff;
+}
+</style>
+<link rel="stylesheet" href="/assets/css/hq-setup-wizard.css?v=110">
 
 <section class="hq-landing sw-wizard" id="setup-wizard" data-ai="<?= $ai_available ? '1' : '0' ?>">
   <header class="hq-landing-header">
@@ -66,7 +95,7 @@ $csrf = \Mova\Security\Csrf::token();
     </div>
 
     <!-- Step 2: Brand -->
-    <div class="sw-panel" data-panel="2">
+    <div class="sw-panel" data-panel="2" hidden>
       <h2>Brand colors</h2>
       <p class="sw-hint">Enter one to three main colors. We’ll suggest palettes you can apply in one click.</p>
       <div class="sw-colors">
@@ -95,7 +124,7 @@ $csrf = \Mova\Security\Csrf::token();
     </div>
 
     <!-- Step 3: Structure -->
-    <div class="sw-panel" data-panel="3">
+    <div class="sw-panel" data-panel="3" hidden>
       <h2>Pages &amp; footer</h2>
       <p class="sw-hint">We’ll create the pack’s pages with short placeholders, set primary nav, and add footer columns <strong>above</strong> the usual Feed · llms.txt line. Theme toggle in the header stays.</p>
       <ul class="sw-page-list" id="sw-page-list">
@@ -108,7 +137,7 @@ $csrf = \Mova\Security\Csrf::token();
     </div>
 
     <!-- Step 4: Create -->
-    <div class="sw-panel" data-panel="4">
+    <div class="sw-panel" data-panel="4" hidden>
       <h2>Create site</h2>
       <div class="sw-fields">
         <label class="sw-check">
@@ -122,7 +151,7 @@ $csrf = \Mova\Security\Csrf::token();
         <?php if ($ai_available): ?>
         <label class="sw-check">
           <input type="checkbox" name="use_ai" id="sw-use-ai" value="1">
-          <span>Phase 2: AI-expand About, Contact, Team & Programs (falls back to smart local copy) and seed Site AI knowledge</span>
+          <span>Phase 2: AI-expand About, Contact, Team &amp; Programs (falls back to smart local copy) and seed Site AI knowledge</span>
         </label>
         <?php endif; ?>
       </div>
@@ -136,7 +165,6 @@ $csrf = \Mova\Security\Csrf::token();
   </form>
 </section>
 
-<script src="/mova-plugins/mova-setup-wizard/assets/js/setup-wizard.js?v=1" defer></script>
 <script>
 window.MOVA_SETUP_WIZARD = {
   packs: <?= json_encode($packs, JSON_UNESCAPED_UNICODE) ?>,
@@ -148,4 +176,48 @@ window.MOVA_SETUP_WIZARD = {
   csrf: <?= json_encode($csrf) ?>,
   csrfField: '_mova_csrf'
 };
+</script>
+<script src="/assets/js/hq-setup-wizard.js?v=110" defer></script>
+<script>
+/* Immediate step isolation (runs even if deferred script is slow/missing) */
+(function () {
+  var root = document.getElementById('setup-wizard');
+  if (!root) return;
+  function show(step) {
+    root.querySelectorAll('.sw-panel').forEach(function (p) {
+      var n = parseInt(p.getAttribute('data-panel'), 10);
+      var on = n === step;
+      p.classList.toggle('is-active', on);
+      if (on) p.removeAttribute('hidden');
+      else p.setAttribute('hidden', 'hidden');
+    });
+    root.querySelectorAll('.sw-step').forEach(function (s) {
+      var n = parseInt(s.getAttribute('data-step'), 10);
+      s.classList.toggle('is-active', n === step);
+      s.classList.toggle('is-done', n < step);
+    });
+  }
+  show(1);
+  // If full wizard JS never loads, still allow Continue/Back via data-next/data-prev
+  root.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-next],[data-prev]');
+    if (!t || !root.contains(t)) return;
+    if (window.__swFullJs) return; // full script handles it
+    e.preventDefault();
+    var next = t.getAttribute('data-next');
+    var prev = t.getAttribute('data-prev');
+    if (next) {
+      if (parseInt(next, 10) === 2) {
+        var name = (document.getElementById('sw-site-name') || {}).value || '';
+        if (!String(name).trim()) {
+          var el = document.getElementById('sw-site-name');
+          if (el) el.focus();
+          return;
+        }
+      }
+      show(parseInt(next, 10));
+    }
+    if (prev) show(parseInt(prev, 10));
+  });
+})();
 </script>

@@ -2,6 +2,7 @@
  * Quick Setup Wizard — multi-step HQ UI
  */
 (function () {
+  window.__swFullJs = true;
   var root = document.getElementById('setup-wizard');
   if (!root) return;
 
@@ -13,7 +14,10 @@
   function go(step) {
     current = step;
     root.querySelectorAll('.sw-panel').forEach(function (p) {
-      p.classList.toggle('is-active', parseInt(p.getAttribute('data-panel'), 10) === step);
+      var on = parseInt(p.getAttribute('data-panel'), 10) === step;
+      p.classList.toggle('is-active', on);
+      if (on) p.removeAttribute('hidden');
+      else p.setAttribute('hidden', 'hidden');
     });
     root.querySelectorAll('.sw-step').forEach(function (s) {
       var n = parseInt(s.getAttribute('data-step'), 10);

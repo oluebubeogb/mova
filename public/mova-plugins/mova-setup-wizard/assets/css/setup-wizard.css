@@ -41,8 +41,9 @@
 }
 .sw-step.is-done { opacity: 0.85; }
 
-.sw-panel { display: none; }
-.sw-panel.is-active { display: block; }
+.sw-panel { display: none !important; }
+.sw-panel.is-active { display: block !important; }
+.sw-panel[hidden] { display: none !important; }
 .sw-panel h2 { margin: 0 0 0.5rem; font-size: 1.25rem; }
 .sw-hint { color: var(--hq-muted, #6b7280); font-size: 0.9rem; margin: 0 0 1rem; }
 
