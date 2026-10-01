@@ -1,0 +1,109 @@
+{
+  "id": "org-modern",
+  "pack": "organization",
+  "label": "Modern organization",
+  "description": "Open, card-based.",
+  "version": "1.0.0",
+  "tokens": [
+    "site_name",
+    "tagline",
+    "about",
+    "contact",
+    "year"
+  ],
+  "pages": [
+    {
+      "slug": "home",
+      "title": "Home",
+      "file": "pages/home.html",
+      "role": "front"
+    },
+    {
+      "slug": "about",
+      "title": "About us",
+      "file": "pages/about.html",
+      "role": "about"
+    },
+    {
+      "slug": "programs",
+      "title": "Programs",
+      "file": "pages/programs.html",
+      "role": "programs"
+    },
+    {
+      "slug": "team",
+      "title": "Team",
+      "file": "pages/team.html",
+      "role": "team"
+    },
+    {
+      "slug": "contact",
+      "title": "Contact",
+      "file": "pages/contact.html",
+      "role": "contact"
+    }
+  ],
+  "css": [
+    "assets/kit.css"
+  ],
+  "js": [
+    "assets/kit.js"
+  ],
+  "nav": [
+    {
+      "label": "Home",
+      "url": "/"
+    },
+    {
+      "label": "About us",
+      "url": "/about"
+    },
+    {
+      "label": "Programs",
+      "url": "/programs"
+    },
+    {
+      "label": "Team",
+      "url": "/team"
+    },
+    {
+      "label": "Contact",
+      "url": "/contact"
+    }
+  ],
+  "footer_columns": [
+    {
+      "title": "Explore",
+      "links": [
+        {
+          "label": "About us",
+          "url": "/about"
+        },
+        {
+          "label": "Programs",
+          "url": "/programs"
+        }
+      ]
+    },
+    {
+      "title": "Contact",
+      "text": "{{contact}}",
+      "links": [
+        {
+          "label": "Contact",
+          "url": "/contact"
+        }
+      ]
+    },
+    {
+      "title": "Connect",
+      "links": [
+        {
+          "label": "Home",
+          "url": "/"
+        }
+      ]
+    }
+  ],
+  "preview": "preview.svg"
+}

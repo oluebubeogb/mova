@@ -1,0 +1,31 @@
+.kit-container{width:min(100% - 2rem,800px);margin-inline:auto}
+.kit-hero{padding:4.5rem 0 3rem}
+.kit-hero h1,.kit-page-hero h1{font-size:clamp(2.1rem,5vw,3.1rem);letter-spacing:-.02em;line-height:1.1;margin:.5rem 0 1rem;font-weight:700}
+.kit-page-hero{padding:3rem 0 1.25rem}
+.kit-eyebrow{font-size:.8rem;font-weight:600;color:var(--color-accent,#7c3aed);margin:0}
+.kit-lead{font-size:1.2rem;color:var(--color-muted,#6b7280);max-width:34rem;line-height:1.55}
+.kit-section{padding:3rem 0}
+.kit-section--alt{background:color-mix(in srgb,var(--color-primary,#2563eb) 5%,transparent)}
+.kit-grid-3,.kit-grid-2{display:grid;gap:1.25rem}
+.kit-grid-3{grid-template-columns:repeat(auto-fit,minmax(12rem,1fr))}
+.kit-grid-2{grid-template-columns:repeat(auto-fit,minmax(15rem,1fr))}
+.kit-split{display:grid;gap:2rem;grid-template-columns:1.3fr 1fr}
+@media(max-width:700px){.kit-split{grid-template-columns:1fr}}
+.kit-card{padding:1.35rem;border-radius:16px;background:var(--color-surface,#fff);border:1px solid var(--color-border,#e5e7eb)}
+.kit-card h3{margin:0 0 .5rem;font-size:1.1rem}
+.kit-card p{color:var(--color-muted,#6b7280);line-height:1.55;margin:0 0 .75rem}
+.kit-card a{color:var(--color-accent,#7c3aed);font-weight:600;text-decoration:none}
+.kit-btn{display:inline-flex;padding:.75rem 1.25rem;border-radius:999px;font-weight:600;text-decoration:none}
+.kit-btn--primary{background:var(--color-primary,#2563eb);color:#fff}
+.kit-btn--ghost{border:1px solid var(--color-border,#e5e7eb);color:var(--color-text,#111)}
+.kit-cta-row{display:flex;flex-wrap:wrap;gap:.75rem}
+.kit-panel{border-radius:16px;padding:1.5rem;border:1px solid var(--color-border,#e5e7eb)}
+.kit-list{list-style:none;padding:0;margin:0}
+.kit-list li{padding:.4rem 0;border-bottom:1px solid var(--color-border,#e5e7eb)}
+.kit-list a{color:var(--color-text,#111);text-decoration:none;font-weight:500}
+.kit-prose{line-height:1.7;font-size:1.05rem}
+.kit-contact-block{line-height:1.8}
+.kit-steps{counter-reset:s;list-style:none;padding:0}
+.kit-steps li{counter-increment:s;position:relative;padding:1rem 0 1rem 3rem;border-bottom:1px solid var(--color-border,#e5e7eb)}
+.kit-steps li::before{content:counter(s);position:absolute;left:0;top:1rem;width:2rem;height:2rem;border-radius:50%;background:var(--color-primary,#2563eb);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:700}
+.kit-note{margin-top:1.75rem}

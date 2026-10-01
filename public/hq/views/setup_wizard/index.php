@@ -36,7 +36,7 @@ $csrf = \Mova\Security\Csrf::token();
   background: var(--hq-accent, #2563eb); color: #fff;
 }
 </style>
-<link rel="stylesheet" href="/assets/css/hq-setup-wizard.css?v=110">
+<link rel="stylesheet" href="/assets/css/hq-setup-wizard.css?v=112">
 
 <section class="hq-landing sw-wizard" id="setup-wizard" data-ai="<?= $ai_available ? '1' : '0' ?>">
   <header class="hq-landing-header">
@@ -183,7 +183,7 @@ window.MOVA_SETUP_WIZARD = {
   csrfField: '_mova_csrf'
 };
 </script>
-<script src="/assets/js/hq-setup-wizard.js?v=110" defer></script>
+<script src="/assets/js/hq-setup-wizard.js?v=112" defer></script>
 <script>
 /* Immediate step isolation (runs even if deferred script is slow/missing) */
 (function () {

@@ -1,0 +1,89 @@
+{
+  "schema": 1,
+  "name": "Mova Site Kits",
+  "version": "1.0.0",
+  "updated_at": "2026-10-01",
+  "kits": [
+    {
+      "id": "school-classic",
+      "pack": "school",
+      "label": "Classic campus",
+      "description": "Formal hero, clear sections.",
+      "version": "1.0.0",
+      "preview": "school-classic/preview.svg",
+      "path": "school-classic"
+    },
+    {
+      "id": "school-modern",
+      "pack": "school",
+      "label": "Modern campus",
+      "description": "Spacious layout, bold type.",
+      "version": "1.0.0",
+      "preview": "school-modern/preview.svg",
+      "path": "school-modern"
+    },
+    {
+      "id": "school-compact",
+      "pack": "school",
+      "label": "Compact campus",
+      "description": "Dense, practical, mobile-first.",
+      "version": "1.0.0",
+      "preview": "school-compact/preview.svg",
+      "path": "school-compact"
+    },
+    {
+      "id": "org-classic",
+      "pack": "organization",
+      "label": "Classic organization",
+      "description": "Clear mission layout.",
+      "version": "1.0.0",
+      "preview": "org-classic/preview.svg",
+      "path": "org-classic"
+    },
+    {
+      "id": "org-modern",
+      "pack": "organization",
+      "label": "Modern organization",
+      "description": "Open, card-based.",
+      "version": "1.0.0",
+      "preview": "org-modern/preview.svg",
+      "path": "org-modern"
+    },
+    {
+      "id": "org-compact",
+      "pack": "organization",
+      "label": "Compact organization",
+      "description": "Efficient for smaller teams.",
+      "version": "1.0.0",
+      "preview": "org-compact/preview.svg",
+      "path": "org-compact"
+    },
+    {
+      "id": "basic-classic",
+      "pack": "generic",
+      "label": "Classic simple",
+      "description": "Clean three-page site.",
+      "version": "1.0.0",
+      "preview": "basic-classic/preview.svg",
+      "path": "basic-classic"
+    },
+    {
+      "id": "basic-modern",
+      "pack": "generic",
+      "label": "Modern simple",
+      "description": "Spacious minimal site.",
+      "version": "1.0.0",
+      "preview": "basic-modern/preview.svg",
+      "path": "basic-modern"
+    },
+    {
+      "id": "basic-compact",
+      "pack": "generic",
+      "label": "Compact simple",
+      "description": "Tight and practical.",
+      "version": "1.0.0",
+      "preview": "basic-compact/preview.svg",
+      "path": "basic-compact"
+    }
+  ]
+}

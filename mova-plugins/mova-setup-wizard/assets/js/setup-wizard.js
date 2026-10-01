@@ -29,20 +29,28 @@
   }
 
 
-  function kitsForPack(pack) {
-    var all = cfg.kits || [];
-    var map = { school: 'school', organization: 'organization', generic: 'generic' };
-    var want = map[pack] || pack;
-    return all.filter(function (k) { return (k.pack || '') === want; });
+
+  function kitsForPack(pack, allKits) {
+    var all = allKits || cfg.kits || [];
+    var want = pack || 'school';
+    if (want === 'org') want = 'organization';
+    if (want === 'basic' || want === 'simple') want = 'generic';
+    var filtered = all.filter(function (k) {
+      var p = (k.pack || '').toLowerCase();
+      if (p === 'org' || p === 'organisation') p = 'organization';
+      if (p === 'basic' || p === 'simple') p = 'generic';
+      return p === want;
+    });
+    // If filter yields nothing but we have kits, show all (better than empty UI)
+    return filtered.length ? filtered : all;
   }
 
-  function renderKits() {
+  function paintKitButtons(list) {
     var wrap = document.getElementById('sw-kits');
     if (!wrap) return;
-    var list = kitsForPack(packId());
     wrap.innerHTML = '';
-    if (!list.length) {
-      wrap.innerHTML = '<p class="sw-hint">No kits found for this pack. Place <code>mova-kits/</code> in the Mova root.</p>';
+    if (!list || !list.length) {
+      wrap.innerHTML = '<p class="sw-hint">No site looks found. Ensure <code>mova-kits/</code> exists in the Mova root, or that the wizard plugin includes a <code>kits/</code> folder. Then hard-refresh this page.</p>';
       var kid = document.getElementById('sw-kit-id');
       if (kid) kid.value = '';
       return;
@@ -60,8 +68,44 @@
         refreshPageList();
       });
       wrap.appendChild(btn);
-      if (idx === 0) document.getElementById('sw-kit-id').value = k.id;
+      if (idx === 0) {
+        var el = document.getElementById('sw-kit-id');
+        if (el) el.value = k.id;
+      }
     });
+  }
+
+  function renderKits() {
+    var wrap = document.getElementById('sw-kits');
+    if (!wrap) return;
+    var pack = packId();
+    var local = kitsForPack(pack, cfg.kits || []);
+    if (local.length) {
+      paintKitButtons(local);
+      return;
+    }
+    // Fetch from API (covers empty embedded list)
+    wrap.innerHTML = '<p class="sw-hint">Loading looks…</p>';
+    fetch('/hq/setup-wizard/kits?pack=' + encodeURIComponent(pack), { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok && data.kits && data.kits.length) {
+          cfg.kits = data.kits.concat(cfg.kits || []);
+          paintKitButtons(kitsForPack(pack, data.kits));
+        } else {
+          // try all packs
+          return fetch('/hq/setup-wizard/kits', { credentials: 'same-origin' })
+            .then(function (r2) { return r2.json(); })
+            .then(function (data2) {
+              var kits = (data2 && data2.kits) ? data2.kits : [];
+              cfg.kits = kits;
+              paintKitButtons(kitsForPack(pack, kits));
+            });
+        }
+      })
+      .catch(function () {
+        paintKitButtons([]);
+      });
   }
 
   function packId() {

@@ -1,6 +1,6 @@
 <?php
 /**
- * Resolve site kits from mova-kits/ (external catalog) or plugin bundled fallback.
+ * Resolve site kits from mova-kits/ or plugin-bundled kits/.
  */
 
 declare(strict_types=1);
@@ -11,33 +11,75 @@ final class KitRepository
 {
     public static function kitsRoot(): string
     {
-        // Standard: sibling of mova-plugins
-        $candidates = [];
-        $pluginRoot = dirname(__DIR__); // mova-setup-wizard
-        $pluginsDir = dirname($pluginRoot); // mova-plugins
+        foreach (self::candidateRoots() as $dir) {
+            if (self::isKitsDir($dir)) {
+                return $dir;
+            }
+        }
+        return dirname(__DIR__) . '/kits';
+    }
+
+    /** @return list<string> */
+    public static function candidateRoots(): array
+    {
+        $pluginRoot = dirname(__DIR__);
+        $pluginsDir = dirname($pluginRoot);
         $movaRoot = dirname($pluginsDir);
-        $candidates[] = $movaRoot . '/mova-kits';
+
+        $candidates = [
+            $movaRoot . '/mova-kits',
+            $pluginRoot . '/kits',
+            $movaRoot . '/public/mova-kits',
+            $pluginsDir . '/../mova-kits',
+        ];
+
+        if (!empty($_SERVER['DOCUMENT_ROOT'])) {
+            $doc = rtrim((string) $_SERVER['DOCUMENT_ROOT'], '/\\');
+            $candidates[] = $doc . '/mova-kits';
+            $candidates[] = dirname($doc) . '/mova-kits';
+            $candidates[] = dirname($doc) . '/mova-plugins/mova-setup-wizard/kits';
+        }
+
         if (class_exists(\Mova\Core\Bootstrap::class)) {
             try {
-                $p = \Mova\Core\Bootstrap::path('kits');
-                if (is_string($p) && $p !== '') {
-                    array_unshift($candidates, $p);
+                $app = '';
+                if (method_exists(\Mova\Core\Bootstrap::class, 'path')) {
+                    $app = (string) \Mova\Core\Bootstrap::path('app');
+                }
+                if ($app !== '') {
+                    $base = dirname($app);
+                    $candidates[] = $base . '/mova-kits';
+                    $candidates[] = $base . '/mova-plugins/mova-setup-wizard/kits';
+                }
+                $k = \Mova\Core\Bootstrap::path('kits');
+                if (is_string($k) && $k !== '') {
+                    array_unshift($candidates, $k);
                 }
             } catch (\Throwable $e) {
             }
         }
-        // Bundled fallback inside plugin
-        $candidates[] = $pluginRoot . '/kits';
-        foreach ($candidates as $dir) {
-            if (is_dir($dir) && (is_file($dir . '/manifest.json') || self::hasAnyKitJson($dir))) {
-                return $dir;
+
+        $out = [];
+        $seen = [];
+        foreach ($candidates as $c) {
+            $c = str_replace('\\', '/', $c);
+            if ($c === '' || isset($seen[$c])) {
+                continue;
             }
+            $seen[$c] = true;
+            $out[] = $c;
         }
-        return $movaRoot . '/mova-kits';
+        return $out;
     }
 
-    private static function hasAnyKitJson(string $dir): bool
+    private static function isKitsDir(string $dir): bool
     {
+        if (!is_dir($dir)) {
+            return false;
+        }
+        if (is_file($dir . '/manifest.json')) {
+            return true;
+        }
         foreach (scandir($dir) ?: [] as $name) {
             if ($name === '.' || $name === '..') {
                 continue;
@@ -53,8 +95,8 @@ final class KitRepository
     public static function list(?string $pack = null): array
     {
         $root = self::kitsRoot();
-        $manifestFile = $root . '/manifest.json';
         $items = [];
+        $manifestFile = $root . '/manifest.json';
         if (is_file($manifestFile)) {
             $data = json_decode((string) file_get_contents($manifestFile), true);
             if (is_array($data) && !empty($data['kits']) && is_array($data['kits'])) {
@@ -63,7 +105,7 @@ final class KitRepository
         }
         if ($items === []) {
             foreach (scandir($root) ?: [] as $name) {
-                if ($name === '.' || $name === '..') {
+                if ($name === '.' || $name === '..' || $name === 'README.md') {
                     continue;
                 }
                 $kitFile = $root . '/' . $name . '/kit.json';
@@ -75,28 +117,38 @@ final class KitRepository
                     continue;
                 }
                 $items[] = [
-                    'id' => $kit['id'] ?? $name,
-                    'pack' => $kit['pack'] ?? 'generic',
-                    'label' => $kit['label'] ?? $name,
-                    'description' => $kit['description'] ?? '',
-                    'version' => $kit['version'] ?? '1.0.0',
-                    'preview' => ($kit['preview'] ?? null) ? ($name . '/' . $kit['preview']) : null,
+                    'id' => (string) ($kit['id'] ?? $name),
+                    'pack' => (string) ($kit['pack'] ?? 'generic'),
+                    'label' => (string) ($kit['label'] ?? $name),
+                    'description' => (string) ($kit['description'] ?? ''),
+                    'version' => (string) ($kit['version'] ?? '1.0.0'),
+                    'preview' => isset($kit['preview']) ? ($name . '/' . $kit['preview']) : null,
                     'path' => $name,
                 ];
             }
         }
+
         if ($pack !== null && $pack !== '') {
-            // Map wizard pack ids to kit pack field
-            $map = ['school' => 'school', 'organization' => 'organization', 'generic' => 'generic'];
-            $want = $map[$pack] ?? $pack;
+            $want = self::normalizePack($pack);
             $items = array_values(array_filter($items, static function ($i) use ($want) {
-                return ($i['pack'] ?? '') === $want;
+                return self::normalizePack((string) ($i['pack'] ?? '')) === $want;
             }));
         }
         return $items;
     }
 
-    /** @return array<string,mixed>|null Full kit.json + resolved files */
+    public static function normalizePack(string $pack): string
+    {
+        $pack = strtolower(trim($pack));
+        return match ($pack) {
+            'org', 'organisation', 'organization' => 'organization',
+            'school', 'schools' => 'school',
+            'basic', 'simple', 'generic', 'other' => 'generic',
+            default => $pack,
+        };
+    }
+
+    /** @return array<string,mixed>|null */
     public static function load(string $id): ?array
     {
         $root = self::kitsRoot();
