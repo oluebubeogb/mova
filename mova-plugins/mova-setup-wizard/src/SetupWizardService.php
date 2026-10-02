@@ -358,6 +358,13 @@ final class SetupWizardService
                 'wizard_role' => $role,
                 'wizard_kit' => $kitId,
             ];
+            // Kit CSS/JS only render on the public site when editor_mode=dev
+            // (mova-dev-editor FrontendInjector). Keep site chrome (header/footer).
+            if (is_array($kit) && (!empty($kit['css_combined']) || !empty($kit['js_combined']))) {
+                $meta['editor_mode'] = 'dev';
+                $meta['use_site_chrome'] = '1';
+                $meta['hide_article_chrome'] = '1';
+            }
             if (is_array($kit) && !empty($kit['css_combined'])) {
                 $meta['raw_css'] = $kit['css_combined'];
             }
@@ -457,6 +464,14 @@ final class SetupWizardService
         DesignConfig::saveSetting(self::FOOTER_COLUMNS_KEY, json_encode($columns, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 
         // Phase 2: optional KnowledgeBank seed
+        // Bind / to kit Home page so frontend is not the empty theme home.php
+        foreach ($created as $c) {
+            if (($c['role'] ?? '') === 'front' && !empty($c['id'])) {
+                DesignConfig::saveSetting('homepage_content_id', (string) (int) $c['id']);
+                break;
+            }
+        }
+
         if ($useAi && ($seedText !== '' || $about !== '' || $contact !== '')) {
             $knowledgeSeeded = self::seedKnowledgeBank($siteName, $seedText, $about, $contact);
         }
