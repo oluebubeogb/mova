@@ -1,0 +1,27 @@
+.kit-container{width:min(100% - 2rem,720px);margin-inline:auto}
+.kit-hero{padding:3.5rem 0 2.75rem;background:linear-gradient(160deg,color-mix(in srgb,var(--color-primary,#2563eb) 12%,transparent),transparent)}
+.kit-hero h1,.kit-page-hero h1{font-size:clamp(1.85rem,4vw,2.6rem);line-height:1.15;margin:0.35rem 0 0.75rem;color:var(--color-text,#111)}
+.kit-page-hero{padding:2.25rem 0 1rem;border-bottom:1px solid var(--color-border,#e5e7eb)}
+.kit-eyebrow{text-transform:uppercase;letter-spacing:.06em;font-size:.75rem;font-weight:600;color:var(--color-primary,#2563eb);margin:0}
+.kit-lead{font-size:1.125rem;color:var(--color-muted,#6b7280);max-width:36rem;margin:0 0 1.25rem}
+.kit-section{padding:2.5rem 0}
+.kit-section--alt{background:var(--color-surface,#fff);border-block:1px solid var(--color-border,#e5e7eb)}
+.kit-grid-3{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr))}
+.kit-grid-2{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr))}
+.kit-split{display:grid;gap:1.5rem;grid-template-columns:1.4fr 1fr;align-items:start}
+@media(max-width:700px){.kit-split{grid-template-columns:1fr}}
+.kit-card{background:var(--color-surface,#fff);border:1px solid var(--color-border,#e5e7eb);border-radius:12px;padding:1.15rem 1.2rem;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.kit-card h3{margin:0 0 .4rem;font-size:1.05rem}
+.kit-card p{margin:0 0 .65rem;color:var(--color-muted,#6b7280);font-size:.95rem;line-height:1.5}
+.kit-card a{color:var(--color-primary,#2563eb);font-weight:600;text-decoration:none;font-size:.9rem}
+.kit-btn{display:inline-flex;align-items:center;padding:.65rem 1.1rem;border-radius:10px;font-weight:600;text-decoration:none;font-size:.95rem}
+.kit-btn--primary{background:var(--color-primary,#2563eb);color:#fff}
+.kit-btn--ghost{border:1px solid var(--color-border,#e5e7eb);color:var(--color-text,#111)}
+.kit-cta-row{display:flex;flex-wrap:wrap;gap:.6rem}
+.kit-panel{background:color-mix(in srgb,var(--color-primary,#2563eb) 8%,var(--color-surface,#fff));border-radius:12px;padding:1.15rem 1.25rem;border:1px solid var(--color-border,#e5e7eb)}
+.kit-list{margin:0;padding-left:1.1rem;line-height:1.7}
+.kit-list a{color:var(--color-primary,#2563eb)}
+.kit-prose{line-height:1.65}
+.kit-contact-block{font-size:1.05rem;line-height:1.7;white-space:pre-line}
+.kit-steps{margin:0;padding-left:1.2rem;line-height:1.75}
+.kit-note{margin-top:1.5rem}

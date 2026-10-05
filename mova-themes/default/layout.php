@@ -279,7 +279,44 @@ $headerTransparent = !empty($headerCfg['transparent']);
             <div class="site-footer-assembly"><?= $footerAsmHtml ?></div>
         <?php else: ?>
             <footer class="site-footer">
-                <div class="container">
+                <?php
+                $footerColumns = [];
+                try {
+                    if (class_exists(\Mova\Theme\DesignConfig::class)) {
+                        $rawCols = \Mova\Theme\DesignConfig::setting('footer_columns', '[]');
+                        $decodedCols = json_decode((string) $rawCols, true);
+                        if (is_array($decodedCols)) {
+                            $footerColumns = $decodedCols;
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    $footerColumns = [];
+                }
+                ?>
+                <?php if (!empty($footerColumns)): ?>
+                <div class="footer-columns">
+                    <div class="container footer-columns-grid">
+                        <?php foreach ($footerColumns as $col): ?>
+                            <div class="footer-col">
+                                <?php if (!empty($col['title'])): ?>
+                                    <h3 class="footer-col-title"><?= htmlspecialchars((string) $col['title']) ?></h3>
+                                <?php endif; ?>
+                                <?php if (!empty($col['text'])): ?>
+                                    <div class="footer-col-text"><?= $col['text'] /* may contain safe wizard nl2br html */ ?></div>
+                                <?php endif; ?>
+                                <?php if (!empty($col['links']) && is_array($col['links'])): ?>
+                                    <ul class="footer-col-links">
+                                        <?php foreach ($col['links'] as $link): ?>
+                                            <li><a href="<?= htmlspecialchars((string) ($link['url'] ?? '#')) ?>"><?= htmlspecialchars((string) ($link['label'] ?? '')) ?></a></li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                <?php endif; ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+                <div class="container site-footer-bar">
                     <span>
                         <?php if ($footerText): ?>
                             <?= htmlspecialchars($footerText) ?>

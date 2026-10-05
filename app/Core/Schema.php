@@ -629,6 +629,40 @@ class Schema
             ]);
         }
 
+
+        // Always-on core plugins (Quick Setup Wizard; Site AI if present)
+        $corePlugins = [
+            ['slug' => 'mova-setup-wizard', 'name' => 'Quick Setup Wizard', 'version' => '1.0.0'],
+            ['slug' => 'mova-site-ai', 'name' => 'Mova Site AI', 'version' => '1.1.0'],
+        ];
+        $pluginNow = date('c');
+        $pluginsRoot = \Mova\Core\Bootstrap::path('plugins') ?: (dirname(__DIR__, 2) . '/mova-plugins');
+        foreach ($corePlugins as $cp) {
+            $boot = $pluginsRoot . '/' . $cp['slug'] . '/plugin.php';
+            if (!is_file($boot)) {
+                continue;
+            }
+            $exists = Database::fetch('SELECT id FROM plugins WHERE slug = :s', ['s' => $cp['slug']]);
+            if ($exists) {
+                Database::update('plugins', [
+                    'status' => 'active',
+                    'name' => $cp['name'],
+                    'version' => $cp['version'],
+                    'activated_at' => $pluginNow,
+                ], 'id = :id', ['id' => $exists['id']]);
+            } else {
+                Database::insert('plugins', [
+                    'slug' => $cp['slug'],
+                    'name' => $cp['name'],
+                    'version' => $cp['version'],
+                    'status' => 'active',
+                    'config' => '{}',
+                    'installed_at' => $pluginNow,
+                    'activated_at' => $pluginNow,
+                ]);
+            }
+        }
+
         $db->exec("CREATE INDEX IF NOT EXISTS idx_sites_domain ON sites(domain)");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_api_rate_window ON api_rate_limits(window_start)");
     }
