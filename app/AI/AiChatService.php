@@ -321,8 +321,23 @@ class AiChatService
             || (bool) preg_match('/\bcode\s*:\s*(html|css|js|javascript|php|sql|json)?/i', $message);
         $wantsChatDirective = (bool) preg_match('/(?:^|\n)\s*chat\s*:/i', $message);
         // Coding only when explicit — NOT "code of conduct" / "code of ethics"
+        // Also treat paste-and-edit requests as coding (add/fix/modify this code/html/css/js)
+        $hasPastedCode = (bool) preg_match('/<!DOCTYPE\s+html|<html[\s>]|<style[\s>]|<script[\s>]|function\s*\(|const\s+\w+\s*=|document\.getElementById/i', $message)
+            || (mb_strlen($message) > 400 && (bool) preg_match('/\{[\s\S]{80,}\}/', $message));
+        $isCodeEditRequest = (bool) preg_match(
+            '/\b(add|insert|put|include|attach|append|prepend)\b.{0,60}\b(button|start|stop|reset|input|element|div|span|class|id|style|script)\b/i',
+            $message
+        ) || (bool) preg_match(
+            '/\b(fix|modify|update|change|edit|improve|rewrite|refactor)\b.{0,40}\b(this\s+)?(code|html|css|js|javascript|snippet|script)\b/i',
+            $message
+        ) || (bool) preg_match(
+            '/\b(this\s+)?(code|html|css|js|javascript|snippet)\b.{0,40}\b(add|insert|fix|modify|update|change|edit)\b/i',
+            $message
+        );
         $isCoding = $kind === 'coding'
             || $wantsCodeDirective
+            || $isCodeEditRequest
+            || ($hasPastedCode && (bool) preg_match('/\b(add|insert|fix|modify|update|change|edit|button|start|make|create)\b/i', $message))
             || (bool) preg_match('/\b(html|css|javascript|snippet|pricelist|price\s*list)\b/i', $message)
             || (bool) preg_match('/\b(write|show|give|generate)\s+(me\s+)?(some\s+)?(html|css|js|javascript)\b/i', $message)
             || (bool) preg_match('/\b(source\s+code|code\s+snippet|code\s+block)\b/i', $message);
@@ -363,16 +378,17 @@ class AiChatService
         $qualityHelp = "CONTENT QUALITY (mandatory for articles/pages):\n"
             . "- MODE DIRECTIVES:\n"
             . "  • Default: CMS draft via create_content/update_content (semantic HTML). Do not wrap the whole article in ``` fences.\n"
-            . "  • code: … — source code in the CHAT as markdown fences (```html / ```css / ```js). Prefer insert_code when an editor is open. Topics like 'Code of conduct' are NOT code mode.\n"
+            . "  • CODE MODE (code: / HTML/CSS/JS / paste-and-edit): the COMPLETE source MUST appear in the chat reply inside ```html / ```css / ```js fences. Prefer insert_code when an editor is open. Topics like 'Code of conduct' are NOT code mode.\n"
             . "  • chat: … — answer only in the chat reply with clean markdown (headings, lists, tables). Do NOT create/update drafts unless the user also asks to save a draft.\n"
-            . "  • Enter code mode only for explicit 'code:' or clear HTML/CSS/JS/snippet/template/dev/studio requests — never because the topic contains the word 'code'.\n"
+            . "  • Enter code mode for explicit 'code:', clear HTML/CSS/JS/snippet/template/dev/studio requests, OR when the user pastes code and asks to add/fix/modify it.\n"
             . "- RICH DRAFTS: create_content/update_content MUST include title, type, full body HTML, excerpt, meta.seo_title, meta.meta_description.\n"
-            . "- BODY HTML: semantic tags — <article>, <section>, <h2>/<h3>, <p>, <ul>/<ol>, <table> when useful. No <html>/<head>/<body> wrappers.\n"
+            . "- BODY HTML: semantic tags — <article>, <section>, <h2>/<h3>, <p>, <ul>/<ol>, <table> when useful. No <html>/<head>/<body> wrappers (unless the user asked for a full document).\n"
             . "- DEPTH & COMPLETENESS (be hardworking — complete on the first try):\n"
             . "  • If asked for a 12-row table, return exactly 12 data rows plus header — not 3.\n"
             . "  • If asked for N examples, sections, FAQs, or items, produce all N — never a short sample with 'and so on'.\n"
             . "  • Write real paragraphs with explanation and examples.\n"
-            . "- Prefer full article in the action body; keep chat reply short unless user used chat:.\n"
+            . "  • For CODE MODE: the full source in a fence is mandatory — a description alone is a failure.\n"
+            . "- Prefer full article in the action body; keep chat reply short unless user used chat: or is in CODE MODE.\n"
             . "- CRITICAL: finished body only. FORBIDDEN placeholders like 'This draft was started by Mova AI' or 'Replace this section'.\n"
             . "- Title = topic only (strip 'insightful', 'SEO friendly', etc.). Never invent HQ URLs. Never publish. Never leave body empty.\n";
 
@@ -414,9 +430,14 @@ class AiChatService
             . "- Scope under one root class (e.g. .pricing-page). HTML + CSS both required unless user asked for one only.\n";
 
         $codingHelp = $isCoding
-            ? "CODE MODE (code: or clear HTML/CSS/JS request). Put complete source in the reply using markdown fences (```html, ```css, ```js). "
-              . "Do not omit code. Prefer a full paste-ready snippet with moderate comments. Use classes/ids and site CSS variables. "
-              . "You may include navigate or insert_code actions. "
+            ? "CODE MODE (code: / HTML/CSS/JS / paste-and-edit request). CRITICAL RULES:\n"
+              . "1. ALWAYS put the COMPLETE, runnable, paste-ready source code in the reply inside markdown fences (```html, ```css, or ```js).\n"
+              . "2. NEVER reply with only a description of the change. NEVER say 'Here is the updated…' without the full code block.\n"
+              . "3. When the user pastes existing code and asks to add/fix/modify something (e.g. 'add a start button to this code'), return the ENTIRE updated document — not a diff, not a fragment, not a summary.\n"
+              . "4. Keep the short prose summary to 1–2 sentences max; the code fence is the main deliverable.\n"
+              . "5. Do NOT invent design-token apply instructions, 'Apply background …', or color-change actions unless the user explicitly asked to change a color/theme.\n"
+              . "6. Prefer a full paste-ready snippet. Use classes/ids and site CSS variables (var(--color-*, …) with fallbacks).\n"
+              . "7. You may include navigate or insert_code actions when useful; otherwise actions can be empty.\n"
               . $designHelp
               . $cssVarHelp
             : ($wantsChatDirective
@@ -436,7 +457,9 @@ class AiChatService
 
         $system = "You are Mova AI, the assistant inside Mova CMS HQ. "
             . "Help users navigate HQ, create/update draft content, adjust design colors, and write HTML/CSS/JS when asked. "
-            . "Be concise in chat replies; put substance into draft actions. "
+            . ($isCoding
+                ? "CODE requests: the full source code in a markdown fence IS the answer — never replace it with a summary. "
+                : "Be concise in chat replies; put substance into draft actions. ")
             . "Never publish content. Never invent HQ URLs — use the map. "
             . "{$paletteHelp} {$contentHelp} {$qualityHelp} {$modesHelp} {$codingHelp} "
             . "When the user should open a screen, include navigate actions.\n\n"
@@ -446,7 +469,7 @@ class AiChatService
             . ($templateId ? " templateId={$templateId}" : '') . "\n"
             . "Top map matches for this message:\n" . ($matchLines ? implode("\n", $matchLines) : "(none)") . "\n\n"
             . "Respond with ONLY valid JSON (no markdown fences around the JSON itself):\n"
-            . '{"reply":"string — short summary; may contain markdown and ```html / ```css / ```js code fences","actions":[ '
+            . '{"reply":"string — for CODE MODE: 1-2 sentence summary + the COMPLETE source inside ```html / ```css / ```js fences (mandatory). For other modes: short summary; may contain markdown and code fences","actions":[ '
             . '{"type":"navigate","label":"Open …","path":"/hq/..."}, '
             . '{"type":"create_content","label":"Create draft","payload":{"title":"…","type":"page","body":"<article>…</article>","excerpt":"…","meta":{"seo_title":"…","meta_description":"…"}}}, '
             . '{"type":"update_content","label":"Update draft","payload":{"id":' . max($entityId, 0) . ',"mode":"append|replace","body":"…","excerpt":"…","meta":{"seo_title":"…","meta_description":"…"}}}, '
