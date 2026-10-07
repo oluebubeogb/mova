@@ -206,16 +206,21 @@ class AiJobService
             } else {
                 $sessionId = !empty($row['session_id']) ? (int) $row['session_id'] : null;
                 $chat = new AiChatService();
+                $jobMode = strtolower(trim((string) ($pageContext['mode'] ?? '')));
+                $jobOpts = [
+                    'long_running' => true,
+                    'kind' => $kind,
+                    'skip_user_message' => false,
+                ];
+                if (in_array($jobMode, ['raw', 'original', 'general'], true)) {
+                    $jobOpts['mode'] = 'raw';
+                }
                 $result = $chat->chat(
                     $userId,
                     $sessionId,
                     (string) $row['prompt'],
                     $pageContext,
-                    [
-                        'long_running' => true,
-                        'kind' => $kind,
-                        'skip_user_message' => false,
-                    ]
+                    $jobOpts
                 );
             }
 

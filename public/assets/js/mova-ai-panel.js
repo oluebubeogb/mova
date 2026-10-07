@@ -9,6 +9,7 @@
   var STORAGE_SESSION = 'mova_ai_session_id';
   var STORAGE_OFFLINE_Q = 'mova_ai_offline_queue';
   var STORAGE_BG_MODE = 'mova_ai_bg_mode';
+  var STORAGE_RAW_MODE = 'mova_ai_raw_mode';
   var lastUserMessage = '';
   var jobPollTimer = null;
   var knownJobIds = {};
@@ -116,6 +117,7 @@
     busy: false,
     view: 'chat',
     bgMode: true,
+    rawMode: false,
     activeJobs: {},
     templateId: null
   };
@@ -633,6 +635,10 @@
     body.set('layer', ctx.layer || '');
     if (ctx.entity_id) body.set('entity_id', String(ctx.entity_id));
     if (ctx.template_id) body.set('template_id', String(ctx.template_id));
+    var rawCheck = el('mova-ai-raw-mode');
+    var useRaw = state.rawMode;
+    if (rawCheck) useRaw = !!rawCheck.checked;
+    if (useRaw) body.set('mode', 'raw');
 
     return fetch('/hq/ai/jobs', {
       method: 'POST',
@@ -1114,6 +1120,10 @@
     body.set('layer', ctx.layer);
     if (ctx.entity_id) body.set('entity_id', String(ctx.entity_id));
     if (ctx.template_id) body.set('template_id', String(ctx.template_id));
+    var rawCheck = el('mova-ai-raw-mode');
+    var useRaw = state.rawMode;
+    if (rawCheck) useRaw = !!rawCheck.checked;
+    if (useRaw) body.set('mode', 'raw');
 
     fetch('/hq/ai/chat', {
       method: 'POST',
@@ -1196,6 +1206,19 @@
       bgCheck.addEventListener('change', function () {
         state.bgMode = !!bgCheck.checked;
         try { localStorage.setItem(STORAGE_BG_MODE, state.bgMode ? '1' : '0'); } catch (e2) {}
+      });
+    }
+    var rawCheck = el('mova-ai-raw-mode');
+    if (rawCheck) {
+      try {
+        var savedRaw = localStorage.getItem(STORAGE_RAW_MODE);
+        if (savedRaw === '1') rawCheck.checked = true;
+        if (savedRaw === '0') rawCheck.checked = false;
+      } catch (e) {}
+      state.rawMode = !!rawCheck.checked;
+      rawCheck.addEventListener('change', function () {
+        state.rawMode = !!rawCheck.checked;
+        try { localStorage.setItem(STORAGE_RAW_MODE, state.rawMode ? '1' : '0'); } catch (e2) {}
       });
     }
     window.addEventListener('online', function () { flushOfflineQueue(); });

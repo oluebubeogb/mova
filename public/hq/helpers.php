@@ -248,6 +248,10 @@ HTML;
                     <input type="checkbox" id="mova-ai-bg-mode" checked>
                     <span>Background</span>
                 </label>
+                <label class="mova-ai-bg-toggle" title="Use original model capability — no Mova JSON schema or CMS actions. Plain replies only.">
+                    <input type="checkbox" id="mova-ai-raw-mode">
+                    <span>Raw AI</span>
+                </label>
                 <span class="hint">Ctrl+J · Enter</span>
                 <button type="button" class="mova-ai-send" id="mova-ai-send">Send</button>
             </div>

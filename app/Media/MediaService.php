@@ -403,7 +403,7 @@ class MediaService
         }
 
         $ext = strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION));
-        $defaultExt = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'ico', 'pdf', 'mp4', 'webm', 'mp3', 'wav'];
+        $defaultExt = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'ico', 'pdf', 'mp4', 'webm', 'mp3', 'wav', 'mpd'];
         $allowedExt = Bootstrap::config('media.allowed_extensions', $defaultExt);
         if (!is_array($allowedExt) || $allowedExt === []) {
             $allowedExt = $defaultExt;
@@ -423,6 +423,7 @@ class MediaService
             'application/pdf',
             'video/mp4', 'video/webm',
             'audio/mpeg', 'audio/wav', 'audio/mp3',
+            'application/dash+xml', 'application/mpd', 'video/mpd', 'text/xml',
         ];
         $allowedMimes = Bootstrap::config('media.allowed_mimes', $defaultMimes);
         if (!is_array($allowedMimes) || $allowedMimes === []) {
@@ -432,7 +433,10 @@ class MediaService
         if ($mime !== '' && !in_array($mime, $allowedMimes, true)) {
             // Allow common jpeg alias
             if (!($mime === 'image/jpg' && in_array('image/jpeg', $allowedMimes, true))) {
-                throw new \InvalidArgumentException('MIME type not allowed (' . $mime . ').');
+                // .mpd is often detected as application/xml or text/xml
+                if (!($ext === 'mpd' && (str_contains($mime, 'xml') || str_contains($mime, 'dash') || str_contains($mime, 'mpd')))) {
+                    throw new \InvalidArgumentException('MIME type not allowed (' . $mime . ').');
+                }
             }
         }
     }

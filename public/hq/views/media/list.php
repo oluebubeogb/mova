@@ -7,7 +7,7 @@
             <?= Csrf::field() ?>
             <label class="btn-primary" style="cursor:pointer;margin:0;">
                 Upload
-                <input type="file" name="file" id="file-input" accept="image/*" multiple hidden>
+                <input type="file" name="file" id="file-input" accept="image/*,audio/mpeg,audio/mp3,audio/wav,.mp3,.wav,video/mp4,video/webm,.mp4,.webm,.mpd,application/dash+xml,application/pdf,.pdf" multiple hidden>
             </label>
         </form>
         <button type="button" class="btn-ghost" id="btn-generate-image" title="Generate image with AI">
@@ -53,7 +53,7 @@
 </div>
 
 <?php if (empty($items)): ?>
-    <p class="empty">No media yet. Upload an image to get started.</p>
+    <p class="empty">No media yet. Upload an image, audio (MP3), video, or MPD to get started.</p>
 <?php else: ?>
     <div class="media-grid">
         <?php foreach ($items as $item):

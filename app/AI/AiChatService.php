@@ -118,6 +118,26 @@ class AiChatService
         }
 
         $history = $this->listMessages($sessionId, $userId, 24);
+
+        // Raw / original mode: undoctored model output (no Mova JSON schema, no CMS actions).
+        $mode = strtolower(trim((string) ($options['mode'] ?? $pageContext['mode'] ?? '')));
+        if ($mode === 'raw' || $mode === 'original' || $mode === 'general') {
+            $llm = $this->callLlmRaw($message, $history, $options);
+            $reply = $llm['reply'] ?? '';
+            $actions = [];
+            $provider = $llm['provider'] ?? 'heuristic';
+            $meta = json_encode(['actions' => [], 'provider' => $provider, 'mode' => 'raw'], JSON_UNESCAPED_UNICODE);
+            $this->addMessage($sessionId, 'assistant', $reply, $meta);
+            return [
+                'ok' => true,
+                'session_id' => $sessionId,
+                'reply' => $reply,
+                'actions' => [],
+                'provider' => $provider,
+                'mode' => 'raw',
+            ];
+        }
+
         $llm = $this->callLlm($message, $history, $pageContext, $matches, $options);
 
         $reply = $llm['reply'] ?? '';
@@ -303,6 +323,69 @@ class AiChatService
             'meta' => $meta,
             'created_at' => date('c'),
         ]);
+    }
+
+    /**
+     * Original / undoctored model call — no Mova JSON schema, no CMS action forcing.
+     * Returns plain assistant text (markdown/code allowed) so the model behaves like a normal LLM.
+     *
+     * @param list<array<string,mixed>> $history
+     * @return array{reply:string,actions:list<array>,provider:string,error?:string}
+     */
+    private function callLlmRaw(string $message, array $history, array $options = []): array
+    {
+        $system = "You are a helpful, capable assistant. Answer the user's request fully and directly.\n"
+            . "Do NOT wrap your entire response in a JSON object. Do NOT invent CMS actions, navigate paths, or Mova-specific schemas.\n"
+            . "When the user asks for code (HTML, CSS, JS, etc.), provide complete, runnable source in markdown fenced code blocks.\n"
+            . "Be clear, accurate, and production-quality. Prefer complete solutions over stubs.";
+
+        $messages = [['role' => 'system', 'content' => $system]];
+        foreach (array_slice($history, -16) as $row) {
+            $role = ($row['role'] ?? '') === 'assistant' ? 'assistant' : 'user';
+            $messages[] = ['role' => $role, 'content' => (string) ($row['content'] ?? '')];
+        }
+        if (!$history || (string) (end($history)['content'] ?? '') !== $message) {
+            $messages[] = ['role' => 'user', 'content' => $message];
+        }
+
+        if (!$this->assist->isConfigured()) {
+            return [
+                'reply' => 'AI provider is not configured. Enable a model in Settings to use Raw AI mode.',
+                'actions' => [],
+                'provider' => 'none',
+            ];
+        }
+
+        try {
+            $maxTokens = 5000;
+            $timeout = 180;
+            $raw = $this->assist->chatRaw($messages, $maxTokens, $timeout);
+            $reply = trim((string) $raw);
+            // Defensive: if the model still emitted a JSON envelope, extract the reply field
+            if ($reply !== '' && ($reply[0] === '{' || str_starts_with($reply, '```json'))) {
+                $parsed = $this->parseJsonReply($reply);
+                if ($parsed !== null && isset($parsed['reply']) && is_string($parsed['reply']) && $parsed['reply'] !== '') {
+                    $reply = self::stripLeakedJson($parsed['reply']);
+                } else {
+                    $reply = self::stripLeakedJson($reply);
+                }
+            }
+            if ($reply === '') {
+                $reply = 'The model returned an empty response. Try again or shorten the request.';
+            }
+            return [
+                'reply' => $reply,
+                'actions' => [],
+                'provider' => $this->assist->providerLabel(),
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'reply' => 'Model error in Raw AI mode: ' . $e->getMessage(),
+                'actions' => [],
+                'provider' => 'error',
+                'error' => $e->getMessage(),
+            ];
+        }
     }
 
     /**

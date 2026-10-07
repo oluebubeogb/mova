@@ -88,9 +88,19 @@ return [
             'image/webp',
             'image/gif',
             'image/svg+xml',
+            'application/pdf',
+            'video/mp4',
+            'video/webm',
+            'audio/mpeg',
+            'audio/mp3',
+            'audio/wav',
+            'application/dash+xml',
+            'application/mpd',
+            'video/mpd',
+            'text/xml', // some servers report .mpd as text/xml
         ],
-        'allowed_extensions' => ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'],
-        'max_upload_size'    => 10 * 1024 * 1024, // 10 MB
+        'allowed_extensions' => ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'pdf', 'mp4', 'webm', 'mp3', 'wav', 'mpd'],
+        'max_upload_size'    => 10 * 1024 * 1024, // 10 MB (unchanged)
         'variants'           => [480, 768, 1200],
         'quality'            => 85,
         'convert_to_webp'    => true,
