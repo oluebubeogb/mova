@@ -189,23 +189,45 @@ $router->get('/gallery/{slug}', function (Request $req, array $params) use ($seo
     $svc = new \Mova\Gallery\GalleryService();
     $slug = $params['slug'] ?? '';
     $gallery = $svc->findBySlug($slug, true);
-    if (!$gallery) {
-        return renderTheme('404', ['seo' => $seo], 404);
+    if ($gallery) {
+        $items = $svc->items((int) $gallery['id']);
+        $sidebar = $svc->all(true, 50, 0);
+        return renderTheme('gallery', [
+            'seo' => $seo,
+            'title' => $gallery['title'],
+            'mode' => 'gallery',
+            'query' => '',
+            'sidebar' => $sidebar,
+            'recent' => [],
+            'stream' => ['items' => [], 'has_more' => false, 'next_before' => null],
+            'gallery' => $gallery,
+            'items' => $items,
+            'searchResults' => null,
+            'groupSlug' => null,
+        ]);
     }
-    $items = $svc->items((int) $gallery['id']);
-    $sidebar = $svc->all(true, 50, 0);
-    return renderTheme('gallery', [
-        'seo' => $seo,
-        'title' => $gallery['title'],
-        'mode' => 'gallery',
-        'query' => '',
-        'sidebar' => $sidebar,
-        'recent' => [],
-        'stream' => ['items' => [], 'has_more' => false, 'next_before' => null],
-        'gallery' => $gallery,
-        'items' => $items,
-        'searchResults' => null,
-    ]);
+
+    // Treat as gallery group: list member galleries under /gallery/{group_slug}
+    $groupMembers = $svc->byGroup($slug, true, 100, 0);
+    if ($groupMembers) {
+        $sidebar = $groupMembers;
+        $title = ucwords(str_replace('-', ' ', $slug));
+        return renderTheme('gallery', [
+            'seo' => $seo,
+            'title' => $title,
+            'mode' => 'group',
+            'query' => '',
+            'sidebar' => $sidebar,
+            'recent' => array_slice($groupMembers, 0, 4),
+            'stream' => ['items' => [], 'has_more' => false, 'next_before' => null],
+            'gallery' => null,
+            'items' => [],
+            'searchResults' => null,
+            'groupSlug' => $slug,
+        ]);
+    }
+
+    return renderTheme('404', ['seo' => $seo], 404);
 });
 
 

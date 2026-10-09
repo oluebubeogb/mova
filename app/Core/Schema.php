@@ -889,6 +889,18 @@ class Schema
         $db->exec("CREATE INDEX IF NOT EXISTS idx_gallery_items_gallery ON gallery_items(gallery_id, sort_order)");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_galleries_status ON galleries(status)");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_galleries_updated ON galleries(updated_at)");
+
+        // Gallery groups: optional group_slug to manually cluster galleries under /gallery/{group}
+        try {
+            $cols = $db->query("PRAGMA table_info(galleries)")->fetchAll(\PDO::FETCH_ASSOC);
+            $names = array_column($cols, 'name');
+            if (!in_array('group_slug', $names, true)) {
+                $db->exec("ALTER TABLE galleries ADD COLUMN group_slug TEXT");
+            }
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_galleries_group_slug ON galleries(group_slug)");
+        } catch (\Throwable $e) {
+            // ignore
+        }
     }
 
 

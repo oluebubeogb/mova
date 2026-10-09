@@ -8,6 +8,7 @@ $error = $error ?? null;
 
 $titleVal = $form['title'] ?? ($gallery['title'] ?? '');
 $slugVal = $form['slug'] ?? ($gallery['slug'] ?? '');
+$groupSlugVal = $form['group_slug'] ?? ($gallery['group_slug'] ?? '');
 $descVal = $form['description'] ?? ($gallery['description'] ?? '');
 $statusVal = $form['status'] ?? ($gallery['status'] ?? 'published');
 $coverVal = $form['cover_media_id'] ?? ($gallery['cover_media_id'] ?? '');
@@ -47,6 +48,12 @@ $selectedMap = array_flip($selectedIds);
         <input type="text" id="g-slug" name="slug" value="<?= htmlspecialchars((string)$slugVal) ?>" placeholder="auto from title"
                data-auto-slug="<?= $gallery ? '0' : '1' ?>">
         <p class="field-hint">Public URL: /gallery/<em>slug</em>. Auto-filled from the title (cannot be “gallery”). Edit anytime to override.</p>
+    </div>
+
+    <div class="form-group">
+        <label for="g-group">Gallery group (optional)</label>
+        <input type="text" id="g-group" name="group_slug" value="<?= htmlspecialchars((string)$groupSlugVal) ?>" placeholder="e.g. security">
+        <p class="field-hint">Manual group slug. Visiting <code>/gallery/security</code> lists all galleries whose group is <code>security</code>. Leave empty for ungrouped. Does not change this gallery’s own URL.</p>
     </div>
 
     <div class="form-group">

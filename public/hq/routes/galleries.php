@@ -67,6 +67,7 @@ $router->post('/galleries/save', function (Request $req) {
     $data = [
         'title' => (string) $req->input('title', ''),
         'slug' => (string) $req->input('slug', ''),
+        'group_slug' => (string) $req->input('group_slug', ''),
         'description' => (string) $req->input('description', ''),
         'status' => (string) $req->input('status', 'published'),
         'cover_media_id' => $req->input('cover_media_id') !== '' ? (int) $req->input('cover_media_id') : null,

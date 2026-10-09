@@ -272,6 +272,60 @@ if (!empty($content['published_at'])) {
                         </span>
                     </label>
                 </div>
+                <?php
+                $assemblies = $assemblies ?? [];
+                $parentOptions = $parentOptions ?? [];
+                $currentParent = (int) ($content['parent_id'] ?? 0);
+                $currentId = (int) ($content['id'] ?? 0);
+                $hdrAsm = (string) ($meta['header_assembly_slug'] ?? '');
+                $ftrAsm = (string) ($meta['footer_assembly_slug'] ?? '');
+                ?>
+                <div class="form-group">
+                    <label for="parent-page">Parent page</label>
+                    <select name="parent_id" id="parent-page">
+                        <option value="">— None (top-level) —</option>
+                        <?php foreach ($parentOptions as $po):
+                            if ($currentId && (int)$po['id'] === $currentId) continue;
+                            $pslug = (string) ($po['slug'] ?? '');
+                            $ptitle = (string) ($po['title'] ?? $pslug);
+                        ?>
+                            <option value="<?= (int)$po['id'] ?>" <?= $currentParent === (int)$po['id'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($ptitle) ?><?= $pslug ? ' (/' . htmlspecialchars($pslug) . ')' : '' ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <p style="font-size:0.75rem;color:var(--hq-muted);margin:0.35rem 0 0;">Nest under a parent so the public URL becomes /parent-slug/this-slug. Children can inherit the parent’s header/footer assembly.</p>
+                </div>
+                <div class="form-group">
+                    <label for="header-assembly">Header assembly</label>
+                    <select name="header_assembly_slug" id="header-assembly">
+                        <option value="">— Site default —</option>
+                        <?php foreach ($assemblies as $asm):
+                            $aslug = (string) ($asm['slug'] ?? '');
+                            if ($aslug === '') continue;
+                        ?>
+                            <option value="<?= htmlspecialchars($aslug) ?>" <?= $hdrAsm === $aslug ? 'selected' : '' ?>>
+                                <?= htmlspecialchars((string)($asm['title'] ?? $aslug)) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <p style="font-size:0.75rem;color:var(--hq-muted);margin:0.35rem 0 0;">Override the default site header for this page. Leave default to inherit from parent or site setting.</p>
+                </div>
+                <div class="form-group">
+                    <label for="footer-assembly">Footer assembly</label>
+                    <select name="footer_assembly_slug" id="footer-assembly">
+                        <option value="">— Site default —</option>
+                        <?php foreach ($assemblies as $asm):
+                            $aslug = (string) ($asm['slug'] ?? '');
+                            if ($aslug === '') continue;
+                        ?>
+                            <option value="<?= htmlspecialchars($aslug) ?>" <?= $ftrAsm === $aslug ? 'selected' : '' ?>>
+                                <?= htmlspecialchars((string)($asm['title'] ?? $aslug)) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <p style="font-size:0.75rem;color:var(--hq-muted);margin:0.35rem 0 0;">Override the default site footer for this page. Children inherit unless they set their own.</p>
+                </div>
                 <button type="submit" class="btn-primary btn-block" id="btn-publish-save">Save</button>
                 <?php if (!$isNew && ($content['status'] ?? '') === 'published'): ?>
                     <a href="/<?= htmlspecialchars($content['slug']) ?>" target="_blank" class="btn-ghost btn-block" style="margin-top:0.5rem;text-align:center;display:block;">View →</a>

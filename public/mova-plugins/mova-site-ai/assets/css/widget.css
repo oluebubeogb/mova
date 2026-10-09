@@ -1,25 +1,29 @@
 /* Site AI — site tokens with opaque fallbacks (never transparent) */
-#mova-site-ai-root {
+:root {
   --msa-primary: var(--color-primary, #2563eb);
   --msa-accent: var(--color-brand-accent, var(--color-primary, #7c3aed));
-  --msa-surface: var(--color-surface, #ffffff);
-  --msa-bg: var(--msa-surface);
+  --msa-surface: var(--msa-panel-bg, var(--color-surface, #ffffff));
+  --msa-bg: var(--msa-messages-bg, var(--color-bg, var(--color-background, #f4f5f7)));
   --msa-text: var(--color-text, #111827);
   --msa-muted: var(--color-muted, #6b7280);
   --msa-border: var(--color-border, #e5e7eb);
+  --msa-on-primary: var(--color-on-primary, #ffffff);
   --msa-radius: var(--radius-md, 12px);
   --msa-shadow: var(--shadow-md, 0 16px 48px rgba(15, 23, 42, 0.22));
   --msa-font: var(--font-sans, system-ui, -apple-system, sans-serif);
-  --msa-on-primary: var(--color-on-primary, #ffffff);
+  /* User bubble: very light primary with opacity */
+  --msa-user-bg: color-mix(in srgb, var(--msa-primary) 14%, transparent);
+  --msa-user-text: #0f172a;
+  /* Bot bubble: surface with light opacity */
+  --msa-bot-bg: color-mix(in srgb, var(--msa-surface) 92%, transparent);
 }
 
-/* Dark mode: prefer explicit override, else theme surface token */
-html[data-theme="dark"] #mova-site-ai-root,
-html.dark #mova-site-ai-root,
-body.dark #mova-site-ai-root,
-[data-color-scheme="dark"] #mova-site-ai-root {
-  --msa-surface: var(--msa-surface-dark, var(--color-surface, #1e293b));
-  --msa-bg: var(--msa-surface);
+html[data-theme="dark"] {
+  --msa-surface: var(--msa-panel-bg, var(--color-surface, #1e293b));
+  --msa-bg: var(--msa-messages-bg, var(--color-bg, var(--color-background, #0f172a)));
+  --msa-user-bg: color-mix(in srgb, var(--msa-primary) 22%, transparent);
+  --msa-user-text: #f1f5f9;
+  --msa-bot-bg: color-mix(in srgb, var(--msa-surface) 88%, transparent);
 }
 
 .msa-fab {
@@ -33,7 +37,7 @@ body.dark #mova-site-ai-root,
   border: 2px solid var(--msa-surface);
   cursor: pointer;
   background-color: var(--msa-primary);
-  background-image: linear-gradient(135deg, var(--msa-primary), var(--msa-accent));
+  background-image: none;
   color: var(--msa-on-primary);
   box-shadow: var(--msa-shadow);
   font-size: 1.25rem;
@@ -41,18 +45,24 @@ body.dark #mova-site-ai-root,
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 .msa-fab:hover { filter: brightness(1.06); }
+.msa-fab.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.85);
+}
 
 .msa-panel {
   position: fixed;
   right: 1rem;
   bottom: 5rem;
   z-index: 100000;
-  width: min(380px, calc(100vw - 1.5rem));
+  width: min(380px, calc(100vw - 2.5rem));
   height: min(520px, 70vh);
-  /* Explicit solid fills — prevent page bleed-through */
-  background-color: var(--msa-surface);
+  max-width: calc(100vw - 2.5rem);
+  background-color: var(--msa-surface, var(--color-surface, #ffffff));
   color: var(--msa-text);
   border: 1px solid var(--msa-border);
   border-radius: calc(var(--msa-radius) + 4px);
@@ -67,15 +77,30 @@ body.dark #mova-site-ai-root,
 }
 .msa-panel.is-open { display: flex; }
 
+/* Mobile / small screens: keep side spacing, never full-bleed */
+@media (max-width: 480px) {
+  .msa-panel {
+    right: 0.75rem;
+    left: 0.75rem;
+    width: auto;
+    max-width: none;
+    bottom: 4.5rem;
+  }
+  .msa-fab {
+    right: 0.85rem;
+    bottom: 0.85rem;
+  }
+}
+
 .msa-head {
   flex: 0 0 auto;
   padding: 0.85rem 1rem;
   background-color: var(--msa-primary);
-  background-image: linear-gradient(135deg, var(--msa-primary), var(--msa-accent));
+  background-image: none;
   color: var(--msa-on-primary);
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.35rem;
 }
 .msa-head strong {
   flex: 1;
@@ -83,22 +108,40 @@ body.dark #mova-site-ai-root,
   font-weight: 700;
   color: var(--msa-on-primary);
 }
-.msa-head button {
-  background-color: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.28);
+
+/* Header icon controls: bold icons, not button-like */
+.msa-head .msa-icon-btn,
+.msa-head button[data-close] {
+  background: transparent;
+  border: none;
   color: var(--msa-on-primary);
   cursor: pointer;
-  font-size: 1.15rem;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 8px;
+  font-size: 1.05rem;
+  width: auto;
+  height: auto;
+  min-width: 1.6rem;
+  min-height: 1.6rem;
+  border-radius: 0;
   line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  padding: 0.2rem;
+  opacity: 0.95;
+  font-weight: 700;
+  box-shadow: none;
 }
-.msa-head button:hover {
-  background-color: rgba(255, 255, 255, 0.28);
+.msa-head .msa-icon-btn:hover,
+.msa-head button[data-close]:hover {
+  background: transparent;
+  opacity: 1;
+  filter: brightness(1.15);
+}
+.msa-head .msa-icon-btn i,
+.msa-head button[data-close] i {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .msa-msgs {
@@ -118,35 +161,54 @@ body.dark #mova-site-ai-root,
   line-height: 1.45;
   white-space: pre-wrap;
   word-break: break-word;
+  border: none;
 }
 .msa-bubble.user {
   margin-left: auto;
-  background-color: var(--msa-primary);
-  color: var(--msa-on-primary);
-  border: 1px solid transparent;
+  background-color: var(--msa-user-bg);
+  color: var(--msa-user-text);
+  border: none;
 }
 .msa-bubble.bot {
-  background-color: var(--msa-surface);
+  background-color: var(--msa-bot-bg);
   color: var(--msa-text);
-  border: 1px solid var(--msa-border);
+  border: none;
 }
 
+/* Links in AI response: bold text only, not button-like */
 .msa-links {
   margin-top: 0.45rem;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 0.5rem 0.75rem;
 }
 .msa-links a {
-  display: inline-block;
-  font-size: 0.8rem;
+  display: inline;
+  font-size: 0.85rem;
   color: var(--msa-primary);
   text-decoration: none;
-  font-weight: 600;
-  padding: 0.2rem 0.45rem;
-  border-radius: 6px;
-  background-color: var(--msa-bg);
-  border: 1px solid var(--msa-border);
+  font-weight: 700;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+}
+.msa-links a:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.msa-inline-link {
+  color: var(--msa-primary);
+  font-weight: 700;
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+.msa-inline-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .msa-compose {
@@ -156,6 +218,7 @@ body.dark #mova-site-ai-root,
   padding: 0.75rem;
   border-top: 1px solid var(--msa-border);
   background-color: var(--msa-surface);
+  align-items: center;
 }
 .msa-compose input {
   flex: 1;
@@ -172,14 +235,29 @@ body.dark #mova-site-ai-root,
   border-color: var(--msa-primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--msa-primary) 22%, transparent);
 }
-.msa-compose button {
+
+/* Send as icon button */
+.msa-compose button[data-send] {
   border: none;
   border-radius: 10px;
-  padding: 0.55rem 0.85rem;
+  width: 2.4rem;
+  height: 2.4rem;
+  padding: 0;
   background-color: var(--msa-primary);
   color: var(--msa-on-primary);
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.msa-compose button[data-send]:hover {
+  filter: brightness(1.08);
+}
+.msa-compose button[data-send] i {
+  font-size: 0.95rem;
+  line-height: 1;
 }
 
 .msa-greet {
@@ -188,4 +266,138 @@ body.dark #mova-site-ai-root,
   font-size: 0.9rem;
   padding: 1.25rem 0.5rem;
   line-height: 1.5;
+}
+
+/* Message tools: FA icons, not button-like */
+.msa-msg-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.45rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid color-mix(in srgb, var(--msa-border) 70%, transparent);
+}
+.msa-msg-tools button {
+  border: none;
+  background: transparent;
+  color: var(--msa-muted);
+  font-size: 0.85rem;
+  padding: 0.15rem 0.2rem;
+  border-radius: 0;
+  cursor: pointer;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.85;
+  box-shadow: none;
+}
+.msa-msg-tools button:hover {
+  color: var(--msa-text);
+  opacity: 1;
+  background: transparent;
+  border: none;
+}
+.msa-msg-tools button.is-active {
+  color: var(--msa-primary);
+  opacity: 1;
+  background: transparent;
+  border: none;
+}
+.msa-msg-tools button i {
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.msa-thinking {
+  opacity: 0.92;
+}
+.msa-thinking-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.msa-thinking-label {
+  font-size: 0.85rem;
+  color: var(--msa-muted);
+}
+.msa-thinking-label strong {
+  color: var(--msa-text);
+  font-weight: 600;
+}
+.msa-dots {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+.msa-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--msa-primary);
+  display: block;
+  animation: msa-bounce 1.2s infinite ease-in-out;
+}
+.msa-dots i:nth-child(2) { animation-delay: 0.15s; }
+.msa-dots i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes msa-bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.45; }
+  40% { transform: translateY(-3px); opacity: 1; }
+}
+
+.msa-sessions {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 0.75rem;
+  background-color: var(--msa-bg);
+}
+.msa-sessions-empty {
+  text-align: center;
+  color: var(--msa-muted);
+  font-size: 0.875rem;
+  padding: 1.5rem 0.5rem;
+}
+.msa-session-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.25rem;
+  margin-bottom: 0.35rem;
+  border-radius: 8px;
+  border: 1px solid var(--msa-border);
+  background: var(--msa-surface);
+}
+.msa-session-row.is-active {
+  border-color: var(--msa-primary);
+}
+.msa-session-item {
+  flex: 1;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 0.55rem 0.65rem;
+  cursor: pointer;
+  color: var(--msa-text);
+  font: inherit;
+}
+.msa-session-title {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.15rem;
+}
+.msa-session-item time {
+  font-size: 0.72rem;
+  color: var(--msa-muted);
+}
+.msa-session-del {
+  border: none;
+  background: transparent;
+  color: var(--msa-muted);
+  cursor: pointer;
+  padding: 0 0.55rem;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.msa-session-del:hover {
+  color: #dc2626;
 }

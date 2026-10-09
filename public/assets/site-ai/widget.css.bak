@@ -11,19 +11,11 @@
   --msa-radius: var(--radius-md, 12px);
   --msa-shadow: var(--shadow-md, 0 16px 48px rgba(15, 23, 42, 0.22));
   --msa-font: var(--font-sans, system-ui, -apple-system, sans-serif);
-  /* User bubble: very light primary with opacity */
-  --msa-user-bg: color-mix(in srgb, var(--msa-primary) 14%, transparent);
-  --msa-user-text: #0f172a;
-  /* Bot bubble: surface with light opacity */
-  --msa-bot-bg: color-mix(in srgb, var(--msa-surface) 92%, transparent);
 }
 
 html[data-theme="dark"] {
   --msa-surface: var(--msa-panel-bg, var(--color-surface, #1e293b));
   --msa-bg: var(--msa-messages-bg, var(--color-bg, var(--color-background, #0f172a)));
-  --msa-user-bg: color-mix(in srgb, var(--msa-primary) 22%, transparent);
-  --msa-user-text: #f1f5f9;
-  --msa-bot-bg: color-mix(in srgb, var(--msa-surface) 88%, transparent);
 }
 
 .msa-fab {
@@ -37,7 +29,7 @@ html[data-theme="dark"] {
   border: 2px solid var(--msa-surface);
   cursor: pointer;
   background-color: var(--msa-primary);
-  background-image: none;
+  background-image: linear-gradient(135deg, var(--msa-primary), var(--msa-accent));
   color: var(--msa-on-primary);
   box-shadow: var(--msa-shadow);
   font-size: 1.25rem;
@@ -45,23 +37,16 @@ html[data-theme="dark"] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 .msa-fab:hover { filter: brightness(1.06); }
-.msa-fab.is-hidden {
-  opacity: 0;
-  pointer-events: none;
-  transform: scale(0.85);
-}
 
 .msa-panel {
   position: fixed;
   right: 1rem;
   bottom: 5rem;
   z-index: 100000;
-  width: min(380px, calc(100vw - 2.5rem));
+  width: min(380px, calc(100vw - 1.5rem));
   height: min(520px, 70vh);
-  max-width: calc(100vw - 2.5rem);
   background-color: var(--msa-surface, var(--color-surface, #ffffff));
   color: var(--msa-text);
   border: 1px solid var(--msa-border);
@@ -77,30 +62,15 @@ html[data-theme="dark"] {
 }
 .msa-panel.is-open { display: flex; }
 
-/* Mobile / small screens: keep side spacing, never full-bleed */
-@media (max-width: 480px) {
-  .msa-panel {
-    right: 0.75rem;
-    left: 0.75rem;
-    width: auto;
-    max-width: none;
-    bottom: 4.5rem;
-  }
-  .msa-fab {
-    right: 0.85rem;
-    bottom: 0.85rem;
-  }
-}
-
 .msa-head {
   flex: 0 0 auto;
   padding: 0.85rem 1rem;
   background-color: var(--msa-primary);
-  background-image: none;
+  background-image: linear-gradient(135deg, var(--msa-primary), var(--msa-accent));
   color: var(--msa-on-primary);
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.5rem;
 }
 .msa-head strong {
   flex: 1;
@@ -108,47 +78,29 @@ html[data-theme="dark"] {
   font-weight: 700;
   color: var(--msa-on-primary);
 }
-
-/* Header icon controls: bold icons, not button-like */
-.msa-head .msa-icon-btn,
-.msa-head button[data-close] {
-  background: transparent;
-  border: none;
+.msa-head button {
+  background-color: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.28);
   color: var(--msa-on-primary);
   cursor: pointer;
-  font-size: 1.05rem;
-  width: auto;
-  height: auto;
-  min-width: 1.6rem;
-  min-height: 1.6rem;
-  border-radius: 0;
+  font-size: 1.15rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
   line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.2rem;
-  opacity: 0.95;
-  font-weight: 700;
-  box-shadow: none;
 }
-.msa-head .msa-icon-btn:hover,
-.msa-head button[data-close]:hover {
-  background: transparent;
-  opacity: 1;
-  filter: brightness(1.15);
-}
-.msa-head .msa-icon-btn i,
-.msa-head button[data-close] i {
-  font-size: 1rem;
-  font-weight: 700;
-  line-height: 1;
+.msa-head button:hover {
+  background-color: rgba(255, 255, 255, 0.28);
 }
 
 .msa-msgs {
   flex: 1 1 auto;
   overflow-y: auto;
   padding: 1rem;
-  background-color: var(--msa-bg);
+  background-color: var(--msa-bg);   /* page/bg token — contrasts with bubbles */
   color: var(--msa-text);
 }
 
@@ -161,54 +113,35 @@ html[data-theme="dark"] {
   line-height: 1.45;
   white-space: pre-wrap;
   word-break: break-word;
-  border: none;
 }
 .msa-bubble.user {
   margin-left: auto;
-  background-color: var(--msa-user-bg);
-  color: var(--msa-user-text);
-  border: none;
+  background-color: var(--msa-primary);
+  color: var(--msa-on-primary);
+  border: 1px solid transparent;
 }
 .msa-bubble.bot {
-  background-color: var(--msa-bot-bg);
+  background-color: var(--msa-surface);  /* solid surface on bg area */
   color: var(--msa-text);
-  border: none;
+  border: 1px solid var(--msa-border);
 }
 
-/* Links in AI response: bold text only, not button-like */
 .msa-links {
   margin-top: 0.45rem;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 0.75rem;
+  gap: 0.35rem;
 }
 .msa-links a {
-  display: inline;
-  font-size: 0.85rem;
+  display: inline-block;
+  font-size: 0.8rem;
   color: var(--msa-primary);
   text-decoration: none;
-  font-weight: 700;
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
-  border: none;
-}
-.msa-links a:hover {
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.msa-inline-link {
-  color: var(--msa-primary);
-  font-weight: 700;
-  text-decoration: none;
-  background: transparent;
-  border: none;
-  padding: 0;
-}
-.msa-inline-link:hover {
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  font-weight: 600;
+  padding: 0.2rem 0.45rem;
+  border-radius: 6px;
+  background-color: var(--msa-bg);
+  border: 1px solid var(--msa-border);
 }
 
 .msa-compose {
@@ -218,7 +151,6 @@ html[data-theme="dark"] {
   padding: 0.75rem;
   border-top: 1px solid var(--msa-border);
   background-color: var(--msa-surface);
-  align-items: center;
 }
 .msa-compose input {
   flex: 1;
@@ -235,29 +167,14 @@ html[data-theme="dark"] {
   border-color: var(--msa-primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--msa-primary) 22%, transparent);
 }
-
-/* Send as icon button */
-.msa-compose button[data-send] {
+.msa-compose button {
   border: none;
   border-radius: 10px;
-  width: 2.4rem;
-  height: 2.4rem;
-  padding: 0;
+  padding: 0.55rem 0.85rem;
   background-color: var(--msa-primary);
   color: var(--msa-on-primary);
   font-weight: 600;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.msa-compose button[data-send]:hover {
-  filter: brightness(1.08);
-}
-.msa-compose button[data-send] i {
-  font-size: 0.95rem;
-  line-height: 1;
 }
 
 .msa-greet {
@@ -268,45 +185,83 @@ html[data-theme="dark"] {
   line-height: 1.5;
 }
 
-/* Message tools: FA icons, not button-like */
-.msa-msg-tools {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-  margin-top: 0.45rem;
-  padding-top: 0.35rem;
-  border-top: 1px solid color-mix(in srgb, var(--msa-border) 70%, transparent);
+
+.msa-msgs {
+  background-color: var(--msa-bg, var(--color-bg, var(--color-background, #f4f5f7)));
 }
-.msa-msg-tools button {
-  border: none;
-  background: transparent;
-  color: var(--msa-muted);
-  font-size: 0.85rem;
-  padding: 0.15rem 0.2rem;
-  border-radius: 0;
+.msa-bubble.bot {
+  background-color: var(--msa-surface, var(--color-surface, #ffffff));
+}
+.msa-compose {
+  background-color: var(--msa-surface, var(--color-surface, #ffffff));
+}
+.msa-head {
+  background-color: var(--msa-primary, var(--color-primary, #2563eb));
+  background-image: linear-gradient(
+    135deg,
+    var(--msa-primary, var(--color-primary, #2563eb)),
+    var(--msa-accent, var(--color-brand-accent, #7c3aed))
+  );
+}
+.msa-compose input {
+  background-color: var(--msa-bg, var(--color-bg, #f4f5f7));
+}
+/* —— Upgrade: tools, thinking, sessions —— */
+.msa-icon-btn {
+  background-color: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: var(--msa-on-primary);
   cursor: pointer;
+  font-size: 0.95rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
   line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.85;
-  box-shadow: none;
+  padding: 0;
+}
+.msa-icon-btn:hover {
+  background-color: rgba(255, 255, 255, 0.28);
+}
+
+.msa-inline-link {
+  color: var(--msa-primary);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.msa-bubble.bot .msa-inline-link:hover {
+  filter: brightness(1.1);
+}
+
+.msa-msg-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.45rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--msa-border);
+}
+.msa-msg-tools button {
+  border: 1px solid var(--msa-border);
+  background: var(--msa-bg);
+  color: var(--msa-muted);
+  font-size: 0.72rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  cursor: pointer;
+  line-height: 1.2;
 }
 .msa-msg-tools button:hover {
   color: var(--msa-text);
-  opacity: 1;
-  background: transparent;
-  border: none;
+  border-color: var(--msa-primary);
 }
 .msa-msg-tools button.is-active {
   color: var(--msa-primary);
-  opacity: 1;
-  background: transparent;
-  border: none;
-}
-.msa-msg-tools button i {
-  font-size: 0.9rem;
-  line-height: 1;
+  border-color: var(--msa-primary);
+  background: color-mix(in srgb, var(--msa-primary) 12%, var(--msa-bg));
 }
 
 .msa-thinking {

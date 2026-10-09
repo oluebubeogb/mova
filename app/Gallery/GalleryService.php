@@ -69,6 +69,7 @@ class GalleryService
         }
         $slug = $this->uniqueSlug($this->slugify((string) ($data['slug'] ?? $title)));
         $now = date('c');
+        $groupSlug = $this->normalizeGroupSlug($data['group_slug'] ?? null);
         $id = Database::insert('galleries', [
             'title' => $title,
             'slug' => $slug,
@@ -77,6 +78,7 @@ class GalleryService
             'status' => in_array($data['status'] ?? 'published', ['published', 'draft'], true)
                 ? ($data['status'] ?? 'published')
                 : 'published',
+            'group_slug' => $groupSlug,
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -120,6 +122,10 @@ class GalleryService
                 : null;
         }
 
+        $groupSlug = array_key_exists('group_slug', $data)
+            ? $this->normalizeGroupSlug($data['group_slug'])
+            : ($row['group_slug'] ?? null);
+
         Database::update('galleries', [
             'title' => $title,
             'slug' => $slug,
@@ -128,6 +134,7 @@ class GalleryService
                 : $row['description'],
             'cover_media_id' => $cover,
             'status' => $status,
+            'group_slug' => $groupSlug,
             'updated_at' => date('c'),
         ], 'id = :id', ['id' => $id]);
 
@@ -317,6 +324,50 @@ class GalleryService
             ['id' => $galleryId]
         );
         return (int) ($row['c'] ?? 0);
+    }
+
+
+    /**
+     * Galleries belonging to a group (group_slug). Used for /gallery/{group} listing pages.
+     */
+    public function byGroup(string $groupSlug, bool $publishedOnly = true, int $limit = 100, int $offset = 0): array
+    {
+        $groupSlug = $this->normalizeGroupSlug($groupSlug) ?? '';
+        if ($groupSlug === '') {
+            return [];
+        }
+        $sql = 'SELECT * FROM galleries WHERE group_slug = :g';
+        if ($publishedOnly) {
+            $sql .= " AND status = 'published'";
+        }
+        $sql .= ' ORDER BY updated_at DESC LIMIT :limit OFFSET :offset';
+        $rows = Database::fetchAll($sql, ['g' => $groupSlug, 'limit' => $limit, 'offset' => $offset]);
+        return array_map(fn($r) => $this->hydrate($r), $rows);
+    }
+
+    public function countByGroup(string $groupSlug, bool $publishedOnly = true): int
+    {
+        $groupSlug = $this->normalizeGroupSlug($groupSlug) ?? '';
+        if ($groupSlug === '') {
+            return 0;
+        }
+        $sql = 'SELECT COUNT(*) AS c FROM galleries WHERE group_slug = :g';
+        if ($publishedOnly) {
+            $sql .= " AND status = 'published'";
+        }
+        $row = Database::fetch($sql, ['g' => $groupSlug]);
+        return (int) ($row['c'] ?? 0);
+    }
+
+    /**
+     * Normalize group slug: lowercase, dashes, empty becomes null.
+     */
+    private function normalizeGroupSlug(mixed $raw): ?string
+    {
+        $s = strtolower(trim((string) ($raw ?? '')));
+        $s = preg_replace('/[^a-z0-9\-]+/', '-', $s) ?? '';
+        $s = trim($s, '-');
+        return $s === '' ? null : $s;
     }
 
     private function hydrate(array $row): array

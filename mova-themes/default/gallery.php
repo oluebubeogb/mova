@@ -11,6 +11,7 @@ $stream = $stream ?? ['items' => [], 'has_more' => false, 'next_before' => null]
 $gallery = $gallery ?? null;
 $items = $items ?? [];
 $searchResults = $searchResults ?? null;
+$groupSlug = $groupSlug ?? null;
 
 $streamItems = $stream['items'] ?? [];
 $hasMore = !empty($stream['has_more']);
@@ -63,6 +64,11 @@ $formatDate = static function (?string $iso): string {
       <a href="/gallery" class="mova-gallery-side-link<?= $mode === 'explore' || $mode === 'search' ? ' is-active' : '' ?>">
         <i class="fa-solid fa-border-all"></i> Explore
       </a>
+      <?php if (!empty($groupSlug)): ?>
+      <a href="/gallery/<?= htmlspecialchars((string)$groupSlug) ?>" class="mova-gallery-side-link<?= $mode === 'group' ? ' is-active' : '' ?>">
+        <i class="fa-solid fa-folder"></i> <?= htmlspecialchars(ucwords(str_replace('-', ' ', (string)$groupSlug))) ?>
+      </a>
+      <?php endif; ?>
       <?php if (empty($sidebar)): ?>
         <p class="mova-gallery-side-empty">No saved galleries yet.</p>
       <?php else: ?>
