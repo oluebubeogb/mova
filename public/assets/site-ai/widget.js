@@ -157,7 +157,7 @@
   fab.type = 'button';
   fab.className = 'msa-fab';
   fab.setAttribute('aria-label', 'Open ' + name);
-  fab.innerHTML = '<i class="fa-solid fa-sparkles" aria-hidden="true"></i>';
+  fab.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M19 14l.75 2.25L22 17l-2.25.75L19 20l-.75-2.25L16 17l2.25-.75L19 14z"/><path d="M5 15l.6 1.8L7.5 17.5 5.6 18.1 5 20l-.6-1.9L2.5 17.5l1.9-.7L5 15z"/></svg>';
 
   var panel = document.createElement('div');
   panel.className = 'msa-panel';

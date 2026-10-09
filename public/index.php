@@ -191,7 +191,15 @@ $router->get('/gallery/{slug}', function (Request $req, array $params) use ($seo
     $gallery = $svc->findBySlug($slug, true);
     if ($gallery) {
         $items = $svc->items((int) $gallery['id']);
-        $sidebar = $svc->all(true, 50, 0);
+        // Stay in group context when this gallery belongs to a group
+        $gSlug = trim((string) ($gallery['group_slug'] ?? ''));
+        if ($gSlug !== '') {
+            $sidebar = $svc->byGroup($gSlug, true, 100, 0);
+            $groupSlug = $gSlug;
+        } else {
+            $sidebar = $svc->all(true, 50, 0);
+            $groupSlug = null;
+        }
         return renderTheme('gallery', [
             'seo' => $seo,
             'title' => $gallery['title'],
@@ -203,7 +211,7 @@ $router->get('/gallery/{slug}', function (Request $req, array $params) use ($seo
             'gallery' => $gallery,
             'items' => $items,
             'searchResults' => null,
-            'groupSlug' => null,
+            'groupSlug' => $groupSlug,
         ]);
     }
 

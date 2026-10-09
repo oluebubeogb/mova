@@ -61,24 +61,41 @@ $formatDate = static function (?string $iso): string {
       </button>
     </div>
     <nav class="mova-gallery-sidebar-nav">
-      <a href="/gallery" class="mova-gallery-side-link<?= $mode === 'explore' || $mode === 'search' ? ' is-active' : '' ?>">
-        <i class="fa-solid fa-border-all"></i> Explore
-      </a>
-      <?php if (!empty($groupSlug)): ?>
-      <a href="/gallery/<?= htmlspecialchars((string)$groupSlug) ?>" class="mova-gallery-side-link<?= $mode === 'group' ? ' is-active' : '' ?>">
-        <i class="fa-solid fa-folder"></i> <?= htmlspecialchars(ucwords(str_replace('-', ' ', (string)$groupSlug))) ?>
-      </a>
-      <?php endif; ?>
-      <?php if (empty($sidebar)): ?>
-        <p class="mova-gallery-side-empty">No saved galleries yet.</p>
+      <?php if (!empty($groupSlug)):
+        $groupLabel = ucwords(str_replace('-', ' ', (string) $groupSlug));
+      ?>
+        <!-- Group context: grid icon + group name (links to group root) -->
+        <a href="/gallery/<?= htmlspecialchars((string)$groupSlug) ?>"
+           class="mova-gallery-side-link mova-gallery-side-context<?= $mode === 'group' ? ' is-active' : '' ?>">
+          <i class="fa-solid fa-border-all"></i>
+          <span class="mova-gallery-side-title"><?= htmlspecialchars($groupLabel) ?></span>
+        </a>
+        <?php if (empty($sidebar)): ?>
+          <p class="mova-gallery-side-empty">No galleries in this group yet.</p>
+        <?php else: ?>
+          <?php foreach ($sidebar as $g): ?>
+            <a href="/gallery/<?= htmlspecialchars($g['slug']) ?>"
+               class="mova-gallery-side-link<?= ($gallery && (int)$gallery['id'] === (int)$g['id']) ? ' is-active' : '' ?>">
+              <span class="mova-gallery-side-title"><?= htmlspecialchars($g['title']) ?></span>
+              <span class="mova-gallery-side-meta"><?= (int)($g['item_count'] ?? 0) ?></span>
+            </a>
+          <?php endforeach; ?>
+        <?php endif; ?>
       <?php else: ?>
-        <?php foreach ($sidebar as $g): ?>
-          <a href="/gallery/<?= htmlspecialchars($g['slug']) ?>"
-             class="mova-gallery-side-link<?= ($gallery && (int)$gallery['id'] === (int)$g['id']) ? ' is-active' : '' ?>">
-            <span class="mova-gallery-side-title"><?= htmlspecialchars($g['title']) ?></span>
-            <span class="mova-gallery-side-meta"><?= (int)($g['item_count'] ?? 0) ?></span>
-          </a>
-        <?php endforeach; ?>
+        <a href="/gallery" class="mova-gallery-side-link<?= $mode === 'explore' || $mode === 'search' ? ' is-active' : '' ?>">
+          <i class="fa-solid fa-border-all"></i> Explore
+        </a>
+        <?php if (empty($sidebar)): ?>
+          <p class="mova-gallery-side-empty">No saved galleries yet.</p>
+        <?php else: ?>
+          <?php foreach ($sidebar as $g): ?>
+            <a href="/gallery/<?= htmlspecialchars($g['slug']) ?>"
+               class="mova-gallery-side-link<?= ($gallery && (int)$gallery['id'] === (int)$g['id']) ? ' is-active' : '' ?>">
+              <span class="mova-gallery-side-title"><?= htmlspecialchars($g['title']) ?></span>
+              <span class="mova-gallery-side-meta"><?= (int)($g['item_count'] ?? 0) ?></span>
+            </a>
+          <?php endforeach; ?>
+        <?php endif; ?>
       <?php endif; ?>
     </nav>
   </aside>
@@ -197,6 +214,39 @@ $formatDate = static function (?string $iso): string {
               <img src="<?= htmlspecialchars($it['thumb_url'] ?? $it['url'] ?? '') ?>"
                    alt="<?= htmlspecialchars($it['alt'] ?? '') ?>" loading="lazy">
             </button>
+          <?php endforeach; ?>
+        </div>
+      <?php endif; ?>
+
+    <?php elseif ($mode === 'group' && !empty($groupSlug)): ?>
+      <header class="mova-gallery-page-head">
+        <h1><?= htmlspecialchars(ucwords(str_replace('-', ' ', (string) $groupSlug))) ?></h1>
+        <p class="mova-gallery-lead">
+          <?= count($sidebar) ?> galler<?= count($sidebar) === 1 ? 'y' : 'ies' ?> in this group
+        </p>
+      </header>
+
+      <?php if (empty($sidebar)): ?>
+        <div class="mova-gallery-empty">
+          <i class="fa-solid fa-folder-open"></i>
+          <p>No published galleries in this group yet.</p>
+        </div>
+      <?php else: ?>
+        <div class="mova-gallery-cards">
+          <?php foreach ($sidebar as $g): ?>
+            <a class="mova-gallery-card" href="/gallery/<?= htmlspecialchars($g['slug']) ?>">
+              <div class="mova-gallery-card-thumb">
+                <?php if (!empty($g['cover_thumb'])): ?>
+                  <img src="<?= htmlspecialchars($g['cover_thumb']) ?>" alt="" loading="lazy">
+                <?php else: ?>
+                  <div class="mova-gallery-card-placeholder"><i class="fa-solid fa-images"></i></div>
+                <?php endif; ?>
+              </div>
+              <div class="mova-gallery-card-body">
+                <h3 class="mova-gallery-card-title"><?= htmlspecialchars($g['title']) ?></h3>
+                <p class="mova-gallery-card-meta"><?= (int)($g['item_count'] ?? 0) ?> image<?= (int)($g['item_count'] ?? 0) === 1 ? '' : 's' ?></p>
+              </div>
+            </a>
           <?php endforeach; ?>
         </div>
       <?php endif; ?>

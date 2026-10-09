@@ -47,6 +47,11 @@ html[data-theme="dark"] {
   justify-content: center;
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
+.msa-fab svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  display: block;
+}
 .msa-fab:hover { filter: brightness(1.06); }
 .msa-fab.is-hidden {
   opacity: 0;
