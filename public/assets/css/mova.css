@@ -270,7 +270,7 @@ body {
 
 /* ---------- Main ---------- */
 .site-main {
-    padding: 2.5rem 0 4rem;
+    padding: 0 0 4rem;
     min-height: 60vh;
 }
 
@@ -1030,7 +1030,7 @@ body.mobile-nav-bottom-sheet .nav-drawer.is-open {
     }
 
     .site-main {
-        padding: 1.75rem 0 3rem;
+        padding: 0 0 3rem;
     }
 
     .hero {
@@ -1272,7 +1272,6 @@ body.hero-fullscreen .hero {
 
 /* Density */
 .site-main {
-    padding-top: var(--space-section, 2.5rem);
     padding-bottom: calc(var(--space-section, 2.5rem) * 1.4);
 }
 
