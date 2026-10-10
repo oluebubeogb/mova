@@ -65,7 +65,7 @@ html[data-theme="dark"] {
   bottom: 1.5rem;
   z-index: 100000;
   width: min(380px, calc(100vw - 2.5rem));
-  height: min(640px, 80vh);
+  height: min(720px, 80vh);
   max-width: calc(100vw - 2.5rem);
   background-color: var(--msa-surface, var(--color-surface, #ffffff));
   color: var(--msa-text);
