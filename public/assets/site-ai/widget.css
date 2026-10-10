@@ -62,10 +62,10 @@ html[data-theme="dark"] {
 .msa-panel {
   position: fixed;
   right: 1rem;
-  bottom: 2rem;
+  bottom: 1.5rem;
   z-index: 100000;
   width: min(380px, calc(100vw - 2.5rem));
-  height: min(520px, 70vh);
+  height: min(640px, 80vh);
   max-width: calc(100vw - 2.5rem);
   background-color: var(--msa-surface, var(--color-surface, #ffffff));
   color: var(--msa-text);
