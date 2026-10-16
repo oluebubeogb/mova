@@ -342,380 +342,293 @@ class MediaService
     }
 
     /**
-     * Replace image bytes while keeping the same public path / variants URLs.
-     * Compresses and converts to WebP variants in place (safe overwrite — never deletes the new files).
+     * Collect path/URL aliases that may appear in content for this media row.
+     * Longer strings first so find-replace does not partially match.
+     *
+     * @return list<string>
      */
-    public function replaceImage(int $id, array $file): ?array
+    public function urlAliases(array $media): array
     {
-        $media = $this->find($id);
-        if (!$media) {
-            throw new \InvalidArgumentException('Media not found.');
+        $aliases = [];
+        $paths = [];
+        $main = ltrim(str_replace('\\', '/', (string) ($media['path'] ?? '')), '/');
+        if ($main !== '') {
+            $paths[] = $main;
         }
-        $this->validate($file);
-
-        $mime = mime_content_type($file['tmp_name']) ?: ($file['type'] ?? '');
-        if (strpos($mime, 'image/') !== 0) {
-            throw new \InvalidArgumentException('Replace only supports image files.');
+        $variants = $media['variants'] ?? [];
+        if (is_string($variants)) {
+            $variants = json_decode($variants, true) ?: [];
         }
-        $ext = strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION));
-        if ($ext === 'svg' || $mime === 'image/svg+xml') {
-            throw new \InvalidArgumentException('SVG replace is not supported for URL-stable replace.');
-        }
-
-        $uploadsRoot = Bootstrap::path('uploads');
-        if ($uploadsRoot === '') {
-            throw new \RuntimeException('Upload path is not configured.');
-        }
-
-        $currentPath = (string) ($media['path'] ?? '');
-        $subdir = dirname(str_replace('\\', '/', $currentPath));
-        if ($subdir === '.' || $subdir === '') {
-            $subdir = date('Y/m');
-        }
-        $uploadDir = $uploadsRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $subdir);
-        if (!is_dir($uploadDir) && !@mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
-            throw new \RuntimeException('Cannot create upload folder for replace.');
-        }
-
-        $tmpName = 'replace-src-' . bin2hex(random_bytes(6)) . '.' . ($ext ?: 'bin');
-        $tmpDest = $uploadDir . DIRECTORY_SEPARATOR . $tmpName;
-        if (!move_uploaded_file($file['tmp_name'], $tmpDest)) {
-            if (!@copy($file['tmp_name'], $tmpDest)) {
-                throw new \RuntimeException('Failed to stage replacement file.');
-            }
-            @unlink($file['tmp_name']);
-        }
-
-        try {
-            $meta = [];
-            if (!empty($file['name'])) {
-                $meta['original_name'] = (string) $file['name'];
-            }
-            return $this->commitReplaceFromSourceFile($id, $media, $tmpDest, $subdir, $uploadDir, $uploadsRoot, $meta);
-        } finally {
-            if (is_file($tmpDest)) {
-                @unlink($tmpDest);
-            }
-        }
-    }
-
-    /**
-     * Replace image from in-memory bytes (AI regenerate) while keeping public path / variants stable.
-     * Does not change original_name / alt / description unless $meta overrides them.
-     */
-    public function replaceImageFromBinary(int $id, string $binary, string $mime = 'image/png', array $meta = []): ?array
-    {
-        if ($binary === '') {
-            throw new \InvalidArgumentException('Empty image data');
-        }
-        $media = $this->find($id);
-        if (!$media) {
-            throw new \InvalidArgumentException('Media not found.');
-        }
-        $mime = strtolower(trim($mime));
-        if ($mime === '' || strpos($mime, 'image/') !== 0) {
-            $finfo = new \finfo(FILEINFO_MIME_TYPE);
-            $detected = $finfo->buffer($binary);
-            $mime = (is_string($detected) && strpos($detected, 'image/') === 0) ? $detected : 'image/png';
-        }
-        if ($mime === 'image/svg+xml') {
-            throw new \InvalidArgumentException('SVG replace is not supported for URL-stable replace.');
-        }
-
-        $extMap = [
-            'image/jpeg' => 'jpg',
-            'image/jpg' => 'jpg',
-            'image/png' => 'png',
-            'image/webp' => 'webp',
-            'image/gif' => 'gif',
-        ];
-        $ext = $extMap[$mime] ?? 'png';
-
-        $uploadsRoot = Bootstrap::path('uploads');
-        if ($uploadsRoot === '') {
-            throw new \RuntimeException('Upload path is not configured.');
-        }
-
-        $currentPath = (string) ($media['path'] ?? '');
-        $subdir = dirname(str_replace('\\', '/', $currentPath));
-        if ($subdir === '.' || $subdir === '') {
-            $subdir = date('Y/m');
-        }
-        $uploadDir = $uploadsRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $subdir);
-        if (!is_dir($uploadDir) && !@mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
-            throw new \RuntimeException('Cannot create upload folder for replace.');
-        }
-
-        $tmpName = 'replace-src-' . bin2hex(random_bytes(6)) . '.' . $ext;
-        $tmpDest = $uploadDir . DIRECTORY_SEPARATOR . $tmpName;
-        if (@file_put_contents($tmpDest, $binary) === false) {
-            throw new \RuntimeException('Failed to stage replacement bytes.');
-        }
-
-        try {
-            return $this->commitReplaceFromSourceFile($id, $media, $tmpDest, $subdir, $uploadDir, $uploadsRoot, $meta);
-        } finally {
-            if (is_file($tmpDest)) {
-                @unlink($tmpDest);
-            }
-        }
-    }
-
-    /**
-     * Core URL-stable replace — overwrite bytes at the SAME public paths.
-     * Paths in DB (path + variants[].path) stay unchanged so all site URLs keep working.
-     * Writes via temp file + rename so a failed write never leaves a half-deleted asset.
-     */
-    private function commitReplaceFromSourceFile(
-        int $id,
-        array $media,
-        string $sourceAbs,
-        string $subdir,
-        string $uploadDir,
-        string $uploadsRoot,
-        array $meta = []
-    ): array {
-        if (!is_file($sourceAbs)) {
-            throw new \RuntimeException('Replacement source missing.');
-        }
-        if (!function_exists('imagewebp')) {
-            throw new \RuntimeException('WebP conversion is required for image replace (enable GD imagewebp).');
-        }
-
-        $src = $this->loadImage($sourceAbs);
-        if (!$src) {
-            throw new \RuntimeException('Could not read replacement image (unsupported or corrupt).');
-        }
-
-        $srcW = imagesx($src);
-        $srcH = imagesy($src);
-        if ($srcW < 1 || $srcH < 1) {
-            imagedestroy($src);
-            throw new \RuntimeException('Replacement image has invalid dimensions.');
-        }
-
-        $quality = (int) Bootstrap::config('media.quality', 85);
-        $currentPath = ltrim(str_replace('\\', '/', (string) ($media['path'] ?? '')), '/');
-
-        // Collect existing public targets: keep exact relative paths
-        $oldVariants = is_array($media['variants'] ?? null) ? $media['variants'] : [];
-        if (is_string($media['variants'] ?? null)) {
-            $oldVariants = json_decode((string) $media['variants'], true) ?: [];
-        }
-
-        /** @var array<int, string> $targetsByWidth width => relative path */
-        $targetsByWidth = [];
-        foreach ($oldVariants as $v) {
-            if (!is_array($v)) {
-                continue;
-            }
-            $w = (int) ($v['width'] ?? 0);
-            $p = ltrim(str_replace('\\', '/', (string) ($v['path'] ?? '')), '/');
-            if ($w > 0 && $p !== '') {
-                $targetsByWidth[$w] = $p;
-            }
-        }
-
-        // Ensure primary path is included (match its width or treat as largest)
-        if ($currentPath !== '') {
-            $primaryMatched = false;
-            foreach ($targetsByWidth as $w => $p) {
-                if ($p === $currentPath) {
-                    $primaryMatched = true;
-                    break;
-                }
-            }
-            if (!$primaryMatched) {
-                // Use source width or max configured as key for primary-only assets
-                $targetsByWidth[$srcW] = $currentPath;
-            }
-        }
-
-        // If media had no variants yet, build the standard set using existing basename
-        if ($targetsByWidth === []) {
-            $baseName = pathinfo((string) ($media['filename'] ?? 'media'), PATHINFO_FILENAME);
-            $baseName = preg_replace('/-(320|480|768|1200|\d+)$/i', '', (string) $baseName) ?: 'media';
-            $sizes = Bootstrap::config('media.variants', [320, 480, 768, 1200]);
-            if (!is_array($sizes)) {
-                $sizes = [320, 480, 768, 1200];
-            }
-            foreach ($sizes as $targetW) {
-                $targetW = (int) $targetW;
-                if ($targetW < 1) {
+        if (is_array($variants)) {
+            foreach ($variants as $v) {
+                if (!is_array($v)) {
                     continue;
                 }
-                $outW = $srcW <= $targetW ? $srcW : $targetW;
-                $rel = $subdir . '/' . $baseName . '-' . $outW . '.webp';
-                $targetsByWidth[$outW] = $rel;
-            }
-            if ($targetsByWidth === []) {
-                $rel = $subdir . '/' . $baseName . '-' . $srcW . '.webp';
-                $targetsByWidth[$srcW] = $rel;
-            }
-            if ($currentPath === '') {
-                // pick largest as primary later
+                $p = ltrim(str_replace('\\', '/', (string) ($v['path'] ?? '')), '/');
+                if ($p !== '') {
+                    $paths[] = $p;
+                }
             }
         }
+        $paths = array_values(array_unique($paths));
+        $base = rtrim((string) Bootstrap::baseUrl(), '/');
+        foreach ($paths as $p) {
+            $aliases[] = $p;
+            $aliases[] = '/mova-uploads/' . $p;
+            $aliases[] = 'mova-uploads/' . $p;
+            if ($base !== '') {
+                $aliases[] = $base . '/mova-uploads/' . $p;
+            }
+        }
+        // Full helper URLs (may include base)
+        try {
+            $aliases[] = $this->url($media);
+            if (!empty($media['variants']) && is_array($media['variants'])) {
+                foreach ($media['variants'] as $v) {
+                    $w = (int) ($v['width'] ?? 0);
+                    if ($w > 0) {
+                        $aliases[] = $this->url($media, $w);
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+        $aliases = array_values(array_unique(array_filter(array_map('strval', $aliases))));
+        usort($aliases, static function ($a, $b) {
+            return strlen($b) <=> strlen($a);
+        });
+        return $aliases;
+    }
 
-        // Sort widths ascending for processing; we'll pick largest as primary
-        ksort($targetsByWidth, SORT_NUMERIC);
+    /**
+     * Upload a new image and retarget all site references from $oldId to the new media,
+     * then optionally delete the old media row (normal delete).
+     *
+     * @return array{old:array,new:array,retarget:array,deleted:bool}
+     */
+    public function replaceByNewUpload(int $oldId, array $file, ?int $userId = null, bool $deleteOld = true): array
+    {
+        $old = $this->find($oldId);
+        if (!$old) {
+            throw new \InvalidArgumentException('Media not found.');
+        }
+        $new = $this->upload($file, $userId);
+        if (!$new || empty($new['id'])) {
+            throw new \RuntimeException('Upload of replacement media failed.');
+        }
+        // Copy alt/description if new is empty
+        $meta = [];
+        if (trim((string) ($new['alt_text'] ?? '')) === '' && trim((string) ($old['alt_text'] ?? '')) !== '') {
+            $meta['alt_text'] = (string) $old['alt_text'];
+        }
+        if (trim((string) ($new['description'] ?? '')) === '' && trim((string) ($old['description'] ?? '')) !== '') {
+            $meta['description'] = (string) ($old['description'] ?? '');
+        }
+        if ($meta !== []) {
+            $this->updateMeta((int) $new['id'], $meta);
+            $new = $this->find((int) $new['id']) ?? $new;
+        }
 
-        $finalVariants = [];
-        $writtenAbs = [];
-        $errors = [];
+        $retarget = $this->retargetSiteToNewMedia($old, $new);
+        $deleted = false;
+        if ($deleteOld && (int) $new['id'] !== $oldId) {
+            $deleted = $this->delete($oldId);
+        }
+        return [
+            'old' => $old,
+            'new' => $this->find((int) $new['id']) ?? $new,
+            'retarget' => $retarget,
+            'deleted' => $deleted,
+        ];
+    }
 
-        foreach ($targetsByWidth as $targetW => $relPath) {
-            $relPath = ltrim(str_replace('\\', '/', $relPath), '/');
-            $outW = $srcW <= $targetW ? $srcW : (int) $targetW;
-            $outH = (int) max(1, (int) round($srcH * ($outW / $srcW)));
+    /**
+     * After AI (or any) created $newId, retarget site refs from $oldId and optionally delete old.
+     *
+     * @return array{old:array,new:array,retarget:array,deleted:bool}
+     */
+    public function replaceByExistingMedia(int $oldId, int $newId, bool $deleteOld = true): array
+    {
+        $old = $this->find($oldId);
+        $new = $this->find($newId);
+        if (!$old || !$new) {
+            throw new \InvalidArgumentException('Media not found.');
+        }
+        if ($oldId === $newId) {
+            throw new \InvalidArgumentException('Old and new media must differ.');
+        }
+        $retarget = $this->retargetSiteToNewMedia($old, $new);
+        $deleted = false;
+        if ($deleteOld) {
+            $deleted = $this->delete($oldId);
+        }
+        return [
+            'old' => $old,
+            'new' => $new,
+            'retarget' => $retarget,
+            'deleted' => $deleted,
+        ];
+    }
 
-            $abs = $uploadsRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relPath);
-            $dir = dirname($abs);
-            if (!is_dir($dir) && !@mkdir($dir, 0755, true) && !is_dir($dir)) {
-                $errors[] = 'Cannot create folder for ' . $relPath;
+    /**
+     * Rewrite content / featured images / gallery rows from old media URLs to new media URLs.
+     *
+     * @return array{pairs:int,content_occurrences:int,content_rows:int,featured:int,gallery:int,meta:int}
+     */
+    public function retargetSiteToNewMedia(array $old, array $new): array
+    {
+        $oldAliases = $this->urlAliases($old);
+        $newPrimary = $this->url($new);
+        $newRel = '/mova-uploads/' . ltrim(str_replace('\\', '/', (string) ($new['path'] ?? '')), '/');
+        $newPath = ltrim(str_replace('\\', '/', (string) ($new['path'] ?? '')), '/');
+
+        // Map each old alias to the best corresponding new form
+        $pairs = [];
+        $newAliases = $this->urlAliases($new);
+        $newBySuffix = [];
+        foreach ($newAliases as $na) {
+            $newBySuffix[$na] = $na;
+        }
+        foreach ($oldAliases as $oa) {
+            if ($oa === '' || strlen($oa) < 4) {
                 continue;
             }
-
-            // Render to a sibling temp file, then rename over the public path
-            $tmpAbs = $abs . '.movatmp-' . bin2hex(random_bytes(4));
-
-            $ok = false;
-            if ($outW === $srcW && $outH === $srcH) {
-                $ok = @imagewebp($src, $tmpAbs, $quality);
+            // Prefer same "shape" of URL
+            if (str_starts_with($oa, 'http://') || str_starts_with($oa, 'https://')) {
+                $pairs[$oa] = $newPrimary;
+            } elseif (str_starts_with($oa, '/mova-uploads/')) {
+                $pairs[$oa] = $newRel;
+            } elseif (str_starts_with($oa, 'mova-uploads/')) {
+                $pairs[$oa] = ltrim($newRel, '/');
             } else {
-                $resized = imagecreatetruecolor($outW, $outH);
-                if ($resized) {
-                    imagealphablending($resized, false);
-                    imagesavealpha($resized, true);
-                    imagecopyresampled($resized, $src, 0, 0, 0, 0, $outW, $outH, $srcW, $srcH);
-                    $ok = @imagewebp($resized, $tmpAbs, $quality);
-                    imagedestroy($resized);
-                }
+                $pairs[$oa] = $newPath !== '' ? $newPath : $newRel;
             }
-
-            if (!$ok || !is_file($tmpAbs) || filesize($tmpAbs) < 32) {
-                if (is_file($tmpAbs)) {
-                    @unlink($tmpAbs);
-                }
-                $errors[] = 'Failed to encode ' . $outW . 'px variant';
-                continue;
-            }
-
-            // Atomic-ish replace of the public file
-            $replaced = false;
-            if (is_file($abs)) {
-                // Prefer rename over existing (works on Linux)
-                if (@rename($tmpAbs, $abs)) {
-                    $replaced = true;
-                } elseif (@copy($tmpAbs, $abs)) {
-                    @unlink($tmpAbs);
-                    $replaced = true;
-                }
-            } else {
-                if (@rename($tmpAbs, $abs)) {
-                    $replaced = true;
-                } elseif (@copy($tmpAbs, $abs)) {
-                    @unlink($tmpAbs);
-                    $replaced = true;
-                }
-            }
-            if (!$replaced) {
-                if (is_file($tmpAbs)) {
-                    @unlink($tmpAbs);
-                }
-                $errors[] = 'Failed to overwrite ' . $relPath . ' (check permissions on mova-uploads)';
-                continue;
-            }
-
-            // Verify the public file is non-empty webp
-            clearstatcache(true, $abs);
-            $sz = (int) (@filesize($abs) ?: 0);
-            if ($sz < 32) {
-                $errors[] = 'Overwrite produced empty file: ' . $relPath;
-                continue;
-            }
-
-            $finalVariants[] = [
-                'width'  => $outW,
-                'height' => $outH,
-                'path'   => $relPath,
-                'size'   => $sz,
-            ];
-            $writtenAbs[$relPath] = $abs;
         }
-
-        imagedestroy($src);
-
-        if ($finalVariants === []) {
-            $msg = 'Could not write any replacement variants.';
-            if ($errors) {
-                $msg .= ' ' . implode('; ', $errors);
-            }
-            throw new \RuntimeException($msg);
-        }
-
-        // De-dupe by path (same file may be targeted twice via width keys)
-        $byPath = [];
-        foreach ($finalVariants as $fv) {
-            $byPath[$fv['path']] = $fv;
-        }
-        $finalVariants = array_values($byPath);
-        usort($finalVariants, static function ($a, $b) {
-            return ((int) ($b['width'] ?? 0)) <=> ((int) ($a['width'] ?? 0));
+        // Longest find first
+        uksort($pairs, static function ($a, $b) {
+            return strlen($b) <=> strlen($a);
         });
 
-        // Keep the original primary path whenever we wrote to it; else largest variant
-        $storePath = $currentPath;
-        if ($storePath === '' || !isset($writtenAbs[$storePath])) {
-            $storePath = (string) ($finalVariants[0]['path'] ?? $currentPath);
-        }
-        $storeAbs = $uploadsRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $storePath);
-        $primaryMeta = $finalVariants[0];
-        foreach ($finalVariants as $fv) {
-            if (($fv['path'] ?? '') === $storePath) {
-                $primaryMeta = $fv;
-                break;
+        $contentOcc = 0;
+        $contentRows = 0;
+        $featured = 0;
+        $gallery = 0;
+        $metaHits = 0;
+
+        // Body/title/excerpt via FindReplaceService (changelog + cache flush)
+        if (class_exists(\Mova\Content\FindReplaceService::class) && $pairs !== []) {
+            try {
+                $fr = new \Mova\Content\FindReplaceService();
+                foreach ($pairs as $find => $replace) {
+                    if ($find === '' || $find === $replace) {
+                        continue;
+                    }
+                    $result = $fr->apply([
+                        'find' => $find,
+                        'replace' => $replace,
+                        'match_case' => true,
+                        'fields' => ['title', 'excerpt', 'body'],
+                    ]);
+                    $contentOcc += (int) ($result['match_count'] ?? 0);
+                    $contentRows += (int) ($result['content_count'] ?? 0);
+                }
+            } catch (\Throwable $e) {
+                // Fall through to direct SQL for featured/meta
             }
         }
 
-        $storeFilename = basename($storePath);
-        $storeSize = (int) ($primaryMeta['size'] ?? (@filesize($storeAbs) ?: 0));
-        $storeW = (int) ($primaryMeta['width'] ?? $srcW);
-        $storeH = (int) ($primaryMeta['height'] ?? $srcH);
-        $fileHash = is_file($storeAbs) ? (@hash_file('sha256', $storeAbs) ?: null) : null;
+        // featured_image column
+        foreach ($pairs as $find => $replace) {
+            if ($find === '' || $find === $replace) {
+                continue;
+            }
+            try {
+                $rows = Database::fetchAll(
+                    "SELECT id, featured_image FROM content WHERE featured_image IS NOT NULL AND featured_image != '' AND featured_image LIKE :q",
+                    ['q' => '%' . $find . '%']
+                );
+                foreach ($rows as $row) {
+                    $oldVal = (string) ($row['featured_image'] ?? '');
+                    $newVal = str_replace($find, $replace, $oldVal);
+                    if ($newVal !== $oldVal) {
+                        Database::update('content', ['featured_image' => $newVal, 'updated_at' => date('c')], 'id = :id', ['id' => (int) $row['id']]);
+                        $featured++;
+                    }
+                }
+            } catch (\Throwable $e) {
+                // column may differ
+            }
+        }
 
-        // Path + variant paths intentionally unchanged (same public URLs)
-        $update = [
-            'filename'  => $storeFilename,
-            'mime_type' => 'image/webp',
-            'extension' => 'webp',
-            'size'      => $storeSize,
-            'width'     => $storeW,
-            'height'    => $storeH,
-            'path'      => $storePath,
-            'variants'  => json_encode(array_values($finalVariants)),
+        // content_meta values
+        foreach ($pairs as $find => $replace) {
+            if ($find === '' || $find === $replace) {
+                continue;
+            }
+            try {
+                $rows = Database::fetchAll(
+                    "SELECT id, meta_value FROM content_meta WHERE meta_value LIKE :q",
+                    ['q' => '%' . $find . '%']
+                );
+                foreach ($rows as $row) {
+                    $oldVal = (string) ($row['meta_value'] ?? '');
+                    $newVal = str_replace($find, $replace, $oldVal);
+                    if ($newVal !== $oldVal) {
+                        Database::update('content_meta', ['meta_value' => $newVal], 'id = :id', ['id' => (int) $row['id']]);
+                        $metaHits++;
+                    }
+                }
+            } catch (\Throwable $e) {
+            }
+        }
+
+        // gallery_items: point at new media_id
+        $oldId = (int) ($old['id'] ?? 0);
+        $newId = (int) ($new['id'] ?? 0);
+        if ($oldId > 0 && $newId > 0 && $oldId !== $newId) {
+            try {
+                $items = Database::fetchAll(
+                    'SELECT id, gallery_id, media_id FROM gallery_items WHERE media_id = :m',
+                    ['m' => $oldId]
+                );
+                foreach ($items as $it) {
+                    try {
+                        Database::update(
+                            'gallery_items',
+                            ['media_id' => $newId],
+                            'id = :id',
+                            ['id' => (int) $it['id']]
+                        );
+                        $gallery++;
+                    } catch (\Throwable $e) {
+                        // unique constraint — drop old row if new already in gallery
+                        try {
+                            Database::delete('gallery_items', 'id = :id', ['id' => (int) $it['id']]);
+                            $gallery++;
+                        } catch (\Throwable $e2) {
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+            }
+        }
+
+        if (class_exists(\Mova\Cache\PageCache::class)) {
+            try {
+                \Mova\Cache\PageCache::flush();
+            } catch (\Throwable $e) {
+            }
+        }
+
+        return [
+            'pairs' => count($pairs),
+            'content_occurrences' => $contentOcc,
+            'content_rows' => $contentRows,
+            'featured' => $featured,
+            'gallery' => $gallery,
+            'meta' => $metaHits,
         ];
-        if ($fileHash) {
-            $update['file_hash'] = $fileHash;
-        }
-        // Only update display name after a successful file write
-        if (isset($meta['original_name']) && trim((string) $meta['original_name']) !== '') {
-            $update['original_name'] = trim((string) $meta['original_name']);
-        }
-        if (array_key_exists('alt_text', $meta)) {
-            $update['alt_text'] = (string) $meta['alt_text'];
-        }
-
-        Database::update('media', $update, 'id = :id', ['id' => $id]);
-        $row = $this->find($id);
-        if (!$row) {
-            throw new \RuntimeException('Media row missing after replace.');
-        }
-        // Surface partial failures to the client (some sizes may have failed)
-        if ($errors) {
-            $row['_replace_warnings'] = $errors;
-        }
-        return $row;
     }
 
     /**
