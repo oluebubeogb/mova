@@ -955,44 +955,38 @@
                     if (hint) hint.textContent = data.error || 'Failed';
                     return;
                 }
-                if (hint) hint.textContent = 'Replaced (same URL)';
+                if (data.warnings && data.warnings.length) {
+                    if (hint) hint.textContent = 'Replaced with warnings: ' + data.warnings.join('; ');
+                } else {
+                    if (hint) hint.textContent = 'Replaced (same URL) — reloading…';
+                }
+                // Bust cache on every known size URL, then hard-reload so disk truth wins
+                var bust = Date.now();
                 var card = document.querySelector('.media-card[data-id="' + currentId + '"]');
-                var newUrl = data.url || '';
-                // Prefer relative path for display
-                var rel = newUrl.replace(/^https?:\/\/[^/]+/, '');
                 var urls = data.urls || {};
-                var relUrls = {};
                 Object.keys(urls).forEach(function (w) {
-                    relUrls[w] = (urls[w] || '').replace(/^https?:\/\/[^/]+/, '');
+                    var u = (urls[w] || '').replace(/^https?:\/\/[^/]+/, '');
+                    if (u) {
+                        var probe = new Image();
+                        probe.src = u + (u.indexOf('?') === -1 ? '?t=' : '&t=') + bust;
+                    }
                 });
-                if (card) {
-                    card.setAttribute('data-url', rel);
-                    card.setAttribute('data-urls', JSON.stringify(relUrls));
-                    var copyBtn = card.querySelector('.media-copy');
-                    if (copyBtn) copyBtn.setAttribute('data-url', rel);
+                var rel = (data.url || '').replace(/^https?:\/\/[^/]+/, '');
+                if (card && rel) {
                     var img = card.querySelector('.media-thumb img');
-                    var thumbRel = rel;
-                    var sorted = Object.keys(relUrls).map(Number).sort(function (a, b) { return a - b; });
-                    if (sorted.length) thumbRel = relUrls[sorted[0]];
-                    card.setAttribute('data-thumb', thumbRel);
-                    if (img) {
-                        img.src = thumbRel + (thumbRel.indexOf('?') === -1 ? '?t=' : '&t=') + Date.now();
-                    }
-                    if (data.media && data.media.original_name) {
-                        card.setAttribute('data-name', data.media.original_name);
-                        var nm = card.querySelector('.media-name');
-                        if (nm) { nm.textContent = data.media.original_name; nm.title = data.media.original_name; }
-                        document.getElementById('ms-name').value = data.media.original_name;
-                    }
+                    if (img) img.src = rel + (rel.indexOf('?') === -1 ? '?t=' : '&t=') + bust;
                 }
                 var prev = document.getElementById('ms-preview');
-                if (prev) {
-                    prev.innerHTML = '<img src="' + esc(rel) + '?t=' + Date.now() + '" alt="" style="max-width:100%;max-height:220px;object-fit:contain;border-radius:8px;">';
+                if (prev && rel) {
+                    prev.innerHTML = '<img src="' + esc(rel) + '?t=' + bust + '" alt="" style="max-width:100%;max-height:180px;object-fit:contain;border-radius:8px;">';
                 }
-                openSidebar(card || document.querySelector('.media-card[data-id="' + currentId + '"]'));
-                setTimeout(function () { if (hint) hint.textContent = ''; }, 2000);
+                setTimeout(function () {
+                    window.location.href = '/hq/media?replaced=' + encodeURIComponent(currentId) + '&t=' + bust;
+                }, 500);
             })
-            .catch(function () { if (hint) hint.textContent = 'Error'; });
+            .catch(function (err) {
+                if (hint) hint.textContent = (err && err.message) ? err.message : 'Error';
+            });
     });
 
     document.getElementById('ms-gallery-btn').addEventListener('click', async function () {

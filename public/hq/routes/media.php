@@ -236,6 +236,11 @@ $router->post('/media/replace/{id}', function (Request $req, array $params) {
                 ->status(500)
                 ->body(json_encode(['success' => false, 'error' => 'Replace failed.']));
         }
+        $warnings = [];
+        if (!empty($media['_replace_warnings']) && is_array($media['_replace_warnings'])) {
+            $warnings = $media['_replace_warnings'];
+            unset($media['_replace_warnings']);
+        }
         $urlsByWidth = [];
         foreach ((array) ($media['variants'] ?? []) as $v) {
             $w = (int) ($v['width'] ?? 0);
@@ -244,14 +249,18 @@ $router->post('/media/replace/{id}', function (Request $req, array $params) {
             }
         }
         ksort($urlsByWidth);
+        $payload = [
+            'success' => true,
+            'media' => $media,
+            'url' => $svc->url($media),
+            'urls' => $urlsByWidth,
+        ];
+        if ($warnings !== []) {
+            $payload['warnings'] = $warnings;
+        }
         return (new Response())
             ->header('Content-Type', 'application/json')
-            ->body(json_encode([
-                'success' => true,
-                'media' => $media,
-                'url' => $svc->url($media),
-                'urls' => $urlsByWidth,
-            ]));
+            ->body(json_encode($payload));
     } catch (\Throwable $e) {
         return (new Response())
             ->header('Content-Type', 'application/json')
