@@ -227,12 +227,12 @@ $router->post('/media/replace/{id}', function (Request $req, array $params) {
             ->status(400)
             ->body(json_encode(['success' => false, 'error' => 'No file uploaded.']));
     }
-    $keepOld = $req->input('keep_old') === '1' || $req->input('keep_old') === 1 || $req->input('keep_old') === true;
     try {
         $svc = new MediaService();
         $user = Auth::user();
         $uid = $user ? (int) ($user['id'] ?? 0) : null;
-        $result = $svc->replaceByNewUpload($id, $file, $uid, !$keepOld);
+        // Always keep both old and new media; only retarget site occurrences
+        $result = $svc->replaceByNewUpload($id, $file, $uid, false);
         $media = $result['new'];
         $urlsByWidth = [];
         foreach ((array) ($media['variants'] ?? []) as $v) {

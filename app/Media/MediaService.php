@@ -403,11 +403,11 @@ class MediaService
 
     /**
      * Upload a new image and retarget all site references from $oldId to the new media,
-     * then optionally delete the old media row (normal delete).
+     * then retarget site URLs. Old media is kept by default.
      *
      * @return array{old:array,new:array,retarget:array,deleted:bool}
      */
-    public function replaceByNewUpload(int $oldId, array $file, ?int $userId = null, bool $deleteOld = true): array
+    public function replaceByNewUpload(int $oldId, array $file, ?int $userId = null, bool $deleteOld = false): array
     {
         $old = $this->find($oldId);
         if (!$old) {
@@ -444,11 +444,11 @@ class MediaService
     }
 
     /**
-     * After AI (or any) created $newId, retarget site refs from $oldId and optionally delete old.
+     * After AI (or any) created $newId, retarget site refs from $oldId. Old media is kept by default.
      *
      * @return array{old:array,new:array,retarget:array,deleted:bool}
      */
-    public function replaceByExistingMedia(int $oldId, int $newId, bool $deleteOld = true): array
+    public function replaceByExistingMedia(int $oldId, int $newId, bool $deleteOld = false): array
     {
         $old = $this->find($oldId);
         $new = $this->find($newId);

@@ -545,7 +545,7 @@
             </div>
             <div class="form-group" id="ms-replace-wrap">
                 <label>Replace image</label>
-                <p class="ms-help">Uploads or generates a new file, then updates every place the old URL appears on the site (find &amp; replace). Old media is removed afterward.</p>
+                <p class="ms-help">Uploads or generates a new file, then updates every place the old URL appears on the site (find &amp; replace). Both old and new files stay in the library.</p>
                 <div style="display:flex;flex-wrap:wrap;gap:0.4rem;align-items:center;">
                     <label class="btn-ghost btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:0.35rem;margin:0;">
                         <i class="fa-solid fa-upload"></i> Choose file
@@ -963,7 +963,7 @@
                 var msg = 'New media created';
                 if (data.new_id) msg += ' #' + data.new_id;
                 if (rt.content_occurrences) msg += ' · ' + rt.content_occurrences + ' content URL(s) updated';
-                if (data.deleted_old) msg += ' · old file deleted';
+                msg += ' · both files kept';
                 if (hint) hint.textContent = msg + ' — reloading…';
                 console.info('[mova media replace]', data);
                 var bust = Date.now();
