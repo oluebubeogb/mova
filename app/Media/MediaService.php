@@ -343,7 +343,7 @@ class MediaService
 
     /**
      * Replace image bytes while keeping the same public path / variants URLs.
-     * Compresses and converts to WebP variants in place.
+     * Compresses and converts to WebP variants in place (safe overwrite — never deletes the new files).
      */
     public function replaceImage(int $id, array $file): ?array
     {
@@ -367,7 +367,6 @@ class MediaService
             throw new \RuntimeException('Upload path is not configured.');
         }
 
-        // Work in the same subdirectory as the current canonical path
         $currentPath = (string) ($media['path'] ?? '');
         $subdir = dirname(str_replace('\\', '/', $currentPath));
         if ($subdir === '.' || $subdir === '') {
@@ -378,8 +377,7 @@ class MediaService
             throw new \RuntimeException('Cannot create upload folder for replace.');
         }
 
-        // Stage upload to a temp file in the same dir
-        $tmpName = 'replace-' . bin2hex(random_bytes(6)) . '.' . ($ext ?: 'bin');
+        $tmpName = 'replace-src-' . bin2hex(random_bytes(6)) . '.' . ($ext ?: 'bin');
         $tmpDest = $uploadDir . DIRECTORY_SEPARATOR . $tmpName;
         if (!move_uploaded_file($file['tmp_name'], $tmpDest)) {
             if (!@copy($file['tmp_name'], $tmpDest)) {
@@ -388,84 +386,17 @@ class MediaService
             @unlink($file['tmp_name']);
         }
 
-        $info = @getimagesize($tmpDest);
-        $width = $info ? (int) $info[0] : null;
-        $height = $info ? (int) $info[1] : null;
-
-        // Prefer reusing the existing basename so variant filenames stay stable
-        $oldBase = pathinfo((string) ($media['filename'] ?? 'media'), PATHINFO_FILENAME);
-        $oldBase = preg_replace('/-(320|480|768|1200)$/i', '', (string) $oldBase) ?: 'media';
-        $filename = $oldBase . '.webp';
-
-        $variants = [];
-        if (Bootstrap::config('media.convert_to_webp', true) && function_exists('imagewebp')) {
-            $variants = $this->processImage($tmpDest, $subdir, $filename, $width, $height);
-        }
-
-        @unlink($tmpDest);
-
-        if ($variants === []) {
-            throw new \RuntimeException('Could not process replacement image.');
-        }
-
-        // Delete previous variant files (same URLs will be rewritten)
-        $oldVariants = is_array($media['variants'] ?? null) ? $media['variants'] : [];
-        foreach ($oldVariants as $v) {
-            $vf = $uploadsRoot . '/' . str_replace('/', DIRECTORY_SEPARATOR, (string) ($v['path'] ?? ''));
-            if (is_file($vf)) {
-                @unlink($vf);
+        try {
+            $meta = [];
+            if (!empty($file['name'])) {
+                $meta['original_name'] = (string) $file['name'];
+            }
+            return $this->commitReplaceFromSourceFile($id, $media, $tmpDest, $subdir, $uploadDir, $uploadsRoot, $meta);
+        } finally {
+            if (is_file($tmpDest)) {
+                @unlink($tmpDest);
             }
         }
-        $oldPrimary = $uploadsRoot . '/' . str_replace('/', DIRECTORY_SEPARATOR, $currentPath);
-        if (is_file($oldPrimary)) {
-            // Only delete if not still present in new variants
-            $stillUsed = false;
-            foreach ($variants as $v) {
-                if (($v['path'] ?? '') === $currentPath) {
-                    $stillUsed = true;
-                    break;
-                }
-            }
-            if (!$stillUsed) {
-                @unlink($oldPrimary);
-            }
-        }
-
-        usort($variants, static function ($a, $b) {
-            return ((int) ($b['width'] ?? 0)) <=> ((int) ($a['width'] ?? 0));
-        });
-        $primary = $variants[0];
-        $storePath = (string) ($primary['path'] ?? $currentPath);
-        $storeFilename = basename($storePath);
-        $storeSize = (int) ($primary['size'] ?? 0);
-        $storeW = (int) ($primary['width'] ?? $width);
-        $storeH = (int) ($primary['height'] ?? $height);
-        $fileHash = null;
-        $primaryFile = $uploadsRoot . '/' . str_replace('/', DIRECTORY_SEPARATOR, $storePath);
-        if (is_file($primaryFile)) {
-            $fileHash = @hash_file('sha256', $primaryFile) ?: null;
-        }
-
-        $update = [
-            'filename'  => $storeFilename,
-            'mime_type' => 'image/webp',
-            'extension' => 'webp',
-            'size'      => $storeSize,
-            'width'     => $storeW,
-            'height'    => $storeH,
-            'path'      => $storePath,
-            'variants'  => json_encode($variants),
-        ];
-        if ($fileHash) {
-            $update['file_hash'] = $fileHash;
-        }
-        // Keep original_name / alt / description as-is unless client sends a new name via filename of upload
-        if (!empty($file['name'])) {
-            $update['original_name'] = (string) $file['name'];
-        }
-
-        Database::update('media', $update, 'id = :id', ['id' => $id]);
-        return $this->find($id);
     }
 
     /**
@@ -515,65 +446,222 @@ class MediaService
             throw new \RuntimeException('Cannot create upload folder for replace.');
         }
 
-        $tmpName = 'replace-' . bin2hex(random_bytes(6)) . '.' . $ext;
+        $tmpName = 'replace-src-' . bin2hex(random_bytes(6)) . '.' . $ext;
         $tmpDest = $uploadDir . DIRECTORY_SEPARATOR . $tmpName;
         if (@file_put_contents($tmpDest, $binary) === false) {
             throw new \RuntimeException('Failed to stage replacement bytes.');
         }
 
-        $info = @getimagesize($tmpDest);
+        try {
+            return $this->commitReplaceFromSourceFile($id, $media, $tmpDest, $subdir, $uploadDir, $uploadsRoot, $meta);
+        } finally {
+            if (is_file($tmpDest)) {
+                @unlink($tmpDest);
+            }
+        }
+    }
+
+    /**
+     * Core URL-stable replace:
+     * 1) Render new WebP variants into TEMP files
+     * 2) Atomically move them onto the existing public paths (overwrite)
+     * 3) Only delete old files that are NOT kept as public URLs
+     * Never unlink a path after writing the new image to it (that was the 404 bug).
+     */
+    private function commitReplaceFromSourceFile(
+        int $id,
+        array $media,
+        string $sourceAbs,
+        string $subdir,
+        string $uploadDir,
+        string $uploadsRoot,
+        array $meta = []
+    ): array {
+        if (!is_file($sourceAbs)) {
+            throw new \RuntimeException('Replacement source missing.');
+        }
+        if (!function_exists('imagewebp') || !Bootstrap::config('media.convert_to_webp', true)) {
+            throw new \RuntimeException('WebP conversion is required for image replace (enable GD imagewebp).');
+        }
+
+        $info = @getimagesize($sourceAbs);
         $width = $info ? (int) $info[0] : (isset($meta['width']) ? (int) $meta['width'] : null);
         $height = $info ? (int) $info[1] : (isset($meta['height']) ? (int) $meta['height'] : null);
 
-        $oldBase = pathinfo((string) ($media['filename'] ?? 'media'), PATHINFO_FILENAME);
-        $oldBase = preg_replace('/-(320|480|768|1200)$/i', '', (string) $oldBase) ?: 'media';
-        $filename = $oldBase . '.webp';
+        // Basename used for NEW temp outputs only (not public URLs)
+        $token = 'r' . bin2hex(random_bytes(8));
+        $tmpBasename = $token . '.webp';
 
-        $variants = [];
-        if (Bootstrap::config('media.convert_to_webp', true) && function_exists('imagewebp')) {
-            $variants = $this->processImage($tmpDest, $subdir, $filename, $width, $height);
-        }
-        @unlink($tmpDest);
-
-        if ($variants === []) {
+        // Build variants under unique temp names first
+        $staged = $this->processImage($sourceAbs, $subdir, $tmpBasename, $width, $height);
+        if ($staged === []) {
             throw new \RuntimeException('Could not process replacement image.');
         }
 
+        // Map old public paths by width
         $oldVariants = is_array($media['variants'] ?? null) ? $media['variants'] : [];
+        $oldByWidth = [];
         foreach ($oldVariants as $v) {
-            $vf = $uploadsRoot . '/' . str_replace('/', DIRECTORY_SEPARATOR, (string) ($v['path'] ?? ''));
-            if (is_file($vf)) {
-                @unlink($vf);
+            $w = (int) ($v['width'] ?? 0);
+            if ($w > 0 && !empty($v['path'])) {
+                $oldByWidth[$w] = (string) $v['path'];
             }
         }
-        $oldPrimary = $uploadsRoot . '/' . str_replace('/', DIRECTORY_SEPARATOR, $currentPath);
-        if (is_file($oldPrimary)) {
-            $stillUsed = false;
-            foreach ($variants as $v) {
-                if (($v['path'] ?? '') === $currentPath) {
-                    $stillUsed = true;
+        $currentPath = (string) ($media['path'] ?? '');
+
+        // Derive stable public basename from existing primary/variant paths
+        $stableBase = 'media';
+        $refPath = $currentPath !== '' ? $currentPath : (string) (reset($oldByWidth) ?: '');
+        if ($refPath !== '') {
+            $stableBase = pathinfo(basename($refPath), PATHINFO_FILENAME);
+            $stableBase = preg_replace('/-(320|480|768|1200|\d+)$/i', '', (string) $stableBase) ?: 'media';
+        } else {
+            $fn = pathinfo((string) ($media['filename'] ?? 'media'), PATHINFO_FILENAME);
+            $stableBase = preg_replace('/-(320|480|768|1200|\d+)$/i', '', (string) $fn) ?: 'media';
+        }
+
+        // Decide final public relative path per staged width (prefer old path for same width)
+        $finalVariants = [];
+        $keptRelPaths = [];
+        $stagedAbsToClean = [];
+
+        foreach ($staged as $sv) {
+            $w = (int) ($sv['width'] ?? 0);
+            $stagedRel = (string) ($sv['path'] ?? '');
+            $stagedAbs = $uploadsRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $stagedRel);
+            if ($w <= 0 || $stagedRel === '' || !is_file($stagedAbs)) {
+                continue;
+            }
+            $stagedAbsToClean[] = $stagedAbs;
+
+            if (isset($oldByWidth[$w])) {
+                $finalRel = $oldByWidth[$w];
+            } else {
+                $finalRel = $subdir . '/' . $stableBase . '-' . $w . '.webp';
+            }
+
+            $finalAbs = $uploadsRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $finalRel);
+            $finalDir = dirname($finalAbs);
+            if (!is_dir($finalDir)) {
+                @mkdir($finalDir, 0755, true);
+            }
+
+            // Overwrite target in place (never delete-then-write)
+            if ($stagedAbs !== $finalAbs) {
+                if (!@rename($stagedAbs, $finalAbs)) {
+                    if (!@copy($stagedAbs, $finalAbs)) {
+                        // leave staged for cleanup attempt; fail hard
+                        throw new \RuntimeException('Failed to write replacement variant (' . $w . 'px).');
+                    }
+                    @unlink($stagedAbs);
+                }
+            }
+
+            $finalVariants[] = [
+                'width'  => $w,
+                'height' => (int) ($sv['height'] ?? 0),
+                'path'   => $finalRel,
+                'size'   => @filesize($finalAbs) ?: (int) ($sv['size'] ?? 0),
+            ];
+            $keptRelPaths[$finalRel] = true;
+        }
+
+        if ($finalVariants === []) {
+            throw new \RuntimeException('No replacement variants were written.');
+        }
+
+        usort($finalVariants, static function ($a, $b) {
+            return ((int) ($b['width'] ?? 0)) <=> ((int) ($a['width'] ?? 0));
+        });
+
+        // Prefer keeping the previous primary path if it matches a produced width
+        $storePath = (string) ($finalVariants[0]['path'] ?? $currentPath);
+        if ($currentPath !== '') {
+            foreach ($finalVariants as $fv) {
+                if (($fv['path'] ?? '') === $currentPath) {
+                    $storePath = $currentPath;
                     break;
                 }
             }
-            if (!$stillUsed) {
-                @unlink($oldPrimary);
+            // If primary path existed as a variant file of largest width, map largest onto it
+            $largest = $finalVariants[0];
+            $largestAbs = $uploadsRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string) $largest['path']);
+            $primaryAbs = $uploadsRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $currentPath);
+            if ($currentPath !== (string) $largest['path'] && is_file($largestAbs)) {
+                // Keep URL of old primary: copy largest onto old primary path when primary was the "full" asset
+                $primaryWasVariant = false;
+                foreach ($oldByWidth as $op) {
+                    if ($op === $currentPath) {
+                        $primaryWasVariant = true;
+                        break;
+                    }
+                }
+                if ($primaryWasVariant) {
+                    $storePath = $currentPath;
+                } else {
+                    // Old primary may be same as largest variant path already
+                    $storePath = (string) $largest['path'];
+                }
             }
         }
 
-        usort($variants, static function ($a, $b) {
-            return ((int) ($b['width'] ?? 0)) <=> ((int) ($a['width'] ?? 0));
-        });
-        $primary = $variants[0];
-        $storePath = (string) ($primary['path'] ?? $currentPath);
-        $storeFilename = basename($storePath);
-        $storeSize = (int) ($primary['size'] ?? 0);
-        $storeW = (int) ($primary['width'] ?? $width);
-        $storeH = (int) ($primary['height'] ?? $height);
-        $fileHash = null;
-        $primaryFile = $uploadsRoot . '/' . str_replace('/', DIRECTORY_SEPARATOR, $storePath);
-        if (is_file($primaryFile)) {
-            $fileHash = @hash_file('sha256', $primaryFile) ?: null;
+        // Align primary pointer to largest variant row
+        foreach ($finalVariants as $i => $fv) {
+            if (($fv['path'] ?? '') === $storePath) {
+                // ok
+                break;
+            }
         }
+        // Ensure storePath file exists — if we chose currentPath but content is on largest path, copy
+        $storeAbs = $uploadsRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $storePath);
+        $largestPath = (string) ($finalVariants[0]['path'] ?? '');
+        $largestAbs = $uploadsRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $largestPath);
+        if ($storePath !== $largestPath && is_file($largestAbs) && !is_file($storeAbs)) {
+            @copy($largestAbs, $storeAbs);
+        }
+        if (!is_file($storeAbs) && is_file($largestAbs)) {
+            $storePath = $largestPath;
+            $storeAbs = $largestAbs;
+        }
+        $keptRelPaths[$storePath] = true;
+
+        // Delete obsolete old files only (paths not in the kept set)
+        foreach ($oldByWidth as $op) {
+            if (isset($keptRelPaths[$op])) {
+                continue;
+            }
+            $of = $uploadsRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $op);
+            if (is_file($of)) {
+                @unlink($of);
+            }
+        }
+        if ($currentPath !== '' && !isset($keptRelPaths[$currentPath])) {
+            $of = $uploadsRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $currentPath);
+            if (is_file($of)) {
+                @unlink($of);
+            }
+        }
+
+        // Cleanup any leftover staged temps
+        foreach ($stagedAbsToClean as $sa) {
+            if (is_file($sa)) {
+                @unlink($sa);
+            }
+        }
+
+        $primaryMeta = $finalVariants[0];
+        foreach ($finalVariants as $fv) {
+            if (($fv['path'] ?? '') === $storePath) {
+                $primaryMeta = $fv;
+                break;
+            }
+        }
+
+        $storeFilename = basename($storePath);
+        $storeSize = (int) ($primaryMeta['size'] ?? (@filesize($storeAbs) ?: 0));
+        $storeW = (int) ($primaryMeta['width'] ?? $width);
+        $storeH = (int) ($primaryMeta['height'] ?? $height);
+        $fileHash = is_file($storeAbs) ? (@hash_file('sha256', $storeAbs) ?: null) : null;
 
         $update = [
             'filename'  => $storeFilename,
@@ -583,12 +671,11 @@ class MediaService
             'width'     => $storeW,
             'height'    => $storeH,
             'path'      => $storePath,
-            'variants'  => json_encode($variants),
+            'variants'  => json_encode(array_values($finalVariants)),
         ];
         if ($fileHash) {
             $update['file_hash'] = $fileHash;
         }
-        // Preserve name/alt/desc unless explicitly provided
         if (isset($meta['original_name']) && trim((string) $meta['original_name']) !== '') {
             $update['original_name'] = trim((string) $meta['original_name']);
         }
@@ -597,7 +684,11 @@ class MediaService
         }
 
         Database::update('media', $update, 'id = :id', ['id' => $id]);
-        return $this->find($id);
+        $row = $this->find($id);
+        if (!$row) {
+            throw new \RuntimeException('Media row missing after replace.');
+        }
+        return $row;
     }
 
     /**

@@ -936,7 +936,20 @@
         fd.append('_mova_csrf', csrfToken);
         fd.append('file', file);
         fetch('/hq/media/replace/' + currentId, { method: 'POST', body: fd, credentials: 'same-origin' })
-            .then(function (r) { return r.json(); })
+            .then(function (r) {
+                return r.text().then(function (text) {
+                    var data = {};
+                    try { data = text ? JSON.parse(text) : {}; } catch (e) {
+                        throw new Error(r.status === 404
+                            ? 'Replace endpoint not found (404). Deploy public/hq/routes/media.php.'
+                            : ('HTTP ' + r.status + (text ? ': ' + text.slice(0, 120) : '')));
+                    }
+                    if (!r.ok && !data.success) {
+                        throw new Error(data.error || ('HTTP ' + r.status));
+                    }
+                    return data;
+                });
+            })
             .then(function (data) {
                 if (!data.success) {
                     if (hint) hint.textContent = data.error || 'Failed';
