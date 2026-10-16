@@ -55,8 +55,10 @@
 <?php if (empty($items)): ?>
     <p class="empty">No media yet. Upload an image, audio (MP3), video, or MPD to get started.</p>
 <?php else: ?>
-    <div class="media-grid">
-        <?php foreach ($items as $item):
+    <div class="media-grid" id="media-grid">
+        <?php
+        $mediaIndex = [];
+        foreach ($items as $item):
             $imgPath = $item['path'] ?? '';
             $variants = is_array($item['variants'] ?? null) ? $item['variants'] : [];
             $byWidth = [];
@@ -66,55 +68,133 @@
                     $byWidth[$w] = '/mova-uploads/' . ltrim((string)$v['path'], '/');
                 }
             }
-            // Prefer largest for "full" URL, smallest for grid thumb
             $fullPublic = $imgPath ? '/mova-uploads/' . ltrim((string)$imgPath, '/') : '';
             if ($byWidth) {
                 ksort($byWidth);
-                $thumbPublic = reset($byWidth); // smallest
-                $fullPublic = end($byWidth);    // largest
+                $thumbPublic = reset($byWidth);
+                $fullPublic = end($byWidth);
             } else {
                 $thumbPublic = $fullPublic;
             }
             $id = (int) ($item['id'] ?? 0);
-            $isImage = strpos((string)($item['mime_type'] ?? ''), 'image/') === 0
+            $mime = (string)($item['mime_type'] ?? '');
+            $isImage = strpos($mime, 'image/') === 0
                 || str_ends_with(strtolower((string)$imgPath), '.webp');
+            $isVideo = strpos($mime, 'video/') === 0;
+            $posterPath = !empty($item['poster_path'])
+                ? '/mova-uploads/' . ltrim((string)$item['poster_path'], '/')
+                : '';
+            $excluded = !empty($item['exclude_from_gallery']);
+            $mediaIndex[] = [
+                'id' => $id,
+                'url' => $fullPublic,
+                'thumb' => $thumbPublic ?: $posterPath,
+                'poster' => $posterPath,
+                'urls' => $byWidth,
+                'name' => $item['original_name'] ?? '',
+                'alt' => $item['alt_text'] ?? '',
+                'description' => $item['description'] ?? '',
+                'mime' => $mime,
+                'is_image' => $isImage,
+                'is_video' => $isVideo,
+                'excluded' => $excluded ? 1 : 0,
+            ];
             ?>
-            <div class="media-card<?= !empty($item['exclude_from_gallery']) ? ' is-gallery-excluded' : '' ?>" data-id="<?= $id ?>">
-                <?php if ($isImage && $thumbPublic): ?>
-                    <img src="<?= htmlspecialchars($thumbPublic) ?>" alt="<?= htmlspecialchars($item['alt_text'] ?? '') ?>" loading="lazy" decoding="async" class="mova-img" onload="this.classList.add('is-loaded')" onerror="this.style.opacity=0.3" width="150" height="150" style="object-fit:cover;">
-                <?php else: ?>
-                    <div class="media-placeholder"><?= htmlspecialchars(strtoupper($item['extension'] ?? '')) ?></div>
-                <?php endif; ?>
+            <div class="media-card<?= $excluded ? ' is-gallery-excluded' : '' ?><?= $isVideo ? ' is-video' : '' ?>"
+                 data-id="<?= $id ?>"
+                 data-url="<?= htmlspecialchars($fullPublic) ?>"
+                 data-thumb="<?= htmlspecialchars($thumbPublic ?: $posterPath) ?>"
+                 data-poster="<?= htmlspecialchars($posterPath) ?>"
+                 data-name="<?= htmlspecialchars($item['original_name'] ?? '') ?>"
+                 data-alt="<?= htmlspecialchars($item['alt_text'] ?? '') ?>"
+                 data-description="<?= htmlspecialchars($item['description'] ?? '') ?>"
+                 data-mime="<?= htmlspecialchars($mime) ?>"
+                 data-excluded="<?= $excluded ? '1' : '0' ?>"
+                 data-urls="<?= htmlspecialchars(json_encode($byWidth, JSON_UNESCAPED_SLASHES)) ?>">
+                <div class="media-thumb media-open-preview" role="button" tabindex="0" title="Preview">
+                    <?php if ($isVideo): ?>
+                        <?php if ($posterPath): ?>
+                            <img src="<?= htmlspecialchars($posterPath) ?>" alt="<?= htmlspecialchars($item['alt_text'] ?? '') ?>" loading="lazy" decoding="async" class="mova-img media-poster" onload="this.classList.add('is-loaded')">
+                        <?php else: ?>
+                            <div class="media-placeholder media-video-ph"><i class="fa-solid fa-film"></i></div>
+                        <?php endif; ?>
+                        <video class="media-hover-video" muted playsinline preload="metadata" loop src="<?= htmlspecialchars($fullPublic) ?>"></video>
+                        <span class="media-video-badge"><i class="fa-solid fa-play"></i></span>
+                    <?php elseif ($isImage && $thumbPublic): ?>
+                        <img src="<?= htmlspecialchars($thumbPublic) ?>" alt="<?= htmlspecialchars($item['alt_text'] ?? '') ?>" loading="lazy" decoding="async" class="mova-img" onload="this.classList.add('is-loaded')" onerror="this.style.opacity=0.3">
+                    <?php else: ?>
+                        <div class="media-placeholder"><?= htmlspecialchars(strtoupper($item['extension'] ?? '')) ?></div>
+                    <?php endif; ?>
+                </div>
                 <div class="media-info">
                     <span class="media-name" title="<?= htmlspecialchars($item['original_name'] ?? '') ?>"><?= htmlspecialchars($item['original_name'] ?? '') ?></span>
-                    <code class="media-path" title="Largest variant"><?= htmlspecialchars($fullPublic) ?></code>
-                    <div class="media-actions" style="margin-top:0.5rem;display:flex;gap:0.35rem;flex-wrap:wrap;">
-                        <?php if ($byWidth): foreach ($byWidth as $w => $u): ?>
-                        <button type="button" class="btn-ghost btn-sm media-copy" data-url="<?= htmlspecialchars($u) ?>" title="Copy <?= (int)$w ?>px URL">
-                            <?= (int)$w ?>
-                        </button>
-                        <?php endforeach; endif; ?>
+                    <div class="media-card-actions">
                         <button type="button" class="btn-ghost btn-sm media-copy" data-url="<?= htmlspecialchars($fullPublic) ?>" title="Copy largest URL">
                             <i class="fa-solid fa-link"></i>
                         </button>
-                        <button type="button" class="btn-ghost btn-sm media-copy-html" data-src="<?= htmlspecialchars($fullPublic) ?>" data-alt="<?= htmlspecialchars($item['alt_text'] ?? '') ?>" title="Copy responsive &lt;img&gt; HTML">
-                            HTML
-                        </button>
-                        <?php $excluded = !empty($item['exclude_from_gallery']); ?>
-                        <button type="button" class="btn-ghost btn-sm media-gallery-exclude"
-                                data-id="<?= $id ?>"
-                                data-excluded="<?= $excluded ? '1' : '0' ?>"
-                                title="<?= $excluded ? 'Include in public gallery stream' : 'Exclude from public gallery stream' ?>"
-                                style="<?= $excluded ? 'color:var(--hq-warning,#b45309);' : '' ?>">
-                            <i class="fa-solid <?= $excluded ? 'fa-eye-slash' : 'fa-eye' ?>"></i>
-                        </button>
-                        <button type="button" class="btn-ghost btn-sm media-delete" data-id="<?= $id ?>" style="color:var(--hq-danger,#b91c1c);" title="Delete">
-                            <i class="fa-solid fa-trash"></i>
+                        <button type="button" class="btn-ghost btn-sm media-more" aria-label="More actions" title="More">
+                            <i class="fa-solid fa-ellipsis"></i>
                         </button>
                     </div>
                 </div>
             </div>
         <?php endforeach; ?>
+    </div>
+    <script type="application/json" id="media-index-data"><?= json_encode($mediaIndex, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
+
+    <!-- Detail sidebar -->
+    <aside id="media-sidebar" class="media-sidebar" hidden aria-hidden="true">
+        <div class="media-sidebar-backdrop" data-close-sidebar></div>
+        <div class="media-sidebar-panel" role="dialog" aria-labelledby="media-sidebar-title">
+            <div class="media-sidebar-header">
+                <h3 id="media-sidebar-title" style="margin:0;font-size:1rem;">Media details</h3>
+                <button type="button" class="btn-ghost btn-sm" data-close-sidebar aria-label="Close">&times;</button>
+            </div>
+            <div class="media-sidebar-preview" id="ms-preview"></div>
+            <div class="media-sidebar-body">
+                <div class="form-group">
+                    <label for="ms-name">File name</label>
+                    <input type="text" id="ms-name" class="ms-input" autocomplete="off">
+                    <span class="ms-save-hint" id="ms-name-hint"></span>
+                </div>
+                <div class="form-group">
+                    <label for="ms-alt">Alt text</label>
+                    <input type="text" id="ms-alt" class="ms-input" autocomplete="off" placeholder="Describe the image for accessibility">
+                    <span class="ms-save-hint" id="ms-alt-hint"></span>
+                </div>
+                <div class="form-group">
+                    <label for="ms-desc">Description</label>
+                    <textarea id="ms-desc" class="ms-input" rows="3" placeholder="Optional description for feeds &amp; media.xml"></textarea>
+                    <span class="ms-save-hint" id="ms-desc-hint"></span>
+                </div>
+                <div class="form-group" id="ms-replace-wrap">
+                    <label>Replace image</label>
+                    <p class="ms-help">Keeps the same public URL. New file is compressed to WebP variants.</p>
+                    <label class="btn-ghost btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:0.35rem;">
+                        <i class="fa-solid fa-arrows-rotate"></i> Choose file
+                        <input type="file" id="ms-replace" accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif" hidden>
+                    </label>
+                    <span class="ms-save-hint" id="ms-replace-hint"></span>
+                </div>
+                <hr class="media-sidebar-hr">
+                <div class="media-sidebar-links" id="ms-links"></div>
+                <div class="media-sidebar-footer">
+                    <button type="button" class="btn-ghost btn-sm" id="ms-gallery-btn"><i class="fa-solid fa-eye"></i> Gallery</button>
+                    <button type="button" class="btn-ghost btn-sm" id="ms-delete-btn" style="color:var(--hq-danger,#b91c1c);"><i class="fa-solid fa-trash"></i> Delete</button>
+                </div>
+                <div id="ms-occurrences" class="ms-occurrences" hidden></div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Lightbox preview -->
+    <div id="media-lightbox" class="media-lightbox" hidden aria-hidden="true">
+        <div class="media-lightbox-backdrop"></div>
+        <button type="button" class="media-lb-nav media-lb-prev" aria-label="Previous"><i class="fa-solid fa-chevron-left"></i></button>
+        <button type="button" class="media-lb-nav media-lb-next" aria-label="Next"><i class="fa-solid fa-chevron-right"></i></button>
+        <button type="button" class="media-lb-close" aria-label="Close">&times;</button>
+        <div class="media-lightbox-stage" id="media-lb-stage"></div>
+        <div class="media-lightbox-caption" id="media-lb-caption"></div>
     </div>
     <?php
     $page = (int) ($page ?? 1);
@@ -266,96 +346,405 @@
         else sizes = '(max-width: 360px) 320px, (max-width: 640px) 480px, (max-width: 1024px) 768px, ' + maxW + 'px';
         return '<img src="' + preferred + '" srcset="' + srcset + '" sizes="' + sizes + '" alt="' + alt.replace(/"/g, '&quot;') + '" loading="lazy" decoding="async" class="mova-img" onload="this.classList.add(\'is-loaded\')">';
     }
-    document.querySelectorAll('.media-copy-html').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var src = btn.getAttribute('data-src') || '';
-            var alt = btn.getAttribute('data-alt') || '';
-            var html = movaResponsiveImgHtml(src, alt);
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(html).then(function () {
-                    btn.textContent = 'Copied';
-                    setTimeout(function(){ btn.textContent = 'HTML'; }, 1200);
-                });
-            } else {
-                prompt('Copy HTML', html);
-            }
-        });
-    });
+
+    function copyText(text, btn, okHtml, resetHtml) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function () {
+                if (btn) {
+                    btn.innerHTML = okHtml || '<i class="fa-solid fa-check"></i>';
+                    setTimeout(function () { btn.innerHTML = resetHtml || '<i class="fa-solid fa-link"></i>'; }, 1200);
+                }
+            });
+        } else {
+            prompt('Copy', text);
+        }
+    }
+
     document.querySelectorAll('.media-copy').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var url = btn.getAttribute('data-url') || '';
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(url).then(function () {
-                    btn.innerHTML = '<i class="fa-solid fa-check"></i> Copied';
-                    setTimeout(function () { btn.innerHTML = '<i class="fa-solid fa-link"></i> Copy'; }, 1500);
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            copyText(btn.getAttribute('data-url') || '', btn, '<i class="fa-solid fa-check"></i>', '<i class="fa-solid fa-link"></i>');
+        });
+    });
+
+    // —— Video hover play (brief) ——
+    document.querySelectorAll('.media-card.is-video').forEach(function (card) {
+        var vid = card.querySelector('.media-hover-video');
+        if (!vid) return;
+        var timer = null;
+        card.addEventListener('mouseenter', function () {
+            try {
+                vid.currentTime = 0;
+                var p = vid.play();
+                if (p && p.catch) p.catch(function () {});
+                clearTimeout(timer);
+                timer = setTimeout(function () {
+                    try { vid.pause(); } catch (e) {}
+                }, 2500);
+            } catch (e) {}
+        });
+        card.addEventListener('mouseleave', function () {
+            clearTimeout(timer);
+            try { vid.pause(); vid.currentTime = 0; } catch (e) {}
+        });
+    });
+
+    // —— Sidebar ——
+    var sidebar = document.getElementById('media-sidebar');
+    var currentId = null;
+    var saveTimers = {};
+
+    function parseUrls(card) {
+        try {
+            return JSON.parse(card.getAttribute('data-urls') || '{}') || {};
+        } catch (e) { return {}; }
+    }
+
+    function openSidebar(card) {
+        if (!sidebar || !card) return;
+        currentId = card.getAttribute('data-id');
+        var name = card.getAttribute('data-name') || '';
+        var alt = card.getAttribute('data-alt') || '';
+        var desc = card.getAttribute('data-description') || '';
+        var url = card.getAttribute('data-url') || '';
+        var thumb = card.getAttribute('data-thumb') || url;
+        var poster = card.getAttribute('data-poster') || '';
+        var mime = card.getAttribute('data-mime') || '';
+        var isVideo = mime.indexOf('video/') === 0;
+        var isImage = mime.indexOf('image/') === 0;
+        var excluded = card.getAttribute('data-excluded') === '1';
+        var urls = parseUrls(card);
+
+        document.getElementById('ms-name').value = name;
+        document.getElementById('ms-alt').value = alt;
+        document.getElementById('ms-desc').value = desc;
+        ['ms-name-hint', 'ms-alt-hint', 'ms-desc-hint', 'ms-replace-hint'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.textContent = '';
+        });
+
+        var prev = document.getElementById('ms-preview');
+        if (isVideo) {
+            prev.innerHTML = '<video controls playsinline src="' + esc(url) + '"' +
+                (poster ? ' poster="' + esc(poster) + '"' : '') +
+                ' style="max-width:100%;max-height:220px;border-radius:8px;"></video>';
+        } else if (isImage) {
+            prev.innerHTML = '<img src="' + esc(thumb || url) + '" alt="" style="max-width:100%;max-height:220px;object-fit:contain;border-radius:8px;">';
+        } else {
+            prev.innerHTML = '<div class="media-placeholder" style="height:120px;">' + esc((mime.split('/')[1] || 'file').toUpperCase()) + '</div>';
+        }
+
+        document.getElementById('ms-replace-wrap').style.display = isImage ? '' : 'none';
+
+        var links = document.getElementById('ms-links');
+        var html = '';
+        var preferredWidths = [480, 768, 1200];
+        preferredWidths.forEach(function (w) {
+            if (urls[w]) {
+                html += '<button type="button" class="btn-ghost btn-sm ms-copy-size" data-url="' + esc(urls[w]) + '">' + w + 'px</button> ';
+            }
+        });
+        Object.keys(urls).forEach(function (w) {
+            w = parseInt(w, 10);
+            if (preferredWidths.indexOf(w) === -1 && urls[w]) {
+                html += '<button type="button" class="btn-ghost btn-sm ms-copy-size" data-url="' + esc(urls[w]) + '">' + w + 'px</button> ';
+            }
+        });
+        html += '<button type="button" class="btn-ghost btn-sm ms-copy-size" data-url="' + esc(url) + '"><i class="fa-solid fa-link"></i> Largest</button> ';
+        if (isImage) {
+            html += '<button type="button" class="btn-ghost btn-sm" id="ms-copy-html"><i class="fa-solid fa-code"></i> HTML</button>';
+        }
+        links.innerHTML = html || '<span style="color:var(--hq-muted);font-size:0.85rem;">No variant URLs</span>';
+
+        links.querySelectorAll('.ms-copy-size').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                copyText(btn.getAttribute('data-url') || '', btn, 'Copied', btn.textContent);
+            });
+        });
+        var htmlBtn = document.getElementById('ms-copy-html');
+        if (htmlBtn) {
+            htmlBtn.addEventListener('click', function () {
+                copyText(movaResponsiveImgHtml(url, document.getElementById('ms-alt').value), htmlBtn, 'Copied', '<i class="fa-solid fa-code"></i> HTML');
+            });
+        }
+
+        var galBtn = document.getElementById('ms-gallery-btn');
+        galBtn.innerHTML = excluded
+            ? '<i class="fa-solid fa-eye-slash"></i> Excluded'
+            : '<i class="fa-solid fa-eye"></i> In gallery';
+        galBtn.style.color = excluded ? 'var(--hq-warning,#b45309)' : '';
+        galBtn.setAttribute('data-excluded', excluded ? '1' : '0');
+
+        document.getElementById('ms-occurrences').hidden = true;
+        document.getElementById('ms-occurrences').innerHTML = '';
+
+        sidebar.hidden = false;
+        sidebar.setAttribute('aria-hidden', 'false');
+        sidebar.classList.add('is-open');
+
+        // Load occurrences + freshest meta
+        fetch('/hq/media/' + currentId + '/json', { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.success || !data.media) return;
+                var m = data.media;
+                if (m.original_name) document.getElementById('ms-name').value = m.original_name;
+                if (typeof m.alt_text === 'string') document.getElementById('ms-alt').value = m.alt_text;
+                if (typeof m.description === 'string') document.getElementById('ms-desc').value = m.description;
+                if (m.occurrences && m.occurrences.length) {
+                    var occ = document.getElementById('ms-occurrences');
+                    occ.hidden = false;
+                    occ.innerHTML = '<hr class="media-sidebar-hr"><div style="font-size:0.8rem;font-weight:600;margin-bottom:0.35rem;">Appears on</div>' +
+                        m.occurrences.map(function (o) {
+                            return '<a href="' + esc(o.url) + '" target="_blank" rel="noopener" style="display:block;font-size:0.8rem;margin:0.15rem 0;">' + esc(o.title || o.slug) + '</a>';
+                        }).join('');
+                }
+            }).catch(function () {});
+    }
+
+    function closeSidebar() {
+        if (!sidebar) return;
+        sidebar.classList.remove('is-open');
+        sidebar.hidden = true;
+        sidebar.setAttribute('aria-hidden', 'true');
+        currentId = null;
+    }
+
+    document.querySelectorAll('.media-more').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            openSidebar(btn.closest('.media-card'));
+        });
+    });
+    if (sidebar) {
+        sidebar.querySelectorAll('[data-close-sidebar]').forEach(function (el) {
+            el.addEventListener('click', closeSidebar);
+        });
+    }
+
+    function scheduleSave(field, value, hintId) {
+        if (!currentId) return;
+        clearTimeout(saveTimers[field]);
+        var hint = document.getElementById(hintId);
+        if (hint) hint.textContent = 'Saving…';
+        saveTimers[field] = setTimeout(function () {
+            var fd = new FormData();
+            fd.append('_mova_csrf', csrfToken);
+            fd.append(field, value);
+            fetch('/hq/media/update/' + currentId, { method: 'POST', body: fd, credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (hint) hint.textContent = data.success ? 'Saved' : (data.error || 'Error');
+                    if (data.success) {
+                        var card = document.querySelector('.media-card[data-id="' + currentId + '"]');
+                        if (card) {
+                            if (field === 'original_name') {
+                                card.setAttribute('data-name', value);
+                                var nm = card.querySelector('.media-name');
+                                if (nm) { nm.textContent = value; nm.title = value; }
+                            }
+                            if (field === 'alt_text') card.setAttribute('data-alt', value);
+                            if (field === 'description') card.setAttribute('data-description', value);
+                        }
+                        setTimeout(function () { if (hint) hint.textContent = ''; }, 1500);
+                    }
+                })
+                .catch(function () { if (hint) hint.textContent = 'Error'; });
+        }, 450);
+    }
+
+    document.getElementById('ms-name').addEventListener('input', function () {
+        scheduleSave('original_name', this.value, 'ms-name-hint');
+    });
+    document.getElementById('ms-alt').addEventListener('input', function () {
+        scheduleSave('alt_text', this.value, 'ms-alt-hint');
+    });
+    document.getElementById('ms-desc').addEventListener('input', function () {
+        scheduleSave('description', this.value, 'ms-desc-hint');
+    });
+
+    document.getElementById('ms-replace').addEventListener('change', function () {
+        var file = this.files && this.files[0];
+        this.value = '';
+        if (!file || !currentId) return;
+        var hint = document.getElementById('ms-replace-hint');
+        if (hint) hint.textContent = 'Replacing…';
+        var fd = new FormData();
+        fd.append('_mova_csrf', csrfToken);
+        fd.append('file', file);
+        fetch('/hq/media/replace/' + currentId, { method: 'POST', body: fd, credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.success) {
+                    if (hint) hint.textContent = data.error || 'Failed';
+                    return;
+                }
+                if (hint) hint.textContent = 'Replaced (same URL)';
+                var card = document.querySelector('.media-card[data-id="' + currentId + '"]');
+                var newUrl = data.url || '';
+                // Prefer relative path for display
+                var rel = newUrl.replace(/^https?:\/\/[^/]+/, '');
+                var urls = data.urls || {};
+                var relUrls = {};
+                Object.keys(urls).forEach(function (w) {
+                    relUrls[w] = (urls[w] || '').replace(/^https?:\/\/[^/]+/, '');
                 });
+                if (card) {
+                    card.setAttribute('data-url', rel);
+                    card.setAttribute('data-urls', JSON.stringify(relUrls));
+                    var copyBtn = card.querySelector('.media-copy');
+                    if (copyBtn) copyBtn.setAttribute('data-url', rel);
+                    var img = card.querySelector('.media-thumb img');
+                    var thumbRel = rel;
+                    var sorted = Object.keys(relUrls).map(Number).sort(function (a, b) { return a - b; });
+                    if (sorted.length) thumbRel = relUrls[sorted[0]];
+                    card.setAttribute('data-thumb', thumbRel);
+                    if (img) {
+                        img.src = thumbRel + (thumbRel.indexOf('?') === -1 ? '?t=' : '&t=') + Date.now();
+                    }
+                    if (data.media && data.media.original_name) {
+                        card.setAttribute('data-name', data.media.original_name);
+                        var nm = card.querySelector('.media-name');
+                        if (nm) { nm.textContent = data.media.original_name; nm.title = data.media.original_name; }
+                        document.getElementById('ms-name').value = data.media.original_name;
+                    }
+                }
+                var prev = document.getElementById('ms-preview');
+                if (prev) {
+                    prev.innerHTML = '<img src="' + esc(rel) + '?t=' + Date.now() + '" alt="" style="max-width:100%;max-height:220px;object-fit:contain;border-radius:8px;">';
+                }
+                openSidebar(card || document.querySelector('.media-card[data-id="' + currentId + '"]'));
+                setTimeout(function () { if (hint) hint.textContent = ''; }, 2000);
+            })
+            .catch(function () { if (hint) hint.textContent = 'Error'; });
+    });
+
+    document.getElementById('ms-gallery-btn').addEventListener('click', async function () {
+        if (!currentId) return;
+        var btn = this;
+        var currently = btn.getAttribute('data-excluded') === '1';
+        var next = currently ? '0' : '1';
+        btn.disabled = true;
+        try {
+            var fd = new FormData();
+            fd.append('_mova_csrf', csrfToken);
+            fd.append('exclude', next);
+            var res = await fetch('/hq/media/gallery-exclude/' + currentId, { method: 'POST', body: fd });
+            var data = await res.json().catch(function () { return { success: false }; });
+            if (data.success) {
+                var excluded = String(data.exclude_from_gallery) === '1' || next === '1';
+                btn.setAttribute('data-excluded', excluded ? '1' : '0');
+                btn.innerHTML = excluded
+                    ? '<i class="fa-solid fa-eye-slash"></i> Excluded'
+                    : '<i class="fa-solid fa-eye"></i> In gallery';
+                btn.style.color = excluded ? 'var(--hq-warning,#b45309)' : '';
+                var card = document.querySelector('.media-card[data-id="' + currentId + '"]');
+                if (card) {
+                    card.classList.toggle('is-gallery-excluded', excluded);
+                    card.setAttribute('data-excluded', excluded ? '1' : '0');
+                }
             } else {
-                prompt('Copy URL', url);
+                alert(data.error || 'Could not update gallery visibility');
             }
-        });
+        } catch (e) {
+            alert('Could not update gallery visibility');
+        }
+        btn.disabled = false;
     });
 
-    document.querySelectorAll('.media-gallery-exclude').forEach(function (btn) {
-        btn.addEventListener('click', async function () {
-            var id = btn.getAttribute('data-id');
-            if (!id) return;
-            var currently = btn.getAttribute('data-excluded') === '1';
-            var next = currently ? '0' : '1';
-            btn.disabled = true;
-            try {
-                var fd = new FormData();
-                fd.append('_mova_csrf', csrfToken);
-                fd.append('exclude', next);
-                var res = await fetch('/hq/media/gallery-exclude/' + id, { method: 'POST', body: fd });
-                var data = await res.json().catch(function () { return { success: false }; });
-                if (data.success) {
-                    var excluded = String(data.exclude_from_gallery) === '1' || next === '1';
-                    btn.setAttribute('data-excluded', excluded ? '1' : '0');
-                    btn.title = excluded ? 'Include in public gallery stream' : 'Exclude from public gallery stream';
-                    btn.style.color = excluded ? 'var(--hq-warning,#b45309)' : '';
-                    var icon = btn.querySelector('i');
-                    if (icon) {
-                        icon.className = 'fa-solid ' + (excluded ? 'fa-eye-slash' : 'fa-eye');
-                    }
-                    var card = btn.closest('.media-card');
-                    if (card) {
-                        card.classList.toggle('is-gallery-excluded', excluded);
-                    }
-                } else {
-                    alert(data.error || 'Could not update gallery visibility');
-                }
-            } catch (e) {
-                alert('Could not update gallery visibility');
-            }
-            btn.disabled = false;
-        });
-    });
-
-    document.querySelectorAll('.media-delete').forEach(function (btn) {
-        btn.addEventListener('click', async function () {
-            var id = btn.getAttribute('data-id');
-            if (!id || !confirm('Delete this media file permanently?')) return;
-            btn.disabled = true;
-            try {
-                var fd = new FormData();
-                fd.append('_mova_csrf', csrfToken);
-                fd.append('_method', 'DELETE');
-                var res = await fetch('/hq/media/delete/' + id, { method: 'POST', body: fd });
-                var data = await res.json().catch(function () { return { success: res.ok }; });
-                if (data.success || res.ok) {
-                    var card = btn.closest('.media-card');
-                    if (card) card.remove();
-                } else {
-                    alert(data.error || 'Delete failed');
-                    btn.disabled = false;
-                }
-            } catch (e) {
-                alert('Delete failed');
+    document.getElementById('ms-delete-btn').addEventListener('click', async function () {
+        if (!currentId || !confirm('Delete this media file permanently?')) return;
+        var btn = this;
+        btn.disabled = true;
+        try {
+            var fd = new FormData();
+            fd.append('_mova_csrf', csrfToken);
+            var res = await fetch('/hq/media/delete/' + currentId, { method: 'POST', body: fd });
+            var data = await res.json().catch(function () { return { success: res.ok }; });
+            if (data.success || res.ok) {
+                var card = document.querySelector('.media-card[data-id="' + currentId + '"]');
+                if (card) card.remove();
+                closeSidebar();
+            } else {
+                alert(data.error || 'Delete failed');
                 btn.disabled = false;
             }
-        });
+        } catch (e) {
+            alert('Delete failed');
+            btn.disabled = false;
+        }
     });
 
+    // —— Lightbox ——
+    var lb = document.getElementById('media-lightbox');
+    var lbStage = document.getElementById('media-lb-stage');
+    var lbCaption = document.getElementById('media-lb-caption');
+    var lbIndex = 0;
+
+    function mediaCards() {
+        return Array.prototype.slice.call(document.querySelectorAll('.media-card'));
+    }
+
+    function openLightbox(index) {
+        var cards = mediaCards();
+        if (!cards.length) return;
+        lbIndex = ((index % cards.length) + cards.length) % cards.length;
+        var card = cards[lbIndex];
+        var url = card.getAttribute('data-url') || '';
+        var name = card.getAttribute('data-name') || '';
+        var mime = card.getAttribute('data-mime') || '';
+        var poster = card.getAttribute('data-poster') || '';
+        if (mime.indexOf('video/') === 0) {
+            lbStage.innerHTML = '<video controls autoplay playsinline src="' + esc(url) + '"' +
+                (poster ? ' poster="' + esc(poster) + '"' : '') + '></video>';
+        } else if (mime.indexOf('image/') === 0 || /\.webp$/i.test(url)) {
+            lbStage.innerHTML = '<img src="' + esc(url) + '" alt="' + esc(name) + '">';
+        } else {
+            lbStage.innerHTML = '<div class="media-placeholder" style="height:200px;width:280px;">' + esc(name || 'File') + '</div>';
+        }
+        lbCaption.textContent = name;
+        lb.hidden = false;
+        lb.setAttribute('aria-hidden', 'false');
+        lb.classList.add('is-open');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeLightbox() {
+        lb.classList.remove('is-open');
+        lb.hidden = true;
+        lb.setAttribute('aria-hidden', 'true');
+        lbStage.innerHTML = '';
+        document.body.style.overflow = '';
+    }
+
+    document.querySelectorAll('.media-open-preview').forEach(function (el) {
+        el.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var card = el.closest('.media-card');
+            var cards = mediaCards();
+            openLightbox(cards.indexOf(card));
+        });
+        el.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                el.click();
+            }
+        });
+    });
+    if (lb) {
+        lb.querySelector('.media-lightbox-backdrop').addEventListener('click', closeLightbox);
+        lb.querySelector('.media-lb-close').addEventListener('click', closeLightbox);
+        lb.querySelector('.media-lb-prev').addEventListener('click', function () { openLightbox(lbIndex - 1); });
+        lb.querySelector('.media-lb-next').addEventListener('click', function () { openLightbox(lbIndex + 1); });
+    }
+    document.addEventListener('keydown', function (e) {
+        if (lb && lb.classList.contains('is-open')) {
+            if (e.key === 'Escape') closeLightbox();
+            if (e.key === 'ArrowLeft') openLightbox(lbIndex - 1);
+            if (e.key === 'ArrowRight') openLightbox(lbIndex + 1);
+        }
+        if (sidebar && sidebar.classList.contains('is-open') && e.key === 'Escape') closeSidebar();
+    });
 
     // —— AI image generation ——
     (function () {

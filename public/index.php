@@ -57,7 +57,7 @@ try {
 
 // Page cache for anonymous GET (skip search, HQ, and system XML/text endpoints)
 // System routes must not be cached as bare body — they need correct Content-Type
-$systemPaths = ['/search', '/gallery', '/robots.txt', '/sitemap.xml', '/feed.xml', '/llms.txt', '/unsubscribe', '/mova.json'];
+$systemPaths = ['/search', '/gallery', '/robots.txt', '/sitemap.xml', '/feed.xml', '/media.xml', '/llms.txt', '/unsubscribe', '/mova.json'];
 $cacheable = $request->isGet()
     && !Auth::check()
     && !in_array($path, $systemPaths, true)
@@ -105,6 +105,12 @@ $router->get('/feed.xml', function () use ($seo) {
     return (new Response())
         ->header('Content-Type', 'application/rss+xml; charset=utf-8')
         ->body($seo->generateFeed());
+});
+
+$router->get('/media.xml', function () use ($seo) {
+    return (new Response())
+        ->header('Content-Type', 'application/rss+xml; charset=utf-8')
+        ->body($seo->generateMediaFeed());
 });
 
 $router->get('/llms.txt', function () use ($seo) {

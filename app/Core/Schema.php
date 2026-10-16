@@ -764,6 +764,7 @@ class Schema
         self::migratePhase10($db);
         self::migratePhase11($db);
         self::migratePhase12($db);
+        self::migratePhase13($db);
     }
 
     /**
@@ -1001,6 +1002,23 @@ class Schema
             )
         ");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_design_templates_category ON design_templates(category, enabled, sort_order)");
+    }
+
+    /** Media library: description + video poster path for richer media.xml / feed */
+    private static function migratePhase13(\PDO $db): void
+    {
+        try {
+            $cols = $db->query("PRAGMA table_info(media)")->fetchAll(\PDO::FETCH_ASSOC);
+            $names = array_column($cols, 'name');
+            if (!in_array('description', $names, true)) {
+                $db->exec("ALTER TABLE media ADD COLUMN description TEXT");
+            }
+            if (!in_array('poster_path', $names, true)) {
+                $db->exec("ALTER TABLE media ADD COLUMN poster_path TEXT");
+            }
+        } catch (\Throwable $e) {
+            // ignore on older installs
+        }
     }
 
     public static function isInstalled(): bool

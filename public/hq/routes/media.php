@@ -73,19 +73,23 @@ $router->get('/media/json', function (Request $req) {
         }
         ksort($urlsByWidth);
         $thumbUrl = $urlsByWidth ? reset($urlsByWidth) : $svc->url($item);
+        $posterUrl = $svc->posterUrl($item);
         $out[] = [
             'id' => (int) $item['id'],
             'url' => $svc->url($item),
             'thumb_url' => $thumbUrl,
+            'poster_url' => $posterUrl,
             'urls' => $urlsByWidth,
             'path' => $item['path'] ?? '',
             'original_name' => $item['original_name'] ?? '',
             'alt_text' => $item['alt_text'] ?? '',
+            'description' => $item['description'] ?? '',
             'mime_type' => $item['mime_type'] ?? '',
             'width' => $item['width'] ?? null,
             'height' => $item['height'] ?? null,
             'extension' => $item['extension'] ?? '',
             'variants' => $variants,
+            'exclude_from_gallery' => (int) ($item['exclude_from_gallery'] ?? 0),
         ];
     }
     return (new Response())
@@ -160,6 +164,152 @@ $router->post('/media/delete/{id}', function (Request $req, array $params) {
     return (new Response())
         ->header('Content-Type', 'application/json')
         ->body(json_encode(['success' => (bool) $ok]));
+});
+
+$router->post('/media/update/{id}', function (Request $req, array $params) {
+    requireAuth();
+    if (!Csrf::validate()) {
+        return (new Response())
+            ->header('Content-Type', 'application/json')
+            ->status(403)
+            ->body(json_encode(['success' => false, 'error' => 'Forbidden']));
+    }
+    $id = (int) ($params['id'] ?? 0);
+    $svc = new MediaService();
+    $fields = [
+        'original_name' => $req->input('original_name'),
+        'alt_text'      => $req->input('alt_text'),
+        'description'   => $req->input('description'),
+    ];
+    // Only pass keys that were actually sent
+    $payload = [];
+    foreach (['original_name', 'alt_text', 'description'] as $k) {
+        if ($req->input($k) !== null) {
+            $payload[$k] = (string) $req->input($k);
+        }
+    }
+    $row = $svc->updateMeta($id, $payload);
+    if (!$row) {
+        return (new Response())
+            ->header('Content-Type', 'application/json')
+            ->status(404)
+            ->body(json_encode(['success' => false, 'error' => 'Not found']));
+    }
+    return (new Response())
+        ->header('Content-Type', 'application/json')
+        ->body(json_encode([
+            'success' => true,
+            'media' => [
+                'id' => (int) $row['id'],
+                'original_name' => $row['original_name'] ?? '',
+                'alt_text' => $row['alt_text'] ?? '',
+                'description' => $row['description'] ?? '',
+            ],
+        ]));
+});
+
+$router->post('/media/replace/{id}', function (Request $req, array $params) {
+    requireAuth();
+    if (!Csrf::validate()) {
+        return (new Response())
+            ->header('Content-Type', 'application/json')
+            ->status(403)
+            ->body(json_encode(['success' => false, 'error' => 'Forbidden']));
+    }
+    $id = (int) ($params['id'] ?? 0);
+    $file = $req->file('file');
+    if (!$file && isset($_FILES['file']) && is_array($_FILES['file'])) {
+        $file = $_FILES['file'];
+    }
+    if (!$file || !is_array($file)) {
+        return (new Response())
+            ->header('Content-Type', 'application/json')
+            ->status(400)
+            ->body(json_encode(['success' => false, 'error' => 'No file uploaded.']));
+    }
+    try {
+        $svc = new MediaService();
+        $media = $svc->replaceImage($id, $file);
+        if (!$media) {
+            return (new Response())
+                ->header('Content-Type', 'application/json')
+                ->status(500)
+                ->body(json_encode(['success' => false, 'error' => 'Replace failed.']));
+        }
+        $urlsByWidth = [];
+        foreach ((array) ($media['variants'] ?? []) as $v) {
+            $w = (int) ($v['width'] ?? 0);
+            if ($w > 0 && !empty($v['path'])) {
+                $urlsByWidth[$w] = $svc->url($media, $w);
+            }
+        }
+        ksort($urlsByWidth);
+        return (new Response())
+            ->header('Content-Type', 'application/json')
+            ->body(json_encode([
+                'success' => true,
+                'media' => $media,
+                'url' => $svc->url($media),
+                'urls' => $urlsByWidth,
+            ]));
+    } catch (\Throwable $e) {
+        return (new Response())
+            ->header('Content-Type', 'application/json')
+            ->status(400)
+            ->body(json_encode(['success' => false, 'error' => $e->getMessage()]));
+    }
+});
+
+$router->get('/media/{id}/json', function (Request $req, array $params) {
+    requireAuth();
+    $id = (int) ($params['id'] ?? 0);
+    $svc = new MediaService();
+    $item = $svc->find($id);
+    if (!$item) {
+        return (new Response())
+            ->header('Content-Type', 'application/json')
+            ->status(404)
+            ->body(json_encode(['success' => false, 'error' => 'Not found']));
+    }
+    if (strpos((string) ($item['mime_type'] ?? ''), 'video/') === 0 && empty($item['poster_path'])) {
+        try {
+            $item = $svc->ensureVideoPoster($id) ?? $item;
+        } catch (\Throwable $e) {
+        }
+    }
+    $variants = $item['variants'] ?? [];
+    $urlsByWidth = [];
+    if (is_array($variants)) {
+        foreach ($variants as $v) {
+            $w = (int) ($v['width'] ?? 0);
+            if ($w > 0 && !empty($v['path'])) {
+                $urlsByWidth[$w] = $svc->url($item, $w);
+            }
+        }
+    }
+    ksort($urlsByWidth);
+    $occurrences = $svc->findOccurrences($item);
+    return (new Response())
+        ->header('Content-Type', 'application/json')
+        ->body(json_encode([
+            'success' => true,
+            'media' => [
+                'id' => (int) $item['id'],
+                'url' => $svc->url($item),
+                'poster_url' => $svc->posterUrl($item),
+                'urls' => $urlsByWidth,
+                'path' => $item['path'] ?? '',
+                'original_name' => $item['original_name'] ?? '',
+                'alt_text' => $item['alt_text'] ?? '',
+                'description' => $item['description'] ?? '',
+                'mime_type' => $item['mime_type'] ?? '',
+                'width' => $item['width'] ?? null,
+                'height' => $item['height'] ?? null,
+                'extension' => $item['extension'] ?? '',
+                'exclude_from_gallery' => (int) ($item['exclude_from_gallery'] ?? 0),
+                'occurrences' => $occurrences,
+            ],
+        ]));
 });
 
 
