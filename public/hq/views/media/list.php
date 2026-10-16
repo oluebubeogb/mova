@@ -1,5 +1,340 @@
 <?php use Mova\Security\Csrf; use Mova\Core\Bootstrap; ?>
 
+<style>
+/* Media page layout — scoped so it always applies with this view */
+.media-page {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    width: 100%;
+    min-height: 0;
+}
+.media-page-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    transition: max-width 0.22s ease;
+}
+.media-page.is-sidebar-open .media-page-main {
+    max-width: calc(100% - 30vw);
+}
+@media (max-width: 900px) {
+    .media-page.is-sidebar-open .media-page-main {
+        max-width: calc(100% - 280px);
+    }
+}
+@media (max-width: 640px) {
+    .media-page {
+        flex-direction: column;
+    }
+    .media-page.is-sidebar-open .media-page-main {
+        max-width: 100%;
+    }
+}
+
+/* Grid thumbs: fixed height for images AND videos */
+.media-page .media-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 1rem;
+}
+.media-page .media-card {
+    background: var(--hq-surface, #fff);
+    border: 1px solid var(--hq-border, #e2e8f0);
+    border-radius: var(--hq-radius, 8px);
+    overflow: hidden;
+    position: relative;
+}
+.media-page .media-thumb {
+    position: relative;
+    width: 100%;
+    height: 140px;
+    max-height: 140px;
+    overflow: hidden;
+    background: var(--hq-bg, #f1f5f9);
+    cursor: zoom-in;
+}
+.media-page .media-thumb img,
+.media-page .media-thumb video,
+.media-page .media-hover-video,
+.media-page .media-poster {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 140px !important;
+    object-fit: cover !important;
+    display: block !important;
+}
+.media-page .media-hover-video {
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1;
+    transition: opacity 0.2s ease;
+}
+.media-page .media-card.is-video:hover .media-hover-video {
+    opacity: 1;
+}
+.media-page .media-card.is-video:hover .media-poster {
+    opacity: 0;
+}
+.media-page .media-placeholder {
+    position: absolute;
+    inset: 0;
+    height: auto !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--hq-bg, #f1f5f9);
+    color: var(--hq-muted);
+    font-weight: 600;
+}
+.media-page .media-video-badge {
+    position: absolute;
+    bottom: 0.4rem;
+    left: 0.4rem;
+    z-index: 2;
+    background: rgba(15, 23, 42, 0.72);
+    color: #fff;
+    border-radius: 999px;
+    width: 1.6rem;
+    height: 1.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    pointer-events: none;
+}
+
+/* Right sidebar: 30vw, pushes main content */
+.media-page .media-sidebar {
+    flex: 0 0 0;
+    width: 0;
+    max-width: 0;
+    overflow: hidden;
+    opacity: 0;
+    border-left: 0 solid var(--hq-border, #e2e8f0);
+    background: var(--hq-surface, #fff);
+    align-self: stretch;
+    position: sticky;
+    top: 0;
+    max-height: calc(100vh - 4rem);
+    transition: flex-basis 0.22s ease, width 0.22s ease, max-width 0.22s ease, opacity 0.18s ease, border-width 0.22s ease;
+    display: flex;
+    flex-direction: column;
+    z-index: 5;
+}
+.media-page.is-sidebar-open .media-sidebar {
+    flex: 0 0 30vw;
+    width: 30vw;
+    max-width: 30vw;
+    min-width: 260px;
+    opacity: 1;
+    border-left-width: 1px;
+    overflow: hidden;
+}
+@media (max-width: 900px) {
+    .media-page.is-sidebar-open .media-sidebar {
+        flex-basis: 280px;
+        width: 280px;
+        max-width: 280px;
+    }
+}
+@media (max-width: 640px) {
+    .media-page.is-sidebar-open .media-sidebar {
+        flex: 0 0 auto;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        max-height: none;
+        position: relative;
+        border-left: 0;
+        border-top: 1px solid var(--hq-border, #e2e8f0);
+    }
+}
+.media-page .media-sidebar[hidden] {
+    display: none !important;
+}
+.media-page.is-sidebar-open .media-sidebar {
+    display: flex !important;
+}
+.media-page .media-sidebar-backdrop {
+    display: none !important; /* push layout, no overlay */
+}
+.media-page .media-sidebar-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    width: 100%;
+    transform: none !important;
+    box-shadow: none;
+    border: 0;
+    background: transparent;
+    overflow: hidden;
+}
+.media-page .media-sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--hq-border, #e2e8f0);
+    flex-shrink: 0;
+}
+.media-page .media-sidebar-preview {
+    padding: 0.85rem 1rem 0;
+    text-align: center;
+    flex-shrink: 0;
+}
+.media-page .media-sidebar-preview img,
+.media-page .media-sidebar-preview video {
+    max-width: 100%;
+    max-height: 180px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 8px;
+}
+.media-page .media-sidebar-body {
+    padding: 0.85rem 1rem 1.25rem;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+.media-page .media-sidebar-body .form-group {
+    margin-bottom: 0.85rem;
+}
+.media-page .media-sidebar-body label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-bottom: 0.3rem;
+    color: var(--hq-muted);
+}
+.media-page .ms-input {
+    width: 100%;
+    box-sizing: border-box;
+    border-radius: 8px;
+    border: 1px solid var(--hq-border, #e2e8f0);
+    padding: 0.5rem 0.65rem;
+    font: inherit;
+    background: var(--hq-bg, #f8fafc);
+}
+.media-page .ms-save-hint {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--hq-muted);
+    min-height: 1em;
+    margin-top: 0.2rem;
+}
+.media-page .media-sidebar-hr {
+    border: 0;
+    border-top: 1px solid var(--hq-border, #e2e8f0);
+    margin: 1rem 0;
+}
+.media-page .media-sidebar-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-bottom: 0.75rem;
+}
+.media-page .media-sidebar-footer {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* Lightbox: always viewport-fixed (moved to body in JS) */
+#media-lightbox.media-lightbox {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    inset: 0 !important;
+    z-index: 10000 !important;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: none !important;
+    max-height: none !important;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+#media-lightbox.media-lightbox.is-open {
+    display: flex !important;
+    opacity: 1;
+    pointer-events: auto;
+}
+#media-lightbox .media-lightbox-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+#media-lightbox .media-lightbox-stage {
+    position: relative;
+    z-index: 1;
+    max-width: min(92vw, 1100px);
+    max-height: 82vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+#media-lightbox .media-lightbox-stage img,
+#media-lightbox .media-lightbox-stage video {
+    max-width: 92vw;
+    max-height: 82vh;
+    width: auto;
+    height: auto;
+    border-radius: 10px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+    background: #0f172a;
+    object-fit: contain;
+}
+#media-lightbox .media-lightbox-caption {
+    position: absolute;
+    bottom: 1.25rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+    color: #f8fafc;
+    font-size: 0.9rem;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+    max-width: 80vw;
+    text-align: center;
+}
+#media-lightbox .media-lb-close,
+#media-lightbox .media-lb-nav {
+    position: absolute;
+    z-index: 2;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    border-radius: 999px;
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.1rem;
+}
+#media-lightbox .media-lb-close { top: 1rem; right: 1rem; font-size: 1.5rem; }
+#media-lightbox .media-lb-prev { left: 1rem; top: 50%; transform: translateY(-50%); }
+#media-lightbox .media-lb-next { right: 1rem; top: 50%; transform: translateY(-50%); }
+</style>
+
+<div class="media-page" id="media-page">
+<div class="media-page-main" id="media-page-main">
+
 <div class="toolbar">
     <h2 style="margin:0;font-size:1rem;">Media library</h2>
     <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
@@ -142,60 +477,6 @@
     </div>
     <script type="application/json" id="media-index-data"><?= json_encode($mediaIndex, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 
-    <!-- Detail sidebar -->
-    <aside id="media-sidebar" class="media-sidebar" hidden aria-hidden="true">
-        <div class="media-sidebar-backdrop" data-close-sidebar></div>
-        <div class="media-sidebar-panel" role="dialog" aria-labelledby="media-sidebar-title">
-            <div class="media-sidebar-header">
-                <h3 id="media-sidebar-title" style="margin:0;font-size:1rem;">Media details</h3>
-                <button type="button" class="btn-ghost btn-sm" data-close-sidebar aria-label="Close">&times;</button>
-            </div>
-            <div class="media-sidebar-preview" id="ms-preview"></div>
-            <div class="media-sidebar-body">
-                <div class="form-group">
-                    <label for="ms-name">File name</label>
-                    <input type="text" id="ms-name" class="ms-input" autocomplete="off">
-                    <span class="ms-save-hint" id="ms-name-hint"></span>
-                </div>
-                <div class="form-group">
-                    <label for="ms-alt">Alt text</label>
-                    <input type="text" id="ms-alt" class="ms-input" autocomplete="off" placeholder="Describe the image for accessibility">
-                    <span class="ms-save-hint" id="ms-alt-hint"></span>
-                </div>
-                <div class="form-group">
-                    <label for="ms-desc">Description</label>
-                    <textarea id="ms-desc" class="ms-input" rows="3" placeholder="Optional description for feeds &amp; media.xml"></textarea>
-                    <span class="ms-save-hint" id="ms-desc-hint"></span>
-                </div>
-                <div class="form-group" id="ms-replace-wrap">
-                    <label>Replace image</label>
-                    <p class="ms-help">Keeps the same public URL. New file is compressed to WebP variants.</p>
-                    <label class="btn-ghost btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:0.35rem;">
-                        <i class="fa-solid fa-arrows-rotate"></i> Choose file
-                        <input type="file" id="ms-replace" accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif" hidden>
-                    </label>
-                    <span class="ms-save-hint" id="ms-replace-hint"></span>
-                </div>
-                <hr class="media-sidebar-hr">
-                <div class="media-sidebar-links" id="ms-links"></div>
-                <div class="media-sidebar-footer">
-                    <button type="button" class="btn-ghost btn-sm" id="ms-gallery-btn"><i class="fa-solid fa-eye"></i> Gallery</button>
-                    <button type="button" class="btn-ghost btn-sm" id="ms-delete-btn" style="color:var(--hq-danger,#b91c1c);"><i class="fa-solid fa-trash"></i> Delete</button>
-                </div>
-                <div id="ms-occurrences" class="ms-occurrences" hidden></div>
-            </div>
-        </div>
-    </aside>
-
-    <!-- Lightbox preview -->
-    <div id="media-lightbox" class="media-lightbox" hidden aria-hidden="true">
-        <div class="media-lightbox-backdrop"></div>
-        <button type="button" class="media-lb-nav media-lb-prev" aria-label="Previous"><i class="fa-solid fa-chevron-left"></i></button>
-        <button type="button" class="media-lb-nav media-lb-next" aria-label="Next"><i class="fa-solid fa-chevron-right"></i></button>
-        <button type="button" class="media-lb-close" aria-label="Close">&times;</button>
-        <div class="media-lightbox-stage" id="media-lb-stage"></div>
-        <div class="media-lightbox-caption" id="media-lb-caption"></div>
-    </div>
     <?php
     $page = (int) ($page ?? 1);
     $totalPages = (int) ($totalPages ?? 1);
@@ -221,6 +502,64 @@
     </nav>
     <?php endif; ?>
 <?php endif; ?>
+
+</div><!-- /.media-page-main -->
+
+<!-- Detail sidebar: sits to the right of media-page-main, 30vw when open -->
+<aside id="media-sidebar" class="media-sidebar" hidden aria-hidden="true">
+    <div class="media-sidebar-panel" role="dialog" aria-labelledby="media-sidebar-title">
+        <div class="media-sidebar-header">
+            <h3 id="media-sidebar-title" style="margin:0;font-size:1rem;">Media details</h3>
+            <button type="button" class="btn-ghost btn-sm" data-close-sidebar aria-label="Close">&times;</button>
+        </div>
+        <div class="media-sidebar-preview" id="ms-preview"></div>
+        <div class="media-sidebar-body">
+            <div class="form-group">
+                <label for="ms-name">File name</label>
+                <input type="text" id="ms-name" class="ms-input" autocomplete="off">
+                <span class="ms-save-hint" id="ms-name-hint"></span>
+            </div>
+            <div class="form-group">
+                <label for="ms-alt">Alt text</label>
+                <input type="text" id="ms-alt" class="ms-input" autocomplete="off" placeholder="Describe the image for accessibility">
+                <span class="ms-save-hint" id="ms-alt-hint"></span>
+            </div>
+            <div class="form-group">
+                <label for="ms-desc">Description</label>
+                <textarea id="ms-desc" class="ms-input" rows="3" placeholder="Optional description for feeds &amp; media.xml"></textarea>
+                <span class="ms-save-hint" id="ms-desc-hint"></span>
+            </div>
+            <div class="form-group" id="ms-replace-wrap">
+                <label>Replace image</label>
+                <p class="ms-help">Keeps the same public URL. New file is compressed to WebP variants.</p>
+                <label class="btn-ghost btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:0.35rem;">
+                    <i class="fa-solid fa-arrows-rotate"></i> Choose file
+                    <input type="file" id="ms-replace" accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif" hidden>
+                </label>
+                <span class="ms-save-hint" id="ms-replace-hint"></span>
+            </div>
+            <hr class="media-sidebar-hr">
+            <div class="media-sidebar-links" id="ms-links"></div>
+            <div class="media-sidebar-footer">
+                <button type="button" class="btn-ghost btn-sm" id="ms-gallery-btn"><i class="fa-solid fa-eye"></i> Gallery</button>
+                <button type="button" class="btn-ghost btn-sm" id="ms-delete-btn" style="color:var(--hq-danger,#b91c1c);"><i class="fa-solid fa-trash"></i> Delete</button>
+            </div>
+            <div id="ms-occurrences" class="ms-occurrences" hidden></div>
+        </div>
+    </div>
+</aside>
+
+</div><!-- /.media-page -->
+
+<!-- Lightbox: moved to document.body by JS so position:fixed is viewport-relative -->
+<div id="media-lightbox" class="media-lightbox" hidden aria-hidden="true">
+    <div class="media-lightbox-backdrop"></div>
+    <button type="button" class="media-lb-nav media-lb-prev" aria-label="Previous"><i class="fa-solid fa-chevron-left"></i></button>
+    <button type="button" class="media-lb-nav media-lb-next" aria-label="Next"><i class="fa-solid fa-chevron-right"></i></button>
+    <button type="button" class="media-lb-close" aria-label="Close">&times;</button>
+    <div class="media-lightbox-stage" id="media-lb-stage"></div>
+    <div class="media-lightbox-caption" id="media-lb-caption"></div>
+</div>
 
 <script>
 (function () {
@@ -391,6 +730,7 @@
 
     // —— Sidebar ——
     var sidebar = document.getElementById('media-sidebar');
+    var mediaPage = document.getElementById('media-page');
     var currentId = null;
     var saveTimers = {};
 
@@ -479,8 +819,10 @@
         document.getElementById('ms-occurrences').innerHTML = '';
 
         sidebar.hidden = false;
+        sidebar.removeAttribute('hidden');
         sidebar.setAttribute('aria-hidden', 'false');
         sidebar.classList.add('is-open');
+        if (mediaPage) mediaPage.classList.add('is-sidebar-open');
 
         // Load occurrences + freshest meta
         fetch('/hq/media/' + currentId + '/json', { credentials: 'same-origin' })
@@ -506,7 +848,9 @@
         if (!sidebar) return;
         sidebar.classList.remove('is-open');
         sidebar.hidden = true;
+        sidebar.setAttribute('hidden', '');
         sidebar.setAttribute('aria-hidden', 'true');
+        if (mediaPage) mediaPage.classList.remove('is-sidebar-open');
         currentId = null;
     }
 
@@ -675,17 +1019,21 @@
         }
     });
 
-    // —— Lightbox ——
+    // —— Lightbox (reparent to body so fixed covers the viewport, not the footer) ——
     var lb = document.getElementById('media-lightbox');
     var lbStage = document.getElementById('media-lb-stage');
     var lbCaption = document.getElementById('media-lb-caption');
     var lbIndex = 0;
+    if (lb && lb.parentNode !== document.body) {
+        document.body.appendChild(lb);
+    }
 
     function mediaCards() {
         return Array.prototype.slice.call(document.querySelectorAll('.media-card'));
     }
 
     function openLightbox(index) {
+        if (!lb) return;
         var cards = mediaCards();
         if (!cards.length) return;
         lbIndex = ((index % cards.length) + cards.length) % cards.length;
@@ -704,14 +1052,17 @@
         }
         lbCaption.textContent = name;
         lb.hidden = false;
+        lb.removeAttribute('hidden');
         lb.setAttribute('aria-hidden', 'false');
         lb.classList.add('is-open');
         document.body.style.overflow = 'hidden';
     }
 
     function closeLightbox() {
+        if (!lb) return;
         lb.classList.remove('is-open');
         lb.hidden = true;
+        lb.setAttribute('hidden', '');
         lb.setAttribute('aria-hidden', 'true');
         lbStage.innerHTML = '';
         document.body.style.overflow = '';
