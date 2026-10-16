@@ -545,13 +545,13 @@
             </div>
             <div class="form-group" id="ms-replace-wrap">
                 <label>Replace image</label>
-                <p class="ms-help">Keeps the same public URL. Upload a file or regenerate with AI.</p>
+                <p class="ms-help">Uploads or generates a new file, then updates every place the old URL appears on the site (find &amp; replace). Old media is removed afterward.</p>
                 <div style="display:flex;flex-wrap:wrap;gap:0.4rem;align-items:center;">
                     <label class="btn-ghost btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:0.35rem;margin:0;">
                         <i class="fa-solid fa-upload"></i> Choose file
                         <input type="file" id="ms-replace" accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif" hidden>
                     </label>
-                    <button type="button" class="btn-ghost btn-sm" id="ms-regenerate-btn" title="AI regenerate — keeps this URL">
+                    <button type="button" class="btn-ghost btn-sm" id="ms-regenerate-btn" title="AI regenerate as a new file, then update site URLs">
                         <i class="fa-solid fa-wand-magic-sparkles"></i> Regenerate
                     </button>
                 </div>
@@ -953,38 +953,26 @@
             .then(function (data) {
                 if (!data.success) {
                     if (hint) hint.textContent = data.error || 'Failed';
+                    console.error('[mova media replace failed]', data);
                     return;
                 }
-                if (data.warnings && data.warnings.length) {
-                    if (hint) hint.textContent = 'Replaced with warnings: ' + data.warnings.join('; ');
-                } else {
-                    if (hint) hint.textContent = 'Replaced (same URL) — reloading…';
+                if (data.debug) {
+                    console.info('[mova media replace debug]', data.debug);
                 }
-                // Bust cache on every known size URL, then hard-reload so disk truth wins
+                var rt = data.retarget || {};
+                var msg = 'New media created';
+                if (data.new_id) msg += ' #' + data.new_id;
+                if (rt.content_occurrences) msg += ' · ' + rt.content_occurrences + ' content URL(s) updated';
+                if (data.deleted_old) msg += ' · old file deleted';
+                if (hint) hint.textContent = msg + ' — reloading…';
+                console.info('[mova media replace]', data);
                 var bust = Date.now();
-                var card = document.querySelector('.media-card[data-id="' + currentId + '"]');
-                var urls = data.urls || {};
-                Object.keys(urls).forEach(function (w) {
-                    var u = (urls[w] || '').replace(/^https?:\/\/[^/]+/, '');
-                    if (u) {
-                        var probe = new Image();
-                        probe.src = u + (u.indexOf('?') === -1 ? '?t=' : '&t=') + bust;
-                    }
-                });
-                var rel = (data.url || '').replace(/^https?:\/\/[^/]+/, '');
-                if (card && rel) {
-                    var img = card.querySelector('.media-thumb img');
-                    if (img) img.src = rel + (rel.indexOf('?') === -1 ? '?t=' : '&t=') + bust;
-                }
-                var prev = document.getElementById('ms-preview');
-                if (prev && rel) {
-                    prev.innerHTML = '<img src="' + esc(rel) + '?t=' + bust + '" alt="" style="max-width:100%;max-height:180px;object-fit:contain;border-radius:8px;">';
-                }
                 setTimeout(function () {
                     window.location.href = '/hq/media?replaced=' + encodeURIComponent(currentId) + '&t=' + bust;
-                }, 500);
+                }, 700);
             })
             .catch(function (err) {
+                console.error('[mova media replace]', err);
                 if (hint) hint.textContent = (err && err.message) ? err.message : 'Error';
             });
     });

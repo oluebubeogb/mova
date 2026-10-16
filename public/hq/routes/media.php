@@ -227,20 +227,13 @@ $router->post('/media/replace/{id}', function (Request $req, array $params) {
             ->status(400)
             ->body(json_encode(['success' => false, 'error' => 'No file uploaded.']));
     }
+    $keepOld = $req->input('keep_old') === '1' || $req->input('keep_old') === 1 || $req->input('keep_old') === true;
     try {
         $svc = new MediaService();
-        $media = $svc->replaceImage($id, $file);
-        if (!$media) {
-            return (new Response())
-                ->header('Content-Type', 'application/json')
-                ->status(500)
-                ->body(json_encode(['success' => false, 'error' => 'Replace failed.']));
-        }
-        $warnings = [];
-        if (!empty($media['_replace_warnings']) && is_array($media['_replace_warnings'])) {
-            $warnings = $media['_replace_warnings'];
-            unset($media['_replace_warnings']);
-        }
+        $user = Auth::user();
+        $uid = $user ? (int) ($user['id'] ?? 0) : null;
+        $result = $svc->replaceByNewUpload($id, $file, $uid, !$keepOld);
+        $media = $result['new'];
         $urlsByWidth = [];
         foreach ((array) ($media['variants'] ?? []) as $v) {
             $w = (int) ($v['width'] ?? 0);
@@ -249,18 +242,19 @@ $router->post('/media/replace/{id}', function (Request $req, array $params) {
             }
         }
         ksort($urlsByWidth);
-        $payload = [
-            'success' => true,
-            'media' => $media,
-            'url' => $svc->url($media),
-            'urls' => $urlsByWidth,
-        ];
-        if ($warnings !== []) {
-            $payload['warnings'] = $warnings;
-        }
         return (new Response())
             ->header('Content-Type', 'application/json')
-            ->body(json_encode($payload));
+            ->body(json_encode([
+                'success' => true,
+                'mode' => 'new_upload_retarget',
+                'media' => $media,
+                'url' => $svc->url($media),
+                'urls' => $urlsByWidth,
+                'old_id' => (int) ($result['old']['id'] ?? $id),
+                'new_id' => (int) ($media['id'] ?? 0),
+                'deleted_old' => !empty($result['deleted']),
+                'retarget' => $result['retarget'] ?? [],
+            ]));
     } catch (\Throwable $e) {
         return (new Response())
             ->header('Content-Type', 'application/json')
