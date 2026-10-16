@@ -469,6 +469,138 @@ class MediaService
     }
 
     /**
+     * Replace image from in-memory bytes (AI regenerate) while keeping public path / variants stable.
+     * Does not change original_name / alt / description unless $meta overrides them.
+     */
+    public function replaceImageFromBinary(int $id, string $binary, string $mime = 'image/png', array $meta = []): ?array
+    {
+        if ($binary === '') {
+            throw new \InvalidArgumentException('Empty image data');
+        }
+        $media = $this->find($id);
+        if (!$media) {
+            throw new \InvalidArgumentException('Media not found.');
+        }
+        $mime = strtolower(trim($mime));
+        if ($mime === '' || strpos($mime, 'image/') !== 0) {
+            $finfo = new \finfo(FILEINFO_MIME_TYPE);
+            $detected = $finfo->buffer($binary);
+            $mime = (is_string($detected) && strpos($detected, 'image/') === 0) ? $detected : 'image/png';
+        }
+        if ($mime === 'image/svg+xml') {
+            throw new \InvalidArgumentException('SVG replace is not supported for URL-stable replace.');
+        }
+
+        $extMap = [
+            'image/jpeg' => 'jpg',
+            'image/jpg' => 'jpg',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            'image/gif' => 'gif',
+        ];
+        $ext = $extMap[$mime] ?? 'png';
+
+        $uploadsRoot = Bootstrap::path('uploads');
+        if ($uploadsRoot === '') {
+            throw new \RuntimeException('Upload path is not configured.');
+        }
+
+        $currentPath = (string) ($media['path'] ?? '');
+        $subdir = dirname(str_replace('\\', '/', $currentPath));
+        if ($subdir === '.' || $subdir === '') {
+            $subdir = date('Y/m');
+        }
+        $uploadDir = $uploadsRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $subdir);
+        if (!is_dir($uploadDir) && !@mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
+            throw new \RuntimeException('Cannot create upload folder for replace.');
+        }
+
+        $tmpName = 'replace-' . bin2hex(random_bytes(6)) . '.' . $ext;
+        $tmpDest = $uploadDir . DIRECTORY_SEPARATOR . $tmpName;
+        if (@file_put_contents($tmpDest, $binary) === false) {
+            throw new \RuntimeException('Failed to stage replacement bytes.');
+        }
+
+        $info = @getimagesize($tmpDest);
+        $width = $info ? (int) $info[0] : (isset($meta['width']) ? (int) $meta['width'] : null);
+        $height = $info ? (int) $info[1] : (isset($meta['height']) ? (int) $meta['height'] : null);
+
+        $oldBase = pathinfo((string) ($media['filename'] ?? 'media'), PATHINFO_FILENAME);
+        $oldBase = preg_replace('/-(320|480|768|1200)$/i', '', (string) $oldBase) ?: 'media';
+        $filename = $oldBase . '.webp';
+
+        $variants = [];
+        if (Bootstrap::config('media.convert_to_webp', true) && function_exists('imagewebp')) {
+            $variants = $this->processImage($tmpDest, $subdir, $filename, $width, $height);
+        }
+        @unlink($tmpDest);
+
+        if ($variants === []) {
+            throw new \RuntimeException('Could not process replacement image.');
+        }
+
+        $oldVariants = is_array($media['variants'] ?? null) ? $media['variants'] : [];
+        foreach ($oldVariants as $v) {
+            $vf = $uploadsRoot . '/' . str_replace('/', DIRECTORY_SEPARATOR, (string) ($v['path'] ?? ''));
+            if (is_file($vf)) {
+                @unlink($vf);
+            }
+        }
+        $oldPrimary = $uploadsRoot . '/' . str_replace('/', DIRECTORY_SEPARATOR, $currentPath);
+        if (is_file($oldPrimary)) {
+            $stillUsed = false;
+            foreach ($variants as $v) {
+                if (($v['path'] ?? '') === $currentPath) {
+                    $stillUsed = true;
+                    break;
+                }
+            }
+            if (!$stillUsed) {
+                @unlink($oldPrimary);
+            }
+        }
+
+        usort($variants, static function ($a, $b) {
+            return ((int) ($b['width'] ?? 0)) <=> ((int) ($a['width'] ?? 0));
+        });
+        $primary = $variants[0];
+        $storePath = (string) ($primary['path'] ?? $currentPath);
+        $storeFilename = basename($storePath);
+        $storeSize = (int) ($primary['size'] ?? 0);
+        $storeW = (int) ($primary['width'] ?? $width);
+        $storeH = (int) ($primary['height'] ?? $height);
+        $fileHash = null;
+        $primaryFile = $uploadsRoot . '/' . str_replace('/', DIRECTORY_SEPARATOR, $storePath);
+        if (is_file($primaryFile)) {
+            $fileHash = @hash_file('sha256', $primaryFile) ?: null;
+        }
+
+        $update = [
+            'filename'  => $storeFilename,
+            'mime_type' => 'image/webp',
+            'extension' => 'webp',
+            'size'      => $storeSize,
+            'width'     => $storeW,
+            'height'    => $storeH,
+            'path'      => $storePath,
+            'variants'  => json_encode($variants),
+        ];
+        if ($fileHash) {
+            $update['file_hash'] = $fileHash;
+        }
+        // Preserve name/alt/desc unless explicitly provided
+        if (isset($meta['original_name']) && trim((string) $meta['original_name']) !== '') {
+            $update['original_name'] = trim((string) $meta['original_name']);
+        }
+        if (array_key_exists('alt_text', $meta)) {
+            $update['alt_text'] = (string) $meta['alt_text'];
+        }
+
+        Database::update('media', $update, 'id = :id', ['id' => $id]);
+        return $this->find($id);
+    }
+
+    /**
      * Generate a poster frame for video media (scene thumbnail).
      * Uses ffmpeg when available; otherwise leaves poster_path empty (client may capture).
      */

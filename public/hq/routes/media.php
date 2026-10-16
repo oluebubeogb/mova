@@ -357,6 +357,7 @@ $router->post('/media/generate', function (Request $req) {
     $prompt = trim((string) $req->post('prompt', ''));
     $aspect = strtolower(trim((string) $req->post('aspect', 'square')));
     $negative = trim((string) $req->post('negative_prompt', ''));
+    $replaceMediaId = (int) $req->post('replace_media_id', 0);
     if ($prompt === '') {
         return (new Response())
             ->header('Content-Type', 'application/json')
@@ -366,19 +367,40 @@ $router->post('/media/generate', function (Request $req) {
     if (!isset(\Mova\AI\ImageGenService::ASPECTS[$aspect])) {
         $aspect = 'square';
     }
+    if ($replaceMediaId > 0) {
+        $svc = new MediaService();
+        $existing = $svc->find($replaceMediaId);
+        if (!$existing) {
+            return (new Response())
+                ->header('Content-Type', 'application/json')
+                ->status(404)
+                ->body(json_encode(['ok' => false, 'error' => 'Media to replace not found']));
+        }
+        $mime = (string) ($existing['mime_type'] ?? '');
+        if (strpos($mime, 'image/') !== 0) {
+            return (new Response())
+                ->header('Content-Type', 'application/json')
+                ->status(400)
+                ->body(json_encode(['ok' => false, 'error' => 'Only image media can be regenerated']));
+        }
+    }
     try {
         $jobs = new \Mova\AI\AiJobService();
+        $ctx = [
+            'aspect' => $aspect,
+            'negative_prompt' => $negative,
+            'size' => (new \Mova\AI\ImageGenService())->sizeForAspect($aspect),
+            'route' => '/hq/media',
+            'area' => 'content',
+        ];
+        if ($replaceMediaId > 0) {
+            $ctx['replace_media_id'] = $replaceMediaId;
+        }
         $job = $jobs->enqueue(
             $uid,
             $prompt,
             null,
-            [
-                'aspect' => $aspect,
-                'negative_prompt' => $negative,
-                'size' => (new \Mova\AI\ImageGenService())->sizeForAspect($aspect),
-                'route' => '/hq/media',
-                'area' => 'content',
-            ],
+            $ctx,
             'image',
             $req->post('client_key') ? (string) $req->post('client_key') : null
         );

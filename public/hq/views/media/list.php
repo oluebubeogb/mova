@@ -8,26 +8,38 @@
     gap: 0;
     width: 100%;
     min-height: 0;
+    /* Breathing room between grid and detail panel when open */
+    --media-sidebar-gap: 1.25rem;
+}
+.media-page.is-sidebar-open {
+    gap: var(--media-sidebar-gap);
 }
 .media-page-main {
     flex: 1 1 auto;
     min-width: 0;
-    transition: max-width 0.22s ease;
+    transition: max-width 0.22s ease, padding-right 0.22s ease;
 }
 .media-page.is-sidebar-open .media-page-main {
-    max-width: calc(100% - 30vw);
+    /* sidebar width + gap so the grid never collides with the panel */
+    max-width: calc(100% - 30vw - var(--media-sidebar-gap));
+    padding-right: 0.25rem;
 }
 @media (max-width: 900px) {
+    .media-page {
+        --media-sidebar-gap: 1rem;
+    }
     .media-page.is-sidebar-open .media-page-main {
-        max-width: calc(100% - 280px);
+        max-width: calc(100% - 280px - var(--media-sidebar-gap));
     }
 }
 @media (max-width: 640px) {
     .media-page {
         flex-direction: column;
+        --media-sidebar-gap: 0.75rem;
     }
     .media-page.is-sidebar-open .media-page-main {
         max-width: 100%;
+        padding-right: 0;
     }
 }
 
@@ -131,8 +143,10 @@
     max-width: 30vw;
     min-width: 260px;
     opacity: 1;
-    border-left-width: 1px;
+    border: 1px solid var(--hq-border, #e2e8f0);
+    border-radius: 10px;
     overflow: hidden;
+    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
 }
 @media (max-width: 900px) {
     .media-page.is-sidebar-open .media-sidebar {
@@ -149,8 +163,8 @@
         min-width: 0;
         max-height: none;
         position: relative;
-        border-left: 0;
-        border-top: 1px solid var(--hq-border, #e2e8f0);
+        border-radius: 10px;
+        margin-top: 0.25rem;
     }
 }
 .media-page .media-sidebar[hidden] {
@@ -531,11 +545,16 @@
             </div>
             <div class="form-group" id="ms-replace-wrap">
                 <label>Replace image</label>
-                <p class="ms-help">Keeps the same public URL. New file is compressed to WebP variants.</p>
-                <label class="btn-ghost btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:0.35rem;">
-                    <i class="fa-solid fa-arrows-rotate"></i> Choose file
-                    <input type="file" id="ms-replace" accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif" hidden>
-                </label>
+                <p class="ms-help">Keeps the same public URL. Upload a file or regenerate with AI.</p>
+                <div style="display:flex;flex-wrap:wrap;gap:0.4rem;align-items:center;">
+                    <label class="btn-ghost btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:0.35rem;margin:0;">
+                        <i class="fa-solid fa-upload"></i> Choose file
+                        <input type="file" id="ms-replace" accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif" hidden>
+                    </label>
+                    <button type="button" class="btn-ghost btn-sm" id="ms-regenerate-btn" title="AI regenerate — keeps this URL">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Regenerate
+                    </button>
+                </div>
                 <span class="ms-save-hint" id="ms-replace-hint"></span>
             </div>
             <hr class="media-sidebar-hr">
@@ -1097,7 +1116,7 @@
         if (sidebar && sidebar.classList.contains('is-open') && e.key === 'Escape') closeSidebar();
     });
 
-    // —— AI image generation ——
+    // —— AI image generation (+ regenerate in-place) ——
     (function () {
         var modal = document.getElementById('gen-image-modal');
         var openBtn = document.getElementById('btn-generate-image');
@@ -1108,11 +1127,34 @@
         var negEl = document.getElementById('gen-negative');
         var progressEl = document.getElementById('gen-progress');
         var statusEl = document.getElementById('gen-status');
+        var titleEl = document.getElementById('gen-image-title');
+        var regenBtn = document.getElementById('ms-regenerate-btn');
         var pollTimer = null;
         var busy = false;
+        /** When set, generated image replaces this media id (same URL). */
+        var replaceMediaId = 0;
 
-        function showModal() {
+        function showModal(opts) {
             if (!modal) return;
+            opts = opts || {};
+            replaceMediaId = opts.replaceMediaId ? parseInt(opts.replaceMediaId, 10) || 0 : 0;
+            if (titleEl) {
+                titleEl.textContent = replaceMediaId
+                    ? 'Regenerate image (keep URL)'
+                    : 'Generate image';
+            }
+            if (submitBtn) {
+                submitBtn.innerHTML = replaceMediaId
+                    ? '<i class="fa-solid fa-wand-magic-sparkles"></i> Regenerate'
+                    : '<i class="fa-solid fa-wand-magic-sparkles"></i> Generate';
+            }
+            // Prefill from current alt/name when regenerating
+            if (replaceMediaId && promptEl && !(promptEl.value || '').trim()) {
+                var alt = (document.getElementById('ms-alt') && document.getElementById('ms-alt').value) || '';
+                var desc = (document.getElementById('ms-desc') && document.getElementById('ms-desc').value) || '';
+                var seed = (desc || alt || '').trim();
+                if (seed) promptEl.value = seed;
+            }
             modal.hidden = false;
             modal.style.display = 'flex';
             if (promptEl) promptEl.focus();
@@ -1121,6 +1163,9 @@
             if (!modal) return;
             modal.hidden = true;
             modal.style.display = 'none';
+            replaceMediaId = 0;
+            if (titleEl) titleEl.textContent = 'Generate image';
+            if (submitBtn) submitBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Generate';
         }
         function setBusy(on) {
             busy = !!on;
@@ -1133,7 +1178,13 @@
             return r ? r.value : 'square';
         }
 
-        if (openBtn) openBtn.addEventListener('click', showModal);
+        if (openBtn) openBtn.addEventListener('click', function () { showModal({}); });
+        if (regenBtn) {
+            regenBtn.addEventListener('click', function () {
+                if (!currentId) return;
+                showModal({ replaceMediaId: currentId });
+            });
+        }
         if (closeBtn) closeBtn.addEventListener('click', function () { if (!busy) hideModal(); });
         if (cancelBtn) cancelBtn.addEventListener('click', function () { if (!busy) hideModal(); });
         if (modal) modal.addEventListener('click', function (e) {
@@ -1168,16 +1219,44 @@
 
         function onDone(job) {
             setBusy(false);
-            hideModal();
             var act = (job.actions && job.actions[0]) ? job.actions[0] : null;
+            var wasReplace = !!(act && (act.type === 'media_replaced' || act.replaced));
+            var keptId = wasReplace ? (act.media_id || replaceMediaId) : 0;
+            hideModal();
             var msg = 'Image generated.';
+            if (wasReplace) {
+                msg = 'Image regenerated — same URL kept.';
+                var hint = document.getElementById('ms-replace-hint');
+                if (hint) hint.textContent = 'Regenerated (same URL)';
+                // Bust cache on card + sidebar preview
+                var card = document.querySelector('.media-card[data-id="' + keptId + '"]');
+                if (card) {
+                    var img = card.querySelector('.media-thumb img');
+                    var thumb = card.getAttribute('data-thumb') || card.getAttribute('data-url') || '';
+                    if (img && thumb) {
+                        img.src = thumb + (thumb.indexOf('?') === -1 ? '?t=' : '&t=') + Date.now();
+                    }
+                }
+                var prev = document.getElementById('ms-preview');
+                if (prev && card) {
+                    var u = card.getAttribute('data-url') || '';
+                    prev.innerHTML = '<img src="' + esc(u) + '?t=' + Date.now() + '" alt="" style="max-width:100%;max-height:180px;object-fit:contain;border-radius:8px;">';
+                }
+                if (statusEl) {
+                    statusEl.innerHTML = '<div class="alert alert-success">' + esc(msg) + '</div>';
+                }
+                setTimeout(function () {
+                    if (hint) hint.textContent = '';
+                    window.location.href = '/hq/media?regenerated=' + encodeURIComponent(keptId);
+                }, 700);
+                return;
+            }
             if (act && act.url) {
                 msg = 'Image ready — added to the media library.';
             }
             if (statusEl) {
                 statusEl.innerHTML = '<div class="alert alert-success">' + esc(msg) + ' <a href="/hq/media">Refresh</a> to see it at the top.</div>';
             }
-            // Soft reload so the new item appears
             setTimeout(function () { window.location.href = '/hq/media?generated=1'; }, 600);
         }
 
@@ -1239,7 +1318,10 @@
                 body.set('prompt', prompt);
                 body.set('aspect', selectedAspect());
                 body.set('negative_prompt', (negEl && negEl.value) || '');
-                body.set('client_key', 'img-' + Date.now());
+                body.set('client_key', (replaceMediaId ? 'regen-' : 'img-') + Date.now());
+                if (replaceMediaId) {
+                    body.set('replace_media_id', String(replaceMediaId));
+                }
 
                 fetch('/hq/media/generate', {
                     method: 'POST',

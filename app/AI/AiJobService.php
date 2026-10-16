@@ -174,24 +174,40 @@ class AiJobService
                 $img = new ImageGenService();
                 $aspect = (string) ($pageContext['aspect'] ?? 'square');
                 $negative = (string) ($pageContext['negative_prompt'] ?? '');
-                $gen = $img->generateAndIngest(
-                    (string) $row['prompt'],
-                    $aspect,
-                    $negative,
-                    $userId,
-                    function (string $msg) use ($jobId) {
-                        $this->touchProgress($jobId, $msg);
-                    }
-                );
+                $replaceMediaId = (int) ($pageContext['replace_media_id'] ?? 0);
+                $onProg = function (string $msg) use ($jobId) {
+                    $this->touchProgress($jobId, $msg);
+                };
+                if ($replaceMediaId > 0) {
+                    $gen = $img->generateAndReplace(
+                        $replaceMediaId,
+                        (string) $row['prompt'],
+                        $aspect,
+                        $negative,
+                        $userId,
+                        $onProg
+                    );
+                } else {
+                    $gen = $img->generateAndIngest(
+                        (string) $row['prompt'],
+                        $aspect,
+                        $negative,
+                        $userId,
+                        $onProg
+                    );
+                }
                 if (empty($gen['ok'])) {
                     throw new \RuntimeException((string) ($gen['error'] ?? 'Image generation failed'));
                 }
                 $media = $gen['media'] ?? [];
+                $replaced = !empty($gen['replaced']);
                 $result = [
-                    'reply' => 'Image generated and added to the media library.',
+                    'reply' => $replaced
+                        ? 'Image regenerated and existing media URL was kept.'
+                        : 'Image generated and added to the media library.',
                     'actions' => [[
-                        'type' => 'media_created',
-                        'media_id' => (int) ($media['id'] ?? 0),
+                        'type' => $replaced ? 'media_replaced' : 'media_created',
+                        'media_id' => (int) ($media['id'] ?? $replaceMediaId),
                         'url' => (string) ($gen['url'] ?? ''),
                         'width' => (int) ($media['width'] ?? 0),
                         'height' => (int) ($media['height'] ?? 0),
@@ -199,6 +215,7 @@ class AiJobService
                         'original_name' => (string) ($media['original_name'] ?? ''),
                         'mime_type' => (string) ($media['mime_type'] ?? ''),
                         'variants' => $media['variants'] ?? [],
+                        'replaced' => $replaced,
                     ]],
                     'provider' => (string) ($gen['provider'] ?? 'Mova Image'),
                     'session_id' => 0,
