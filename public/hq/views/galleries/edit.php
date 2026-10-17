@@ -370,6 +370,7 @@ $selectedMap = array_flip($selectedIds);
         row('Arrows', '<label class="g-row-check"><input type="checkbox" data-k="arrows"'+(p.arrows!==false?' checked':'')+'> Show</label>') +
         row('Dots', '<label class="g-row-check"><input type="checkbox" data-k="dots"'+(p.dots!==false?' checked':'')+'> Show</label>') +
         row('Display name', '<select data-k="name_mode">'+nameOpts+'</select>') +
+        row('Name padding', '<input type="text" data-k="name_padding" value="'+esc(p.name_padding||'')+'" placeholder="e.g. 0.65rem 0.9rem 1.5em">') +
         row('Overlay color', '<div class="g-color-wrap"><input type="color" data-k="overlay_picker" value="'+esc(overlayHex)+'"><input type="text" data-k="overlay_color" value="'+esc(overlay)+'" placeholder="rgba(...) or #hex"></div>') +
       '</div>';
 
@@ -469,6 +470,7 @@ $selectedMap = array_flip($selectedIds);
         dots: !!get('dots'),
         name_mode: nameMode,
         hover_name: nameMode === 'hover',
+        name_padding: get('name_padding') || '',
         overlay_color: get('overlay_color') || 'rgba(15,23,42,0.72)',
         lightbox: true
       });

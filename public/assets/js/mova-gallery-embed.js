@@ -39,6 +39,7 @@
     if (opts.gap != null) root.style.setProperty('--mova-g-gap', opts.gap + 'px');
     if (opts.aspect && opts.aspect !== 'auto') root.style.setProperty('--mova-g-aspect', opts.aspect);
     if (opts.overlay_color) root.style.setProperty('--mova-g-overlay', opts.overlay_color);
+    if (opts.name_padding) root.style.setProperty('--mova-g-name-pad', opts.name_padding);
   }
 
   function validItems(items) {
@@ -63,7 +64,9 @@
     if (mode !== 'caption') return null;
     var name = nameLabel(it);
     if (!name) return null;
-    return el('div', 'mova-g-name-caption', { text: name });
+    var node = el('div', 'mova-g-name-caption', { text: name });
+    if (opts.name_padding) node.style.padding = opts.name_padding;
+    return node;
   }
 
   function renderCarousel(root, data) {
@@ -84,8 +87,12 @@
       var slide = el('div', 'mova-g-slide');
       slide.appendChild(el('img', '', { src: it.url, alt: it.alt || '', loading: i < visible ? 'eager' : 'lazy' }));
       if (opts.overlay_color) slide.style.setProperty('--mova-g-overlay', opts.overlay_color);
+      if (opts.name_padding) slide.style.setProperty('--mova-g-name-pad', opts.name_padding);
       var hover = nameOverlay(it, opts);
-      if (hover) slide.appendChild(hover);
+      if (hover) {
+        if (opts.name_padding) hover.style.padding = opts.name_padding;
+        slide.appendChild(hover);
+      }
       var unit = el('div', 'mova-g-slide-unit');
       unit.appendChild(slide);
       var cap = nameCaption(it, opts);
@@ -168,8 +175,12 @@
       var cell = el('figure', 'mova-g-cell' + (mode === 'collage' ? ' mova-g-span-' + ((i % 5) + 1) : ''));
       cell.appendChild(el('img', '', { src: it.url, alt: it.alt || '', loading: 'lazy' }));
       if (opts.overlay_color) cell.style.setProperty('--mova-g-overlay', opts.overlay_color);
+      if (opts.name_padding) cell.style.setProperty('--mova-g-name-pad', opts.name_padding);
       var hover = nameOverlay(it, opts);
-      if (hover) cell.appendChild(hover);
+      if (hover) {
+        if (opts.name_padding) hover.style.padding = opts.name_padding;
+        cell.appendChild(hover);
+      }
       grid.appendChild(cell);
       var cap = nameCaption(it, opts);
       if (cap) {

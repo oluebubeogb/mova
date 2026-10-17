@@ -531,6 +531,34 @@ class GalleryService
         return in_array($layout, $allowed, true) ? $layout : 'carousel';
     }
 
+    /** Sanitize CSS padding shorthand (e.g. 0 0 1em, 8px 12px) */
+    public function normalizePadding($value, string $fallback = ''): string
+    {
+        $value = trim(preg_replace('/\s+/', ' ', (string) $value) ?? '');
+        if ($value === '') {
+            return $fallback;
+        }
+        // Allow 1–4 tokens of number+unit or 0
+        if (!preg_match(
+            '/^(?:\d+(?:\.\d+)?(?:px|em|rem|%|vh|vw|pt)?|0)(?:\s+(?:\d+(?:\.\d+)?(?:px|em|rem|%|vh|vw|pt)?|0)){0,3}$/i',
+            $value
+        )) {
+            return $fallback;
+        }
+        // Bare numbers → px (except 0)
+        $parts = explode(' ', $value);
+        foreach ($parts as &$part) {
+            if ($part === '0') {
+                continue;
+            }
+            if (preg_match('/^\d+(?:\.\d+)?$/', $part)) {
+                $part .= 'px';
+            }
+        }
+        unset($part);
+        return implode(' ', $parts);
+    }
+
     /** Sanitize overlay / color values */
     public function normalizeColor($value): string
     {
@@ -601,6 +629,7 @@ class GalleryService
             'name_mode' => in_array(($opts['name_mode'] ?? ''), ['hover', 'always', 'caption', 'hide'], true)
                 ? (string) $opts['name_mode']
                 : (!empty($opts['hover_name']) ? 'hover' : 'hide'),
+            'name_padding' => $this->normalizePadding($opts['name_padding'] ?? '', ''),
             'overlay_color' => $this->normalizeColor($opts['overlay_color'] ?? 'rgba(15,23,42,0.72)'),
         ];
     }
@@ -828,8 +857,8 @@ class GalleryService
             static $assets = false;
             if (!$assets && is_string($body) && strpos($body, 'mova-gallery') !== false) {
                 $assets = true;
-                $body .= "\n<link rel=\"stylesheet\" href=\"/assets/css/mova-gallery-embed.css?v=4\">"
-                    . "\n<script src=\"/assets/js/mova-gallery-embed.js?v=4\" defer></script>";
+                $body .= "\n<link rel=\"stylesheet\" href=\"/assets/css/mova-gallery-embed.css?v=5\">"
+                    . "\n<script src=\"/assets/js/mova-gallery-embed.js?v=5\" defer></script>";
             }
             return $body;
         }, 25);

@@ -75,8 +75,8 @@
 .mova-g-name {
   position: absolute;
   left: 0; right: 0; bottom: 0;
-  /* Extra bottom padding so the label sits clearly above the image edge */
-  padding: 0.65rem 0.9rem calc(0.65rem + 1em);
+  /* Override via preset name_padding (--mova-g-name-pad) */
+  padding: var(--mova-g-name-pad, 0.65rem 0.9rem calc(0.65rem + 1em));
   font-size: 0.8rem;
   text-align: center;
   line-height: 1.35;
