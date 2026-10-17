@@ -233,6 +233,18 @@ $selectedMap = array_flip($selectedIds);
 }
 .g-pc-btn:hover { background: #f1f5f9; color: #0f172a; }
 .g-pc-btn.is-danger:hover { background: #fef2f2; color: #dc2626; }
+.g-pc-btn.is-disabled,
+.g-pc-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  color: #94a3b8;
+  pointer-events: auto;
+}
+.g-pc-btn.is-disabled:hover,
+.g-pc-btn:disabled:hover {
+  background: transparent;
+  color: #94a3b8;
+}
 .g-pc-btn[data-tip]::after {
   content: attr(data-tip); position: absolute; bottom: calc(100% + 4px); left: 50%;
   transform: translateX(-50%); white-space: nowrap; font-size: 0.68rem; font-weight: 500;
@@ -335,7 +347,9 @@ $selectedMap = array_flip($selectedIds);
         '<span class="g-pc-actions">' +
           iconBtn('copy-sc', 'fa-code', 'Copy shortcode') +
           iconBtn('copy-html', 'fa-file-code', 'Copy HTML') +
-          iconBtn('remove', 'fa-trash', 'Remove', true) +
+          (idx === 0
+            ? '<button type="button" class="g-pc-btn is-disabled" data-tip="Default preset cannot be removed" disabled aria-disabled="true"><i class="fa-solid fa-trash"></i></button>'
+            : iconBtn('remove', 'fa-trash', 'Remove', true)) +
         '</span>' +
       '</div>' +
       '<div class="g-pc-body">' +
@@ -381,6 +395,10 @@ $selectedMap = array_flip($selectedIds);
         } else if (act === 'copy-html') {
           copyText('<div class="mova-gallery" data-gallery="'+gid+'" data-preset="'+keyNow+'"></div>', btn);
         } else if (act === 'remove') {
+          if (idx === 0 || fixedKey(idx) === 'default') {
+            setStatus('Default preset cannot be removed', true);
+            return;
+          }
           if (box.querySelectorAll('.g-pc').length <= 1) {
             setStatus('Keep at least one preset', true);
             return;
