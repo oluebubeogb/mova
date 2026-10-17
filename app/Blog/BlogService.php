@@ -591,7 +591,7 @@ class BlogService
             static $assets = false;
             if (!$assets && (strpos($body, 'mova-blog') !== false || strpos($body, '[blog') !== false)) {
                 $assets = true;
-                $body .= "\n" . '<link rel="stylesheet" href="/assets/css/mova-blog.css?v=3">'
+                $body .= "\n" . '<link rel="stylesheet" href="/assets/css/mova-blog.css?v=4">'
                     . '<script src="/assets/js/mova-blog.js?v=3" defer></script>';
             }
             return $body;

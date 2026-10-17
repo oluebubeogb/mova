@@ -1,5 +1,12 @@
 /* Mova blog feed */
-.mova-blog-page { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+.mova-blog-page {
+  /* Fill the theme .container (uses site --max-width); no extra max-width */
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 1.5rem 0 3rem;
+  box-sizing: border-box;
+}
 .mova-blog-page-title { font-size: 1.75rem; margin: 0 0 0.35rem; }
 .mova-blog-page-desc { color: var(--color-muted, #64748b); margin: 0 0 1.5rem; }
 

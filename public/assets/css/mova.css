@@ -1468,11 +1468,34 @@ img.mova-img:not([src=""]) {
     content-visibility: auto;
 }
 /* Reduce layout shift: keep aspect ratio when width/height known via CSS */
+.article-featured {
+    /* Edge-to-edge within the site container (cancel side gutters) */
+    width: calc(100% + 2.5rem);
+    max-width: none;
+    margin: 0 -1.25rem 1.75rem;
+    padding: 0;
+}
+.article-featured img,
 .article-featured img.mova-img,
+.article-featured .mova-img {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0;
+    border-radius: 0;
+}
 .article-body img.mova-img {
     max-width: 100%;
     height: auto;
     display: block;
+}
+@media (max-width: 480px) {
+    .article-featured {
+        width: calc(100% + 2rem);
+        margin-left: -1rem;
+        margin-right: -1rem;
+    }
 }
 /* Font Awesome / icon fonts: swap so text & icons never stay invisible */
 .fa, .fas, .far, .fal, .fab, .fa-solid, .fa-regular, .fa-brands,

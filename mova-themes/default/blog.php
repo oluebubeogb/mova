@@ -8,7 +8,7 @@ $html = $html ?? '';
 $id = (int)($blog['id'] ?? 0);
 $limit = (int)($blog['per_page'] ?? 12);
 ?>
-<link rel="stylesheet" href="/assets/css/mova-blog.css?v=3">
+<link rel="stylesheet" href="/assets/css/mova-blog.css?v=4">
 <section class="mova-blog-page">
   <h1 class="mova-blog-page-title"><?= htmlspecialchars($blog['title'] ?? 'Blog') ?></h1>
   <?php if (!empty($blog['description'])): ?>
