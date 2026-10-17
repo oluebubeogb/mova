@@ -4,6 +4,16 @@
 (function () {
   'use strict';
 
+  function ensureBlogAssets() {
+    if (!document.querySelector('link[href*="mova-blog.css"]')) {
+      var l = document.createElement('link');
+      l.rel = 'stylesheet';
+      l.href = '/assets/css/mova-blog.css?v=5';
+      document.head.appendChild(l);
+    }
+  }
+
+
   function fetchFeed(id, offset, limit) {
     var url = '/blog/api/feed/' + encodeURIComponent(id) + '?offset=' + offset + '&limit=' + (limit || 12);
     return fetch(url, { credentials: 'same-origin' }).then(function (r) {
@@ -116,6 +126,7 @@
   }
 
   function boot() {
+    ensureBlogAssets();
     document.querySelectorAll('.mova-blog-feed[data-blog-id]').forEach(bindInfinite);
     document.querySelectorAll('.mova-blog[data-blog]').forEach(mountEmbed);
   }
