@@ -11,9 +11,6 @@
 @media (min-width: 640px) {
   .mova-blog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (min-width: 1024px) {
-  .mova-blog-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
 .mova-blog-card {
   display: grid;
   grid-template-columns: 1fr;
@@ -102,4 +99,88 @@
 @media (max-width: 639px) {
   .mova-blog-card.has-image { grid-template-columns: 1fr; }
   .mova-blog-col2 img { max-height: 180px; }
+}
+
+
+/* Modern template cards */
+.mova-blog-card.is-modern {
+  padding: 0;
+  overflow: hidden;
+  border: none;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
+  background: var(--color-surface, #fff);
+}
+.mova-blog-card.is-modern.has-image {
+  grid-template-columns: 1fr;
+}
+.mova-blog-card.is-modern .mova-blog-col2 {
+  border-radius: 0;
+  min-height: 160px;
+  order: -1;
+}
+.mova-blog-card.is-modern .mova-blog-col2 img {
+  max-height: 180px;
+  min-height: 160px;
+}
+.mova-blog-card.is-modern .mova-blog-col1 {
+  padding: 1rem 1.15rem 1.15rem;
+  gap: 0.35rem;
+}
+.mova-blog-card.is-modern .mova-blog-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.72rem;
+  color: var(--color-muted, #64748b);
+}
+.mova-blog-card.is-modern .mova-blog-title {
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+}
+.mova-blog-card.is-modern .mova-blog-more {
+  margin-top: 0.4rem;
+}
+
+/* Minimal template cards */
+.mova-blog-card.is-minimal {
+  border: none;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 0;
+  padding: 1.1rem 0;
+  background: transparent;
+  box-shadow: none;
+}
+.mova-blog-card.is-minimal:hover {
+  box-shadow: none;
+  border-color: var(--color-primary, #0d9488);
+}
+.mova-blog-card.is-minimal.has-image {
+  grid-template-columns: minmax(0, 1fr) 5.5rem;
+  gap: 1rem;
+  align-items: center;
+}
+.mova-blog-card.is-minimal .mova-blog-col2 {
+  border-radius: 6px;
+  min-height: 5.5rem;
+}
+.mova-blog-card.is-minimal .mova-blog-col2 img {
+  max-height: 5.5rem;
+  min-height: 5.5rem;
+}
+.mova-blog-card.is-minimal .mova-blog-cat {
+  background: transparent;
+  padding: 0;
+  color: var(--color-muted, #64748b);
+  font-weight: 500;
+}
+.mova-blog-card.is-minimal .mova-blog-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+.mova-blog-card.is-minimal .mova-blog-more {
+  display: none;
+}
+.mova-blog-card.is-minimal .mova-blog-excerpt {
+  font-size: 0.84rem;
 }

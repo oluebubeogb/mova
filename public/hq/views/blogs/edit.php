@@ -153,14 +153,44 @@ $publicPath = $isDefault || $slug === 'blog' ? '/blog' : '/blog/' . htmlspecialc
 
         <div class="form-group" style="margin-top:1.25rem">
           <label>Template</label>
-          <div style="display:flex;gap:1rem;margin-bottom:0.5rem">
-            <label style="font-size:0.85rem"><input type="radio" name="template_mode" value="default" <?= $tplMode!=='custom'?'checked':'' ?>> Default grid cards</label>
-            <label style="font-size:0.85rem"><input type="radio" name="template_mode" value="custom" <?= $tplMode==='custom'?'checked':'' ?>> Custom HTML</label>
+          <p class="field-hint" style="margin-top:0">Pick a preset or design your own. Download samples to edit offline.</p>
+          <input type="hidden" name="template_mode" id="b-tpl-mode" value="<?= htmlspecialchars(in_array($tplMode, ['default','modern','minimal','custom'], true) ? $tplMode : 'default') ?>">
+          <div class="blog-tpl-picks" id="blog-tpl-picks">
+            <button type="button" class="blog-tpl-card<?= ($tplMode==='default' || $tplMode==='') ? ' is-active' : '' ?>" data-mode="default" title="Default">
+              <div class="blog-tpl-mock blog-tpl-mock-default" aria-hidden="true">
+                <div class="btm-row"><span class="btm-cat"></span></div>
+                <div class="btm-body"><div class="btm-lines"><i></i><i></i><i class="short"></i><b></b></div><div class="btm-img"></div></div>
+              </div>
+              <span class="blog-tpl-name">Default</span>
+            </button>
+            <button type="button" class="blog-tpl-card<?= $tplMode==='modern' ? ' is-active' : '' ?>" data-mode="modern" title="Modern">
+              <div class="blog-tpl-mock blog-tpl-mock-modern" aria-hidden="true">
+                <div class="btm-img tall"></div>
+                <div class="btm-lines pad"><i class="tiny"></i><i></i><i class="short"></i><b></b></div>
+              </div>
+              <span class="blog-tpl-name">Modern</span>
+            </button>
+            <button type="button" class="blog-tpl-card<?= $tplMode==='minimal' ? ' is-active' : '' ?>" data-mode="minimal" title="Minimal">
+              <div class="blog-tpl-mock blog-tpl-mock-minimal" aria-hidden="true">
+                <div class="btm-body"><div class="btm-lines"><i class="tiny"></i><i></i><i class="short"></i></div><div class="btm-img sm"></div></div>
+              </div>
+              <span class="blog-tpl-name">Minimal</span>
+            </button>
+            <button type="button" class="blog-tpl-card<?= $tplMode==='custom' ? ' is-active' : '' ?>" data-mode="custom" title="Custom HTML">
+              <div class="blog-tpl-mock blog-tpl-mock-code" aria-hidden="true">
+                <code>&lt;div&gt;…&lt;/div&gt;</code>
+              </div>
+              <span class="blog-tpl-name">Custom</span>
+            </button>
+          </div>
+          <div class="blog-tpl-downloads" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin:0.65rem 0 0.35rem">
+            <button type="button" class="btn-ghost btn-sm" id="dl-tpl-default"><i class="fa-solid fa-download"></i> Sample: default</button>
+            <button type="button" class="btn-ghost btn-sm" id="dl-tpl-rich"><i class="fa-solid fa-download"></i> Sample: all vars</button>
           </div>
           <div id="tpl-custom" style="<?= $tplMode==='custom'?'':'display:none' ?>">
             <p class="field-hint">Vars: {{title}} {{url}} {{excerpt}} {{excerpt_130}} {{featured_image}} {{has_image}} {{category}} {{categories}} {{tags}} {{date}} {{updated}} {{type}}. Loop: {{#items}} … {{/items}}. Condition: {{#has_image}}…{{/has_image}}</p>
             <div class="blog-var-chips" style="display:flex;flex-wrap:wrap;gap:0.3rem;margin-bottom:0.4rem">
-              <?php foreach (['title','url','excerpt_130','featured_image','category','date','has_image'] as $v): ?>
+              <?php foreach (['title','url','excerpt_130','featured_image','category','categories','tags','date','updated','type','has_image'] as $v): ?>
               <button type="button" class="btn-ghost btn-sm" data-var="<?= $v ?>">{{<?= $v ?>}}</button>
               <?php endforeach; ?>
             </div>
@@ -227,10 +257,31 @@ $publicPath = $isDefault || $slug === 'blog' ? '/blog' : '/blog/' . htmlspecialc
     document.getElementById('panel-manual').style.display = m==='manual'?'':'none';
   }
   mode.addEventListener('change', syncMode);
-  document.querySelectorAll('input[name="template_mode"]').forEach(function(r){
-    r.addEventListener('change', function(){
-      document.getElementById('tpl-custom').style.display = document.querySelector('input[name="template_mode"]:checked').value==='custom'?'':'none';
+  var tplMode = document.getElementById('b-tpl-mode');
+  var tplCustom = document.getElementById('tpl-custom');
+  document.querySelectorAll('#blog-tpl-picks .blog-tpl-card').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('#blog-tpl-picks .blog-tpl-card').forEach(function(b){ b.classList.remove('is-active'); });
+      btn.classList.add('is-active');
+      var mode = btn.getAttribute('data-mode') || 'default';
+      tplMode.value = mode;
+      tplCustom.style.display = mode === 'custom' ? '' : 'none';
     });
+  });
+  function downloadText(filename, text) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'text/html;charset=utf-8' }));
+    a.download = filename;
+    a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 500);
+  }
+  var sampleDefault = <?= json_encode((new \Mova\Blog\BlogService())->defaultTemplateSource()) ?>;
+  var sampleRich = <?= json_encode((new \Mova\Blog\BlogService())->richSampleTemplateSource()) ?>;
+  document.getElementById('dl-tpl-default').addEventListener('click', function(){
+    downloadText('mova-blog-template-default.html', sampleDefault);
+  });
+  document.getElementById('dl-tpl-rich').addEventListener('click', function(){
+    downloadText('mova-blog-template-all-vars.html', sampleRich);
   });
   var title = document.getElementById('b-title');
   var slug = document.getElementById('b-slug');
@@ -261,3 +312,31 @@ $publicPath = $isDefault || $slug === 'blog' ? '/blog' : '/blog/' . htmlspecialc
   });
 })();
 </script>
+
+<style>
+.blog-tpl-picks{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:0.65rem;margin-top:0.5rem}
+.blog-tpl-card{
+  appearance:none;border:1px solid var(--hq-border,#e5e7eb);border-radius:10px;background:#fff;
+  padding:0.5rem;cursor:pointer;text-align:left;font:inherit;color:inherit;
+  transition:border-color .15s, box-shadow .15s;
+}
+.blog-tpl-card:hover{border-color:#94a3b8}
+.blog-tpl-card.is-active{border-color:var(--hq-accent,#0f766e);box-shadow:0 0 0 2px color-mix(in srgb, var(--hq-accent,#0f766e) 25%, transparent)}
+.blog-tpl-name{display:block;font-size:0.78rem;font-weight:650;margin-top:0.4rem;color:#334155}
+.blog-tpl-mock{border-radius:6px;background:#f8fafc;border:1px solid #eef2f7;padding:0.4rem;min-height:4.5rem}
+.blog-tpl-mock-modern{padding:0;overflow:hidden}
+.blog-tpl-mock-code{display:flex;align-items:center;justify-content:center;min-height:4.5rem}
+.blog-tpl-mock-code code{font-size:0.65rem;color:#64748b}
+.btm-body{display:flex;gap:0.35rem;align-items:stretch}
+.btm-lines{flex:1;display:flex;flex-direction:column;gap:0.22rem;justify-content:center}
+.btm-lines i{display:block;height:0.28rem;background:#cbd5e1;border-radius:2px}
+.btm-lines i.short{width:55%}
+.btm-lines i.tiny{width:30%;height:0.22rem;background:#99f6e4}
+.btm-lines b{display:block;height:0.28rem;width:40%;background:#5eead4;border-radius:2px;margin-top:0.1rem}
+.btm-img{width:28%;min-height:2.2rem;background:linear-gradient(135deg,#e2e8f0,#cbd5e1);border-radius:4px}
+.btm-img.tall{width:100%;min-height:2rem;border-radius:0}
+.btm-img.sm{width:1.8rem;min-height:1.8rem;flex-shrink:0}
+.btm-lines.pad{padding:0.4rem}
+.btm-cat{display:inline-block;height:0.35rem;width:1.6rem;background:#99f6e4;border-radius:99px}
+.btm-row{margin-bottom:0.25rem}
+</style>

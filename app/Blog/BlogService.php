@@ -66,8 +66,8 @@ class BlogService
             'sort' => $this->normalizeSort($data['sort'] ?? 'date_desc'),
             'per_page' => max(1, min(50, (int) ($data['per_page'] ?? 12))),
             'excerpt_chars' => max(20, min(500, (int) ($data['excerpt_chars'] ?? 130))),
-            'template_mode' => ($data['template_mode'] ?? 'default') === 'custom' ? 'custom' : 'default',
-            'template_html' => ($data['template_mode'] ?? '') === 'custom'
+            'template_mode' => $this->normalizeTemplateMode($data['template_mode'] ?? 'default'),
+            'template_html' => $this->normalizeTemplateMode($data['template_mode'] ?? 'default') === 'custom'
                 ? (string) ($data['template_html'] ?? '') : null,
             'embed_options' => json_encode($this->normalizeEmbedOptions($data['embed_options'] ?? [])),
             'created_at' => $now,
@@ -126,7 +126,7 @@ class BlogService
             $update['excerpt_chars'] = max(20, min(500, (int) $data['excerpt_chars']));
         }
         if (array_key_exists('template_mode', $data)) {
-            $update['template_mode'] = $data['template_mode'] === 'custom' ? 'custom' : 'default';
+            $update['template_mode'] = $this->normalizeTemplateMode($data['template_mode']);
         }
         if (array_key_exists('template_html', $data)) {
             $update['template_html'] = (string) $data['template_html'];
@@ -462,12 +462,85 @@ class BlogService
             . '</a>{{/items}}';
     }
 
+    public function modernTemplateSource(): string
+    {
+        return '{{#items}}<a class="mova-blog-card is-modern{{#has_image}} has-image{{/has_image}}" href="{{url}}">'
+            . '{{#has_image}}<div class="mova-blog-col2"><img src="{{featured_image}}" alt="{{title}}" loading="lazy"></div>{{/has_image}}'
+            . '<div class="mova-blog-col1">'
+            . '<div class="mova-blog-meta">{{#category}}<span class="mova-blog-cat">{{category}}</span>{{/category}}'
+            . '<span>{{date}}</span>{{#type}} · <span>{{type}}</span>{{/type}}</div>'
+            . '<h3 class="mova-blog-title">{{title}}</h3>'
+            . '<p class="mova-blog-excerpt">{{excerpt_130}}</p>'
+            . '<span class="mova-blog-more">Read article</span></div>'
+            . '</a>{{/items}}';
+    }
+
+    public function minimalTemplateSource(): string
+    {
+        return '{{#items}}<a class="mova-blog-card is-minimal{{#has_image}} has-image{{/has_image}}" href="{{url}}">'
+            . '<div class="mova-blog-col1">'
+            . '{{#category}}<span class="mova-blog-cat">{{category}}</span>{{/category}}'
+            . '<h3 class="mova-blog-title">{{title}}</h3>'
+            . '<p class="mova-blog-excerpt">{{excerpt_130}}</p>'
+            . '<div class="mova-blog-meta" style="font-size:0.75rem;color:var(--color-muted,#64748b);margin-top:0.25rem">{{date}}</div>'
+            . '</div>'
+            . '{{#has_image}}<div class="mova-blog-col2"><img src="{{featured_image}}" alt="" loading="lazy"></div>{{/has_image}}'
+            . '</a>{{/items}}';
+    }
+
+    /** Sample full of vars for designers (download) */
+    public function richSampleTemplateSource(): string
+    {
+        return "<!-- Mova blog template — uses most available vars -->\n"
+            . "{{#items}}\n"
+            . '<article class="mova-blog-card{{#has_image}} has-image{{/has_image}}">\n'
+            . '  <a href="{{url}}" style="display:contents;color:inherit;text-decoration:none">\n'
+            . '    <div class="mova-blog-col1">\n'
+            . '      {{#category}}<span class="mova-blog-cat">{{category}}</span>{{/category}}\n'
+            . '      <h3 class="mova-blog-title">{{title}}</h3>\n'
+            . '      <p class="mova-blog-excerpt">{{excerpt_130}}</p>\n'
+            . '      <p class="mova-blog-excerpt" style="font-size:0.8rem;opacity:0.85">{{excerpt}}</p>\n'
+            . '      <div style="font-size:0.75rem;color:var(--color-muted,#64748b);display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.35rem">\n'
+            . '        <span>{{date}}</span>\n'
+            . '        <span>Updated {{updated}}</span>\n'
+            . '        <span>{{type}}</span>\n'
+            . '        <span>{{categories}}</span>\n'
+            . '        <span>{{tags}}</span>\n'
+            . '      </div>\n'
+            . '      <span class="mova-blog-more">Read more</span>\n'
+            . '    </div>\n'
+            . '    {{#has_image}}<div class="mova-blog-col2"><img src="{{featured_image}}" alt="{{title}}" loading="lazy"></div>{{/has_image}}\n'
+            . '  </a>\n'
+            . '</article>\n'
+            . "{{/items}}\n";
+    }
+
+    public function templateSourceForMode(string $mode): string
+    {
+        return match ($this->normalizeTemplateMode($mode)) {
+            'modern' => $this->modernTemplateSource(),
+            'minimal' => $this->minimalTemplateSource(),
+            'custom' => '',
+            default => $this->defaultTemplateSource(),
+        };
+    }
+
     public function renderFeedHtml(array $blog, array $items): string
     {
-        if (($blog['template_mode'] ?? 'default') === 'custom' && trim((string) ($blog['template_html'] ?? '')) !== '') {
+        $mode = $this->normalizeTemplateMode($blog['template_mode'] ?? 'default');
+        if ($mode === 'custom' && trim((string) ($blog['template_html'] ?? '')) !== '') {
             return $this->renderCustom((string) $blog['template_html'], $items, $blog);
         }
-        return $this->renderDefaultList($items);
+        if ($mode === 'default') {
+            return $this->renderDefaultList($items);
+        }
+        $src = $this->templateSourceForMode($mode);
+        $html = $this->renderCustom($src, $items, $blog);
+        // wrap if template didn't include grid
+        if (strpos($html, 'mova-blog-grid') === false) {
+            $html = '<div class="mova-blog-grid">' . $html . '</div>';
+        }
+        return $html;
     }
 
     public function mountHtml(int $id): string
@@ -518,8 +591,8 @@ class BlogService
             static $assets = false;
             if (!$assets && (strpos($body, 'mova-blog') !== false || strpos($body, '[blog') !== false)) {
                 $assets = true;
-                $body .= "\n" . '<link rel="stylesheet" href="/assets/css/mova-blog.css?v=2">'
-                    . '<script src="/assets/js/mova-blog.js?v=2" defer></script>';
+                $body .= "\n" . '<link rel="stylesheet" href="/assets/css/mova-blog.css?v=3">'
+                    . '<script src="/assets/js/mova-blog.js?v=3" defer></script>';
             }
             return $body;
         });
@@ -574,6 +647,12 @@ class BlogService
             return [];
         }
         return array_values(array_unique(array_filter(array_map('intval', $ids))));
+    }
+
+    private function normalizeTemplateMode($mode): string
+    {
+        $mode = strtolower(trim((string) $mode));
+        return in_array($mode, ['default', 'modern', 'minimal', 'custom'], true) ? $mode : 'default';
     }
 
     private function normalizeSort($sort): string
