@@ -565,7 +565,7 @@ if (!empty($content['published_at'])) {
     // Never lock/shift the whole HQ chrome
     document.body.classList.remove('hq-sidebar-open');
 
-    // Show only the requested panel — sidebar stays otherwise empty
+    // Show only the requested panel — keep full panel body (type, header/footer, etc.)
     document.querySelectorAll('.form-sidebar .panel.collapsible').forEach(function (p) {
       var match = p.getAttribute('data-panel') === name;
       p.hidden = !match;
@@ -573,6 +573,15 @@ if (!empty($content['published_at'])) {
       p.classList.toggle('is-active-tool', match);
       var head = p.querySelector('.panel-head');
       if (head) head.setAttribute('aria-expanded', match ? 'true' : 'false');
+      var body = p.querySelector(':scope > .panel-body') || p.querySelector('.panel-body');
+      if (body) {
+        if (match) {
+          body.style.display = 'block';
+          body.hidden = false;
+        } else {
+          body.style.display = '';
+        }
+      }
     });
 
     if (titleEl) titleEl.textContent = LABELS[name] || 'Tool';
@@ -580,6 +589,16 @@ if (!empty($content['published_at'])) {
 
     var panel = document.querySelector('.form-sidebar .panel.collapsible[data-panel="' + name + '"]');
     if (panel) {
+      // Ensure every field in this tool is in the scrollable sidebar
+      panel.style.display = '';
+      panel.hidden = false;
+      var body = panel.querySelector('.panel-body');
+      if (body) {
+        body.style.display = 'block';
+        body.hidden = false;
+      }
+      // Scroll sidebar to top so Status → Type → Header/Footer are all reachable
+      try { sidebar.scrollTop = 0; } catch (e) {}
       var focusEl = panel.querySelector('select, input, textarea, button:not(.panel-head)');
       if (focusEl) {
         try { focusEl.focus({ preventScroll: true }); } catch (e) { try { focusEl.focus(); } catch (e2) {} }

@@ -109,7 +109,7 @@ HTML;
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer">
-    <link rel="stylesheet" href="/assets/css/hq.css?v=20261017seo1">
+    <link rel="stylesheet" href="/assets/css/hq.css?v=20261017sidebar2">
     <link rel="stylesheet" href="/assets/css/hq-vnext.css?v=20260922fullwidth2">
     <link rel="stylesheet" href="/assets/css/hq-landings.css?v=20260922fullwidth2">
     <?php if ($isAuth): ?>
@@ -267,7 +267,7 @@ HTML;
 
     <script src="/assets/js/theme.js" defer></script>
     <script src="/assets/js/hq-search-index.js?v=20261017seo1"></script>
-    <script src="/assets/js/hq-nav.js?v=20261017seo1" defer></script>
+    <script src="/assets/js/hq-nav.js?v=20261017sidebar2" defer></script>
     <script src="/assets/js/hq-layers.js" defer></script>
     <?php if ($isAuth): ?>
     <script>

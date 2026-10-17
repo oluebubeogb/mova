@@ -898,7 +898,7 @@ body.hq {
     transition: max-width 0.22s ease;
 }
 .form-layout:not(.sidebar-closed) .form-main {
-    max-width: calc(100% - 30vw - 1.25rem);
+    max-width: calc(100% - min(32vw, 400px) - 1.25rem);
 }
 .form-layout.sidebar-closed .form-sidebar,
 .form-layout .form-sidebar[hidden] {
@@ -913,9 +913,9 @@ body.hq {
     flex-direction: column;
     gap: 0.75rem;
     flex: 0 0 auto;
-    width: 30vw;
-    max-width: 420px;
-    min-width: 280px;
+    width: min(32vw, 400px);
+    max-width: 400px;
+    min-width: 300px;
     box-sizing: border-box;
     background: var(--hq-surface, #fff);
     border: 1px solid var(--hq-border, #e2e8f0);
@@ -924,8 +924,10 @@ body.hq {
     /* Stay in the content column — do not cover topbar / search */
     position: sticky;
     top: 0.75rem;
-    max-height: calc(100vh - 7rem);
-    overflow: auto;
+    max-height: calc(100vh - 5.5rem);
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     align-self: flex-start;
     z-index: 2;
 }
@@ -1734,7 +1736,14 @@ body.hq-sidebar-open {
 /* —— Collapsible content-edit sidebar panels —— */
 .form-sidebar .panel.collapsible {
     padding: 0;
-    overflow: hidden;
+    overflow: visible;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+}
+/* Single-tool mode: title is in .form-sidebar-toolbar — hide duplicate panel head */
+.form-sidebar .panel.collapsible.is-active-tool > .panel-head {
+    display: none;
 }
 .form-sidebar .panel.collapsible > .panel-head {
     display: flex;
@@ -1762,10 +1771,16 @@ body.hq-sidebar-open {
     font-weight: inherit;
 }
 .form-sidebar .panel.collapsible > .panel-body {
-    padding: 0 0.85rem 0.85rem;
+    padding: 0.15rem 0.15rem 0.5rem;
+    display: block;
 }
-.form-sidebar .panel.collapsible:not(.is-open) > .panel-body {
+/* Only hide body when truly collapsed AND not the active tool */
+.form-sidebar .panel.collapsible:not(.is-open):not(.is-active-tool) > .panel-body {
     display: none;
+}
+.form-sidebar .panel.collapsible.is-open > .panel-body,
+.form-sidebar .panel.collapsible.is-active-tool > .panel-body {
+    display: block !important;
 }
 .form-sidebar .panel.collapsible .panel-chevron {
     font-size: 0.7rem;
@@ -1775,7 +1790,43 @@ body.hq-sidebar-open {
 .form-sidebar .panel.collapsible.is-open .panel-chevron {
     transform: rotate(180deg);
 }
-/* Keep Publish actions visible when collapsed? body holds them — ok */
+/* Ensure all publish / tool fields remain visible and usable */
+.form-sidebar .form-group {
+    margin-bottom: 0.85rem;
+}
+.form-sidebar .form-group label {
+    display: block;
+    margin-bottom: 0.3rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--hq-muted, #64748b);
+}
+.form-sidebar select,
+.form-sidebar input[type="text"],
+.form-sidebar input[type="datetime-local"],
+.form-sidebar textarea {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    font: inherit;
+    padding: 0.4rem 0.5rem;
+    border: 1px solid var(--hq-border, #d1d5db);
+    border-radius: 6px;
+    background: var(--hq-input-bg, #f8fafc);
+}
+.form-sidebar .slug-field {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+.form-sidebar .slug-field input {
+    flex: 1;
+}
+.form-sidebar .btn-block {
+    width: 100%;
+    display: block;
+    box-sizing: border-box;
+}
 
 /* ---------- HQ layer tabs (icon + text → panel under rule) ---------- */
 .hq-layers {
