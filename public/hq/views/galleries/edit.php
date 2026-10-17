@@ -403,6 +403,12 @@ $selectedMap = array_flip($selectedIds);
             setStatus('Keep at least one preset', true);
             return;
           }
+          var label = (div.querySelector('[data-k="name"]') || {}).value
+            || (div.querySelector('.g-pc-title') || {}).textContent
+            || ('Preset ' + (idx + 1));
+          if (!confirm('Delete “' + label + '”? This cannot be undone.')) {
+            return;
+          }
           div.remove();
           reindexTitles();
           scheduleSave();
