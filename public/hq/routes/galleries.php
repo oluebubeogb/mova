@@ -64,20 +64,10 @@ $router->post('/galleries/save', function (Request $req) {
     }
     $mediaIds = array_values(array_unique(array_map('intval', $mediaIds)));
 
-    $embedOpts = [
-        'autoplay' => $req->input('embed_autoplay') ? true : false,
-        'interval' => (int) $req->input('embed_interval', 5000),
-        'arrows' => $req->input('embed_arrows') ? true : false,
-        'dots' => $req->input('embed_dots') ? true : false,
-        'columns' => (int) $req->input('embed_columns', 3),
-        'min_width' => (int) $req->input('embed_min_width', 200),
-        'gap' => (int) $req->input('embed_gap', 12),
-        'lightbox' => $req->input('embed_lightbox') ? true : false,
-        'aspect' => (string) $req->input('embed_aspect', '16/9'),
-    ];
-    // checkboxes: missing = false
-    foreach (['autoplay', 'arrows', 'dots', 'lightbox'] as $flag) {
-        // already handled via truthy input
+    $presetsRaw = $req->input('embed_presets_json', '[]');
+    $presets = is_string($presetsRaw) ? json_decode($presetsRaw, true) : $presetsRaw;
+    if (!is_array($presets)) {
+        $presets = [];
     }
     $data = [
         'title' => (string) $req->input('title', ''),
@@ -87,8 +77,8 @@ $router->post('/galleries/save', function (Request $req) {
         'status' => (string) $req->input('status', 'published'),
         'cover_media_id' => $req->input('cover_media_id') !== '' ? (int) $req->input('cover_media_id') : null,
         'media_ids' => $mediaIds,
-        'embed_layout' => (string) $req->input('embed_layout', 'carousel'),
-        'embed_options' => $embedOpts,
+        'embed_layout' => (string) ($presets[0]['layout'] ?? $req->input('embed_layout', 'carousel')),
+        'embed_presets' => $presets,
     ];
 
     try {

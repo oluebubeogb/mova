@@ -1,6 +1,7 @@
 /**
- * Mova in-page gallery embeds — mounts .mova-gallery[data-gallery]
- * Layouts: carousel (default), columns, grid, collage
+ * Mova in-page gallery embeds — .mova-gallery[data-gallery]
+ * Layouts: carousel, columns, grid, collage
+ * Options: max_height, slides_visible, radius, hover_name, autoplay, …
  */
 (function () {
   'use strict';
@@ -8,9 +9,10 @@
   function qs(sel, el) { return (el || document).querySelector(sel); }
   function qsa(sel, el) { return Array.prototype.slice.call((el || document).querySelectorAll(sel)); }
 
-  function fetchPayload(id, layout, opts) {
+  function fetchPayload(id, layout, opts, preset) {
     var url = '/gallery/api/embed/' + encodeURIComponent(id);
     var params = [];
+    if (preset) params.push('preset=' + encodeURIComponent(preset));
     if (layout) params.push('layout=' + encodeURIComponent(layout));
     if (opts && Object.keys(opts).length) params.push('opts=' + encodeURIComponent(JSON.stringify(opts)));
     if (params.length) url += '?' + params.join('&');
@@ -31,56 +33,78 @@
     return n;
   }
 
+  function applyShell(root, opts) {
+    if (opts.max_height) root.style.setProperty('--mova-g-max-h', opts.max_height);
+    if (opts.radius) root.style.setProperty('--mova-g-radius', opts.radius);
+    if (opts.gap != null) root.style.setProperty('--mova-g-gap', opts.gap + 'px');
+    if (opts.aspect && opts.aspect !== 'auto') root.style.setProperty('--mova-g-aspect', opts.aspect);
+  }
+
+  function validItems(items) {
+    return (items || []).filter(function (it) {
+      return it && it.url && !/\/mova-uploads\/?$/.test(it.url);
+    });
+  }
+
+  function nameOverlay(it, opts) {
+    if (!opts.hover_name) return null;
+    var name = it.alt || it.caption || '';
+    if (!name) return null;
+    return el('div', 'mova-g-hover-name', { text: name });
+  }
+
   function renderCarousel(root, data) {
     var opts = data.options || {};
-    var items = data.items || [];
+    var items = validItems(data.items);
     if (!items.length) {
       root.innerHTML = '<p class="mova-g-empty">No images</p>';
       return;
     }
-    var wrap = el('div', 'mova-g-carousel');
+    applyShell(root, opts);
+    var visible = Math.max(1, Math.min(6, parseInt(opts.slides_visible, 10) || 1));
+    var wrap = el('div', 'mova-g-carousel' + (visible > 1 ? ' is-multi' : ''));
+    wrap.style.setProperty('--mova-g-visible', String(visible));
     var track = el('div', 'mova-g-track');
-    items = items.filter(function (it) { return it && it.url && !/\/mova-uploads\/?$/.test(it.url); });
-    if (!items.length) {
-      root.innerHTML = '<p class="mova-g-empty">No images</p>';
-      return;
-    }
     items.forEach(function (it, i) {
-      var slide = el('div', 'mova-g-slide' + (i === 0 ? ' is-active' : ''));
-      slide.appendChild(el('img', '', { src: it.url, alt: it.alt || '', loading: i ? 'lazy' : 'eager' }));
-      if (it.caption) slide.appendChild(el('div', 'mova-g-caption', { text: it.caption }));
+      var slide = el('div', 'mova-g-slide');
+      slide.appendChild(el('img', '', { src: it.url, alt: it.alt || '', loading: i < visible ? 'eager' : 'lazy' }));
+      var hover = nameOverlay(it, opts);
+      if (hover) slide.appendChild(hover);
+      if (it.caption && !opts.hover_name) slide.appendChild(el('div', 'mova-g-caption', { text: it.caption }));
       track.appendChild(slide);
     });
     wrap.appendChild(track);
-    if (opts.arrows !== false && items.length > 1) {
+    if (opts.arrows !== false && items.length > visible) {
       var prev = el('button', 'mova-g-nav mova-g-prev', { type: 'button', 'aria-label': 'Previous' });
-      prev.innerHTML = '‹';
+      prev.textContent = '‹';
       var next = el('button', 'mova-g-nav mova-g-next', { type: 'button', 'aria-label': 'Next' });
-      next.innerHTML = '›';
+      next.textContent = '›';
       wrap.appendChild(prev);
       wrap.appendChild(next);
     }
     var dotsWrap = null;
-    if (opts.dots !== false && items.length > 1) {
+    var pages = Math.max(1, items.length - visible + 1);
+    if (opts.dots !== false && pages > 1) {
       dotsWrap = el('div', 'mova-g-dots');
-      items.forEach(function (_, i) {
-        var d = el('button', 'mova-g-dot' + (i === 0 ? ' is-active' : ''), { type: 'button', 'aria-label': 'Slide ' + (i + 1) });
-        d.dataset.i = String(i);
-        dotsWrap.appendChild(d);
-      });
+      for (var d = 0; d < pages; d++) {
+        var dot = el('button', 'mova-g-dot' + (d === 0 ? ' is-active' : ''), { type: 'button', 'aria-label': 'Page ' + (d + 1) });
+        dot.dataset.i = String(d);
+        dotsWrap.appendChild(dot);
+      }
       wrap.appendChild(dotsWrap);
     }
     root.appendChild(wrap);
-    if (opts.aspect && opts.aspect !== 'auto') {
-      wrap.style.setProperty('--mova-g-aspect', opts.aspect);
-    }
 
     var idx = 0;
     function go(n) {
-      idx = (n + items.length) % items.length;
-      qsa('.mova-g-slide', wrap).forEach(function (s, i) { s.classList.toggle('is-active', i === idx); });
-      if (dotsWrap) qsa('.mova-g-dot', dotsWrap).forEach(function (d, i) { d.classList.toggle('is-active', i === idx); });
+      idx = Math.max(0, Math.min(pages - 1, n));
+      var slideW = 100 / visible;
+      track.style.transform = 'translateX(' + (-idx * slideW) + '%)';
+      if (dotsWrap) qsa('.mova-g-dot', dotsWrap).forEach(function (dot, i) {
+        dot.classList.toggle('is-active', i === idx);
+      });
     }
+    go(0);
     var prevBtn = qs('.mova-g-prev', wrap);
     var nextBtn = qs('.mova-g-next', wrap);
     if (prevBtn) prevBtn.addEventListener('click', function () { go(idx - 1); });
@@ -90,17 +114,24 @@
       if (t) go(parseInt(t.dataset.i, 10) || 0);
     });
     var timer = null;
-    if (opts.autoplay && items.length > 1) {
+    if (opts.autoplay && pages > 1) {
       var ms = opts.interval || 5000;
-      timer = setInterval(function () { go(idx + 1); }, ms);
+      timer = setInterval(function () { go(idx + 1 >= pages ? 0 : idx + 1); }, ms);
       wrap.addEventListener('mouseenter', function () { clearInterval(timer); });
-      wrap.addEventListener('mouseleave', function () { timer = setInterval(function () { go(idx + 1); }, ms); });
+      wrap.addEventListener('mouseleave', function () {
+        timer = setInterval(function () { go(idx + 1 >= pages ? 0 : idx + 1); }, ms);
+      });
     }
   }
 
   function renderGrid(root, data, mode) {
     var opts = data.options || {};
-    var items = data.items || [];
+    var items = validItems(data.items);
+    if (!items.length) {
+      root.innerHTML = '<p class="mova-g-empty">No images</p>';
+      return;
+    }
+    applyShell(root, opts);
     var cls = 'mova-g-grid';
     if (mode === 'columns') cls = 'mova-g-columns';
     if (mode === 'collage') cls = 'mova-g-collage';
@@ -111,7 +142,9 @@
     items.forEach(function (it, i) {
       var cell = el('figure', 'mova-g-cell' + (mode === 'collage' ? ' mova-g-span-' + ((i % 5) + 1) : ''));
       cell.appendChild(el('img', '', { src: it.url, alt: it.alt || '', loading: 'lazy' }));
-      if (it.caption) cell.appendChild(el('figcaption', 'mova-g-caption', { text: it.caption }));
+      var hover = nameOverlay(it, opts);
+      if (hover) cell.appendChild(hover);
+      if (it.caption && !opts.hover_name) cell.appendChild(el('figcaption', 'mova-g-caption', { text: it.caption }));
       grid.appendChild(cell);
     });
     root.appendChild(grid);
@@ -122,13 +155,14 @@
     node.dataset.movaMounted = '1';
     var id = node.getAttribute('data-gallery');
     if (!id) return;
-    var layout = node.getAttribute('data-layout') || 'carousel';
+    var layout = node.getAttribute('data-layout') || '';
+    var preset = node.getAttribute('data-preset') || '';
     var opts = {};
     try {
       if (node.getAttribute('data-opts')) opts = JSON.parse(node.getAttribute('data-opts'));
     } catch (e) {}
     node.innerHTML = '<div class="mova-g-loading">Loading…</div>';
-    fetchPayload(id, layout, opts).then(function (data) {
+    fetchPayload(id, layout, opts, preset).then(function (data) {
       node.innerHTML = '';
       var lay = data.layout || layout || 'carousel';
       if (lay === 'carousel' || lay === 'slide') renderCarousel(node, data);

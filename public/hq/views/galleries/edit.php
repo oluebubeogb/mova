@@ -15,8 +15,10 @@ $coverVal = $form['cover_media_id'] ?? ($gallery['cover_media_id'] ?? '');
 $embedLayout = $form['embed_layout'] ?? ($gallery['embed_layout'] ?? 'carousel');
 $embedOpts = $form['embed_options'] ?? ($gallery['embed_options'] ?? []);
 if (is_string($embedOpts)) { $embedOpts = json_decode($embedOpts, true) ?: []; }
-$eo = function ($k, $d) use ($embedOpts) { return array_key_exists($k, $embedOpts) ? $embedOpts[$k] : $d; };
 $gid = (int)($gallery['id'] ?? 0);
+$gSvc = new \Mova\Gallery\GalleryService();
+$embedPresets = $gSvc->normalizePresets($embedOpts, (string)$embedLayout);
+
 
 
 $selectedIds = $form['media_ids'] ?? [];
@@ -124,61 +126,25 @@ $selectedMap = array_flip($selectedIds);
 </div><!-- .g-edit-main -->
 <aside class="g-edit-side">
   <div class="panel">
-    <h3>In-page display</h3>
-    <p class="field-hint" style="margin-top:0">Defaults for embeds on other pages. Default layout: carousel.</p>
-    <div class="form-group">
-      <label for="embed_layout">Layout</label>
-      <select name="embed_layout" id="embed_layout">
-        <?php foreach (['carousel'=>'Carousel / slides','columns'=>'Columns','grid'=>'Responsive grid','collage'=>'Collage'] as $k=>$lab): ?>
-          <option value="<?= $k ?>" <?= ($embedLayout ?? 'carousel') === $k ? 'selected' : '' ?>><?= $lab ?></option>
-        <?php endforeach; ?>
-      </select>
-    </div>
-    <div class="form-group">
-      <label><input type="checkbox" name="embed_autoplay" value="1" <?= !empty($eo('autoplay', false)) ? 'checked' : '' ?>> Autoplay (carousel)</label>
-    </div>
-    <div class="form-group">
-      <label for="embed_interval">Interval (ms)</label>
-      <input type="number" name="embed_interval" id="embed_interval" min="2000" max="20000" value="<?= (int)$eo('interval', 5000) ?>">
-    </div>
-    <div class="form-group">
-      <label><input type="checkbox" name="embed_arrows" value="1" <?= $eo('arrows', true) ? 'checked' : '' ?>> Arrows</label>
-      <label style="margin-left:.75rem"><input type="checkbox" name="embed_dots" value="1" <?= $eo('dots', true) ? 'checked' : '' ?>> Dots</label>
-    </div>
-    <div class="form-group">
-      <label for="embed_columns">Columns</label>
-      <input type="number" name="embed_columns" id="embed_columns" min="2" max="4" value="<?= (int)$eo('columns', 3) ?>">
-    </div>
-    <div class="form-group">
-      <label for="embed_min_width">Grid min width (px)</label>
-      <input type="number" name="embed_min_width" id="embed_min_width" min="120" max="480" value="<?= (int)$eo('min_width', 200) ?>">
-    </div>
-    <div class="form-group">
-      <label for="embed_gap">Gap (px)</label>
-      <input type="number" name="embed_gap" id="embed_gap" min="0" max="48" value="<?= (int)$eo('gap', 12) ?>">
-    </div>
-    <div class="form-group">
-      <label for="embed_aspect">Carousel aspect</label>
-      <select name="embed_aspect" id="embed_aspect">
-        <?php foreach (['16/9','4/3','1/1','3/2','auto'] as $a): ?>
-          <option value="<?= $a ?>" <?= $eo('aspect','16/9') === $a ? 'selected' : '' ?>><?= $a ?></option>
-        <?php endforeach; ?>
-      </select>
-    </div>
+    <h3>In-page displays</h3>
+    <p class="field-hint" style="margin-top:0">One gallery, many embed styles. Each preset has its own layout &amp; options (e.g. autoplay on one, off on another).</p>
+    <input type="hidden" name="embed_presets_json" id="embed_presets_json" value="">
+    <div id="g-presets"></div>
+    <button type="button" class="btn-ghost btn-sm" id="g-add-preset" style="margin-top:0.5rem">+ Add display preset</button>
     <?php if ($gid > 0): ?>
     <hr style="border:none;border-top:1px solid var(--hq-border,#e5e7eb);margin:1rem 0">
-    <p style="font-size:.8rem;font-weight:600;margin:0 0 .35rem">Copy embed</p>
+    <p style="font-size:.8rem;font-weight:600;margin:0 0 .35rem">Copy embed (active preset)</p>
     <div class="g-copy-row">
-      <input type="text" readonly id="g-sc" value='[gallery id="<?= $gid ?>" layout="<?= htmlspecialchars($embedLayout ?? 'carousel') ?>"]'>
+      <input type="text" readonly id="g-sc" value="">
       <button type="button" data-copy="g-sc">Copy</button>
     </div>
     <div class="g-copy-row">
-      <input type="text" readonly id="g-html" value='<div class="mova-gallery" data-gallery="<?= $gid ?>" data-layout="<?= htmlspecialchars($embedLayout ?? 'carousel') ?>"></div>'>
+      <input type="text" readonly id="g-html" value="">
       <button type="button" data-copy="g-html">Copy</button>
     </div>
-    <p class="field-hint">Paste into any content body. Site-wide CSS/JS load automatically.</p>
+    <p class="field-hint">Paste into content. CSS/JS load automatically.</p>
     <?php else: ?>
-    <p class="field-hint">Save the gallery to get shortcode and HTML mount.</p>
+    <p class="field-hint">Save the gallery to copy shortcode / HTML.</p>
     <?php endif; ?>
   </div>
 </aside>
@@ -237,3 +203,153 @@ document.querySelectorAll('[data-copy]').forEach(function (btn) {
   });
 });
 </script>
+
+
+<script>
+(function () {
+  var gid = <?= (int)$gid ?>;
+  var presets = <?= json_encode($embedPresets, JSON_UNESCAPED_UNICODE) ?>;
+  var box = document.getElementById('g-presets');
+  var hidden = document.getElementById('embed_presets_json');
+  var layouts = [
+    {v:'carousel', l:'Carousel / slides'},
+    {v:'columns', l:'Columns'},
+    {v:'grid', l:'Responsive grid'},
+    {v:'collage', l:'Collage'}
+  ];
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  }
+
+  function card(p, idx) {
+    p = p || {};
+    var div = document.createElement('div');
+    div.className = 'g-preset-card';
+    div.dataset.idx = String(idx);
+    div.style.cssText = 'border:1px solid var(--hq-border,#e5e7eb);border-radius:8px;padding:0.65rem;margin-bottom:0.55rem;background:#fafbfc';
+    var layoutOpts = layouts.map(function (o) {
+      return '<option value="'+o.v+'"'+(p.layout===o.v?' selected':'')+'>'+o.l+'</option>';
+    }).join('');
+    div.innerHTML =
+      '<div style="display:flex;justify-content:space-between;gap:0.35rem;align-items:center;margin-bottom:0.4rem">' +
+      '<strong style="font-size:0.8rem">Preset ' + (idx+1) + '</strong>' +
+      '<button type="button" data-rm class="btn-ghost btn-sm" style="padding:0.15rem 0.4rem">Remove</button></div>' +
+      '<label class="g-pl">Name<input data-k="name" value="'+esc(p.name||('Preset '+(idx+1)))+'"></label>' +
+      '<label class="g-pl">Key<input data-k="key" value="'+esc(p.key||('preset-'+(idx+1)))+'" placeholder="homepage"></label>' +
+      '<label class="g-pl">Layout<select data-k="layout">'+layoutOpts+'</select></label>' +
+      '<label class="g-pl"><input type="checkbox" data-k="autoplay"'+(p.autoplay?' checked':'')+'> Autoplay</label>' +
+      '<label class="g-pl">Interval (ms)<input data-k="interval" type="number" min="2000" max="20000" value="'+(p.interval||5000)+'"></label>' +
+      '<label class="g-pl"><input type="checkbox" data-k="arrows"'+(p.arrows!==false?' checked':'')+'> Arrows</label>' +
+      '<label class="g-pl"><input type="checkbox" data-k="dots"'+(p.dots!==false?' checked':'')+'> Dots</label>' +
+      '<label class="g-pl">Slides visible<input data-k="slides_visible" type="number" min="1" max="6" value="'+(p.slides_visible||1)+'"></label>' +
+      '<label class="g-pl">Max height (px/vh)<input data-k="max_height" value="'+esc(p.max_height||'20vh')+'" placeholder="20vh or 180px"></label>' +
+      '<label class="g-pl">Radius<input data-k="radius" value="'+esc(p.radius||'8px')+'" placeholder="8px"></label>' +
+      '<label class="g-pl">Aspect<select data-k="aspect">' +
+        ['16/9','4/3','1/1','3/2','auto'].map(function(a){return '<option value="'+a+'"'+( (p.aspect||'16/9')===a?' selected':'')+'>'+a+'</option>';}).join('') +
+      '</select></label>' +
+      '<label class="g-pl">Columns<input data-k="columns" type="number" min="2" max="4" value="'+(p.columns||3)+'"></label>' +
+      '<label class="g-pl">Grid min width<input data-k="min_width" type="number" min="120" max="480" value="'+(p.min_width||200)+'"></label>' +
+      '<label class="g-pl">Gap (px)<input data-k="gap" type="number" min="0" max="48" value="'+(p.gap||12)+'"></label>' +
+      '<label class="g-pl"><input type="checkbox" data-k="hover_name"'+(p.hover_name?' checked':'')+'> Show name on hover</label>';
+    div.querySelector('[data-rm]').onclick = function () {
+      if (box.querySelectorAll('.g-preset-card').length <= 1) { alert('Keep at least one preset.'); return; }
+      div.remove();
+      syncCopy();
+    };
+    div.querySelectorAll('input,select').forEach(function (el) {
+      el.addEventListener('input', syncCopy);
+      el.addEventListener('change', syncCopy);
+    });
+    return div;
+  }
+
+  function collect() {
+    var out = [];
+    box.querySelectorAll('.g-preset-card').forEach(function (div) {
+      var get = function (k) {
+        var el = div.querySelector('[data-k="'+k+'"]');
+        if (!el) return '';
+        if (el.type === 'checkbox') return el.checked;
+        return el.value;
+      };
+      out.push({
+        key: get('key') || 'default',
+        name: get('name') || 'Default',
+        layout: get('layout') || 'carousel',
+        autoplay: !!get('autoplay'),
+        interval: parseInt(get('interval'), 10) || 5000,
+        arrows: !!get('arrows'),
+        dots: !!get('dots'),
+        slides_visible: parseInt(get('slides_visible'), 10) || 1,
+        max_height: get('max_height') || '20vh',
+        radius: get('radius') || '8px',
+        aspect: get('aspect') || '16/9',
+        columns: parseInt(get('columns'), 10) || 3,
+        min_width: parseInt(get('min_width'), 10) || 200,
+        gap: parseInt(get('gap'), 10) || 12,
+        hover_name: !!get('hover_name'),
+        lightbox: true
+      });
+    });
+    return out;
+  }
+
+  function syncCopy() {
+    var list = collect();
+    hidden.value = JSON.stringify(list);
+    var p = list[0] || { key: 'default', layout: 'carousel' };
+    var sc = document.getElementById('g-sc');
+    var html = document.getElementById('g-html');
+    if (sc && gid) sc.value = '[gallery id="'+gid+'" preset="'+p.key+'"]';
+    if (html && gid) html.value = '<div class="mova-gallery" data-gallery="'+gid+'" data-preset="'+p.key+'" data-layout="'+p.layout+'"></div>';
+  }
+
+  function render() {
+    box.innerHTML = '';
+    if (!presets.length) presets = [{ key:'default', name:'Default', layout:'carousel', max_height:'20vh', slides_visible:1 }];
+    presets.forEach(function (p, i) { box.appendChild(card(p, i)); });
+    syncCopy();
+  }
+
+  document.getElementById('g-add-preset').addEventListener('click', function () {
+    box.appendChild(card({
+      key: 'preset-' + (box.querySelectorAll('.g-preset-card').length + 1),
+      name: 'New display',
+      layout: 'carousel',
+      autoplay: false,
+      max_height: '20vh',
+      slides_visible: 3,
+      radius: '8px',
+      hover_name: true
+    }, box.querySelectorAll('.g-preset-card').length));
+    syncCopy();
+  });
+
+  var form = document.getElementById('gallery-edit-form');
+  if (form) form.addEventListener('submit', function () { hidden.value = JSON.stringify(collect()); });
+
+  document.querySelectorAll('[data-copy]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var input = document.getElementById(btn.getAttribute('data-copy'));
+      if (!input) return;
+      input.select();
+      navigator.clipboard.writeText(input.value).then(function () {
+        btn.textContent = 'Copied';
+        setTimeout(function () { btn.textContent = 'Copy'; }, 1200);
+      });
+    });
+  });
+
+  render();
+})();
+</script>
+<style>
+.g-pl { display:block; font-size:0.72rem; color:#64748b; margin:0.28rem 0; font-weight:600; }
+.g-pl input[type="text"], .g-pl input[type="number"], .g-pl select {
+  display:block; width:100%; margin-top:0.15rem; font-weight:400; font-size:0.85rem;
+  padding:0.3rem 0.4rem; border:1px solid #d1d5db; border-radius:6px; background:#fff; box-sizing:border-box;
+}
+.g-pl input[type="checkbox"] { margin-right:0.35rem; }
+</style>

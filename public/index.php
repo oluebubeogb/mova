@@ -190,6 +190,7 @@ $router->get('/gallery/api/embed/{id}', function (Request $req, array $params) {
     $id = (int) ($params['id'] ?? 0);
     $svc = new \Mova\Gallery\GalleryService();
     $layout = $req->query('layout');
+    $preset = $req->query('preset');
     $opts = [];
     $optsRaw = $req->query('opts');
     if (is_string($optsRaw) && $optsRaw !== '') {
@@ -198,7 +199,12 @@ $router->get('/gallery/api/embed/{id}', function (Request $req, array $params) {
             $opts = $decoded;
         }
     }
-    $payload = $svc->embedPayload($id, $layout ? (string) $layout : null, $opts);
+    $payload = $svc->embedPayload(
+        $id,
+        $layout ? (string) $layout : null,
+        $opts,
+        $preset ? (string) $preset : null
+    );
     if (!$payload) {
         return (new \Mova\Core\Response())
             ->header('Content-Type', 'application/json')
