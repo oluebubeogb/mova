@@ -94,6 +94,7 @@ $router->post('/blogs/save', function (Request $req) {
         'tag_ids' => $tags,
         'sort' => (string) $req->input('sort', 'date_desc'),
         'per_page' => (int) $req->input('per_page', 12),
+        'excerpt_chars' => (int) $req->input('excerpt_chars', 130),
         'template_mode' => (string) $req->input('template_mode', 'default'),
         'template_html' => (string) $req->input('template_html', ''),
         'content_ids' => $contentIds,

@@ -209,6 +209,63 @@ class FeedbackService
         Database::update('feedback_entries', ['status' => 'read'], 'id = :id', ['id' => $id]);
     }
 
+    public function markReadMany(array $ids): int
+    {
+        $n = 0;
+        foreach ($ids as $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $this->markRead($id);
+                $n++;
+            }
+        }
+        return $n;
+    }
+
+    public function deleteEntries(array $ids): int
+    {
+        $n = 0;
+        foreach ($ids as $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $this->deleteEntry($id);
+                $n++;
+            }
+        }
+        return $n;
+    }
+
+    /** @return array{new:int,read:int,total:int} */
+    public function countByStatus(?int $formId = null): array
+    {
+        $params = [];
+        $where = '1=1';
+        if ($formId) {
+            $where .= ' AND form_id = :f';
+            $params['f'] = $formId;
+        }
+        $new = (int) (Database::fetch(
+            "SELECT COUNT(*) AS c FROM feedback_entries WHERE {$where} AND status = 'new'",
+            $params
+        )['c'] ?? 0);
+        $read = (int) (Database::fetch(
+            "SELECT COUNT(*) AS c FROM feedback_entries WHERE {$where} AND status = 'read'",
+            $params
+        )['c'] ?? 0);
+        return ['new' => $new, 'read' => $read, 'total' => $new + $read];
+    }
+
+    public function countEntries(?int $formId = null): int
+    {
+        if ($formId) {
+            return (int) (Database::fetch(
+                'SELECT COUNT(*) AS c FROM feedback_entries WHERE form_id = :f',
+                ['f' => $formId]
+            )['c'] ?? 0);
+        }
+        return (int) (Database::fetch('SELECT COUNT(*) AS c FROM feedback_entries')['c'] ?? 0);
+    }
+
     public function deleteEntry(int $id): void
     {
         Database::delete('feedback_entries', 'id = :id', ['id' => $id]);

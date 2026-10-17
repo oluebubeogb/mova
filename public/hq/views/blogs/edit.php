@@ -18,6 +18,7 @@ $catIds = $form['category_ids'] ?? ($blog['category_ids'] ?? []);
 $tagIds = $form['tag_ids'] ?? ($blog['tag_ids'] ?? []);
 $sort = $form['sort'] ?? ($blog['sort'] ?? 'date_desc');
 $perPage = (int)($form['per_page'] ?? ($blog['per_page'] ?? 12));
+$excerptChars = (int)($form['excerpt_chars'] ?? ($blog['excerpt_chars'] ?? 130));
 $tplMode = $form['template_mode'] ?? ($blog['template_mode'] ?? 'default');
 $tplHtml = $form['template_html'] ?? ($blog['template_html'] ?? '');
 $embedLimit = (int)(($blog['embed_options']['limit'] ?? 6));
@@ -89,6 +90,10 @@ $publicPath = $isDefault || $slug === 'blog' ? '/blog' : '/blog/' . htmlspecialc
               <option value="title" <?= $sort==='title'?'selected':'' ?>>Title</option>
               <option value="category" <?= $sort==='category'?'selected':'' ?>>Category</option>
             </select>
+          </div>
+          <div class="form-group" style="flex:1;min-width:140px">
+            <label for="b-excerpt">Excerpt characters</label>
+            <input type="number" id="b-excerpt" name="excerpt_chars" min="20" max="500" value="<?= $excerptChars ?>">
           </div>
         </div>
 
@@ -168,15 +173,19 @@ $publicPath = $isDefault || $slug === 'blog' ? '/blog' : '/blog/' . htmlspecialc
         <div class="panel" style="border:1px solid var(--hq-border,#e5e7eb);border-radius:10px;padding:1rem">
           <h3 style="margin:0 0 0.5rem;font-size:0.95rem">Embed</h3>
           <?php if ($id): ?>
-          <label class="field-hint">Shortcode</label>
-          <div style="display:flex;gap:0.35rem;margin-bottom:0.5rem">
-            <input type="text" readonly id="b-sc" value='[blog id="<?= $id ?>"]' style="flex:1;font-size:0.8rem">
-            <button type="button" class="btn-ghost btn-sm" data-copy="b-sc">Copy</button>
+          <div class="form-group">
+            <label for="b-sc">Shortcode</label>
+            <div style="display:flex;gap:0.35rem;align-items:center">
+              <input type="text" readonly id="b-sc" value='[blog id="<?= $id ?>"]'>
+              <button type="button" class="btn-ghost btn-sm" data-copy="b-sc">Copy</button>
+            </div>
           </div>
-          <label class="field-hint">HTML</label>
-          <div style="display:flex;gap:0.35rem">
-            <input type="text" readonly id="b-html" value='<div class="mova-blog" data-blog="<?= $id ?>"></div>' style="flex:1;font-size:0.8rem">
-            <button type="button" class="btn-ghost btn-sm" data-copy="b-html">Copy</button>
+          <div class="form-group">
+            <label for="b-html">HTML</label>
+            <div style="display:flex;gap:0.35rem;align-items:center">
+              <input type="text" readonly id="b-html" value='<div class="mova-blog" data-blog="<?= $id ?>"></div>'>
+              <button type="button" class="btn-ghost btn-sm" data-copy="b-html">Copy</button>
+            </div>
           </div>
           <div class="form-group" style="margin-top:0.75rem">
             <label for="embed_limit">Embed batch size</label>

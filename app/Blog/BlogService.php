@@ -65,6 +65,7 @@ class BlogService
             'tag_ids' => json_encode($this->normalizeIdList($data['tag_ids'] ?? [])),
             'sort' => $this->normalizeSort($data['sort'] ?? 'date_desc'),
             'per_page' => max(1, min(50, (int) ($data['per_page'] ?? 12))),
+            'excerpt_chars' => max(20, min(500, (int) ($data['excerpt_chars'] ?? 130))),
             'template_mode' => ($data['template_mode'] ?? 'default') === 'custom' ? 'custom' : 'default',
             'template_html' => ($data['template_mode'] ?? '') === 'custom'
                 ? (string) ($data['template_html'] ?? '') : null,
@@ -120,6 +121,9 @@ class BlogService
         }
         if (array_key_exists('per_page', $data)) {
             $update['per_page'] = max(1, min(50, (int) $data['per_page']));
+        }
+        if (array_key_exists('excerpt_chars', $data)) {
+            $update['excerpt_chars'] = max(20, min(500, (int) $data['excerpt_chars']));
         }
         if (array_key_exists('template_mode', $data)) {
             $update['template_mode'] = $data['template_mode'] === 'custom' ? 'custom' : 'default';
@@ -210,7 +214,7 @@ class BlogService
         foreach ($slice as $cid) {
             $row = $this->content->find($cid);
             if ($row && ($row['status'] ?? '') === 'published') {
-                $items[] = $this->presentItem($row);
+                $items[] = $this->presentItem($row, (int) ($blog['excerpt_chars'] ?? 130));
             }
         }
         $next = $offset + $limit;
@@ -283,8 +287,9 @@ class BlogService
         );
 
         $items = [];
+        $exLen = (int) ($blog['excerpt_chars'] ?? 130);
         foreach ($rows as $row) {
-            $items[] = $this->presentItem($this->content->find((int) $row['id']) ?: $row);
+            $items[] = $this->presentItem($this->content->find((int) $row['id']) ?: $row, $exLen);
         }
         $next = $offset + $limit;
         return [
@@ -295,7 +300,7 @@ class BlogService
         ];
     }
 
-    public function presentItem(array $row): array
+    public function presentItem(array $row, ?int $excerptLen = null): array
     {
         $id = (int) ($row['id'] ?? 0);
         $cats = [];
@@ -319,7 +324,8 @@ class BlogService
         if ($excerpt === '' && !empty($row['body'])) {
             $excerpt = ContentRepository::excerptFromBody((string) $row['body'], 160);
         }
-        $excerpt130 = ContentRepository::excerptFromBody($excerpt !== '' ? $excerpt : (string) ($row['body'] ?? ''), 130);
+        $len = max(20, min(500, (int) ($excerptLen ?? 130)));
+        $excerptN = ContentRepository::excerptFromBody($excerpt !== '' ? $excerpt : (string) ($row['body'] ?? ''), $len);
 
         $slug = (string) ($row['slug'] ?? '');
         $url = $slug !== '' ? '/' . ltrim($slug, '/') : '#';
@@ -331,7 +337,8 @@ class BlogService
             'slug' => $slug,
             'url' => $url,
             'excerpt' => $excerpt,
-            'excerpt_130' => $excerpt130,
+            'excerpt_130' => $excerptN,
+            'excerpt_n' => $excerptN,
             'featured_image' => $featured,
             'has_image' => $featured !== '',
             'type' => (string) ($row['type'] ?? ''),
@@ -511,8 +518,8 @@ class BlogService
             static $assets = false;
             if (!$assets && (strpos($body, 'mova-blog') !== false || strpos($body, '[blog') !== false)) {
                 $assets = true;
-                $body .= "\n" . '<link rel="stylesheet" href="/assets/css/mova-blog.css?v=1">'
-                    . '<script src="/assets/js/mova-blog.js?v=1" defer></script>';
+                $body .= "\n" . '<link rel="stylesheet" href="/assets/css/mova-blog.css?v=2">'
+                    . '<script src="/assets/js/mova-blog.js?v=2" defer></script>';
             }
             return $body;
         });
@@ -530,6 +537,7 @@ class BlogService
             }
         }
         $row['per_page'] = (int) ($row['per_page'] ?? 12);
+        $row['excerpt_chars'] = (int) ($row['excerpt_chars'] ?? 130);
         if (empty($row['mode'])) {
             $row['mode'] = 'filter';
         }

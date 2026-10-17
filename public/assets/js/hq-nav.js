@@ -285,7 +285,7 @@
         }
 
         // Audience
-        if (path.startsWith('/hq/mailbox')) return { key: 'mailbox', params, folder };
+        if (path.startsWith('/hq/mailbox') || path.startsWith('/hq/feedback')) return { key: 'mailbox', params, folder };
         if (path.startsWith('/hq/mail')) return { key: 'campaigns', params };
         if (path.startsWith('/hq/insights')) return { key: 'insights', params, view };
         if (path.startsWith('/hq/people') || path.startsWith('/hq/sequences')) {
@@ -525,6 +525,8 @@
         { title: 'Campaigns',        href: '/hq/mail',            keywords: 'campaigns newsletter', group: 'Audience' },
         { title: 'Sequences',        href: '/hq/sequences',       keywords: 'sequences automation', group: 'Audience' },
         { title: 'Insights',         href: '/hq/insights',        keywords: 'insights analytics', group: 'Audience' },
+        { title: 'Feedback',         href: '/hq/feedback',        keywords: 'feedback forms inbox contact submissions export', group: 'Audience' },
+        { title: 'Feedback inbox',   href: '/hq/feedback/inbox',  keywords: 'feedback inbox unread entries', group: 'Audience' },
         { title: 'Design',           href: '/hq/design',          keywords: 'design brand style layout variables templates', group: 'Design' },
         { title: 'Design templates', href: '/hq/templates',       keywords: 'templates pricing cards layout ai design catalog', group: 'Design' },
         { title: 'Brand',            href: '/hq/brand',           keywords: 'brand identity logo dark', group: 'Design' },

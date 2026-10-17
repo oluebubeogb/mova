@@ -1064,6 +1064,7 @@ class Schema
                 tag_ids TEXT,
                 sort TEXT NOT NULL DEFAULT 'date_desc',
                 per_page INTEGER NOT NULL DEFAULT 12,
+                excerpt_chars INTEGER NOT NULL DEFAULT 130,
                 template_mode TEXT NOT NULL DEFAULT 'default',
                 template_html TEXT,
                 embed_options TEXT,
@@ -1086,6 +1087,14 @@ class Schema
         $db->exec("CREATE INDEX IF NOT EXISTS idx_blogs_status ON blogs(status)");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_blogs_slug ON blogs(slug)");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_blog_items_blog ON blog_items(blog_id, sort_order)");
+        try {
+            $cols = $db->query("PRAGMA table_info(blogs)")->fetchAll(\PDO::FETCH_ASSOC);
+            $names = array_map(fn($c) => $c['name'] ?? '', $cols);
+            if (!in_array('excerpt_chars', $names, true)) {
+                $db->exec("ALTER TABLE blogs ADD COLUMN excerpt_chars INTEGER NOT NULL DEFAULT 130");
+            }
+        } catch (\Throwable $e) {
+        }
 
         $count = (int) ($db->query("SELECT COUNT(*) FROM blogs")->fetchColumn() ?: 0);
         if ($count === 0) {

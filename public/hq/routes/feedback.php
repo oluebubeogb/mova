@@ -11,13 +11,10 @@ use Mova\Feedback\FeedbackService;
 $router->get('/feedback', function (Request $req) {
     requireAuth();
     $svc = new FeedbackService();
-    FeedbackService::ensureDefaultContactForm();
-    $forms = $svc->all(100);
-    $newCount = $svc->countNew();
     return renderHq('feedback/index', [
         'title' => 'Feedback',
-        'forms' => $forms,
-        'newCount' => $newCount,
+        'forms' => $svc->all(),
+        'newCount' => $svc->countNew(),
     ]);
 });
 
@@ -25,27 +22,44 @@ $router->get('/feedback/inbox', function (Request $req) {
     requireAuth();
     $svc = new FeedbackService();
     $formId = (int) $req->query('form', 0);
-    $entries = $svc->entries($formId > 0 ? $formId : null, 150, 0);
-    $forms = $svc->all(100);
+    $page = max(1, (int) $req->query('page', 1));
+    $per = 25;
+    $offset = ($page - 1) * $per;
+    $counts = $svc->countByStatus($formId > 0 ? $formId : null);
+    $total = $svc->countEntries($formId > 0 ? $formId : null);
+    $entries = $svc->entries($formId > 0 ? $formId : null, $per, $offset);
+    $form = $formId > 0 ? $svc->find($formId) : null;
     return renderHq('feedback/inbox', [
         'title' => 'Feedback inbox',
         'entries' => $entries,
-        'forms' => $forms,
+        'forms' => $svc->all(),
         'formId' => $formId,
-        'newCount' => $svc->countNew(),
+        'form' => $form,
+        'counts' => $counts,
+        'newCount' => $counts['new'],
+        'page' => $page,
+        'per' => $per,
+        'total' => $total,
+        'pages' => max(1, (int) ceil($total / $per)),
     ]);
 });
 
 $router->get('/feedback/entry/{id}', function (Request $req, array $params) {
     requireAuth();
     $svc = new FeedbackService();
-    $id = (int) ($params['id'] ?? 0);
-    $entry = $svc->findEntry($id);
+    $entry = $svc->findEntry((int) ($params['id'] ?? 0));
     if (!$entry) {
         return (new Response())->redirect('/hq/feedback/inbox');
     }
-    $svc->markRead($id);
-    $entry = $svc->findEntry($id);
+    if (($entry['status'] ?? '') === 'new') {
+        $svc->markRead((int) $entry['id']);
+        $entry['status'] = 'read';
+    }
+    // JSON for sidebar
+    if ($req->query('format') === 'json' || str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json')) {
+        return (new Response())->header('Content-Type', 'application/json')
+            ->body(json_encode(['success' => true, 'entry' => $entry]));
+    }
     return renderHq('feedback/entry', [
         'title' => 'Feedback entry',
         'entry' => $entry,
@@ -116,29 +130,98 @@ $router->post('/feedback/entry/delete/{id}', function (Request $req, array $para
         return (new Response())->status(403)->body('Forbidden');
     }
     (new FeedbackService())->deleteEntry((int) ($params['id'] ?? 0));
-    return (new Response())->redirect('/hq/feedback/inbox');
+    $form = (int) $req->input('form', 0);
+    return (new Response())->redirect('/hq/feedback/inbox' . ($form ? '?form=' . $form : ''));
+});
+
+$router->post('/feedback/entries/bulk', function (Request $req) {
+    requireAuth();
+    if (!Csrf::validate($req->input('_csrf') ?: $req->input('_mova_csrf'))) {
+        return (new Response())->header('Content-Type', 'application/json')->status(403)
+            ->body(json_encode(['success' => false]));
+    }
+    $svc = new FeedbackService();
+    $action = (string) $req->input('action', '');
+    $ids = $req->input('ids', []);
+    if (is_string($ids)) {
+        $ids = array_filter(array_map('intval', explode(',', $ids)));
+    }
+    if (!is_array($ids)) {
+        $ids = [];
+    }
+    if ($action === 'read') {
+        $svc->markReadMany($ids);
+    } elseif ($action === 'delete') {
+        $svc->deleteEntries($ids);
+    }
+    $form = (int) $req->input('form', 0);
+    return (new Response())->redirect('/hq/feedback/inbox' . ($form ? '?form=' . $form : ''));
 });
 
 $router->get('/feedback/export', function (Request $req) {
     requireAuth();
     $svc = new FeedbackService();
     $formId = (int) $req->query('form', 0);
-    $entries = $svc->entries($formId > 0 ? $formId : null, 5000, 0);
-    $lines = ['id,form,status,created_at,page_url,payload'];
-    foreach ($entries as $e) {
-        $payload = json_encode($e['payload'] ?? [], JSON_UNESCAPED_UNICODE);
-        $payload = '"' . str_replace('"', '""', $payload) . '"';
-        $lines[] = implode(',', [
-            (int) $e['id'],
-            '"' . str_replace('"', '""', (string) ($e['form_title'] ?? '')) . '"',
-            $e['status'] ?? '',
-            $e['created_at'] ?? '',
-            '"' . str_replace('"', '""', (string) ($e['page_url'] ?? '')) . '"',
-            $payload,
-        ]);
+    $idsParam = (string) $req->query('ids', '');
+    $onlyIds = $idsParam !== '' ? array_filter(array_map('intval', explode(',', $idsParam))) : [];
+
+    if ($formId > 0) {
+        $form = $svc->find($formId);
+        $fieldKeys = [];
+        $fieldLabels = [];
+        foreach (($form['fields'] ?? []) as $f) {
+            $k = (string) ($f['key'] ?? '');
+            if ($k === '') continue;
+            $fieldKeys[] = $k;
+            $fieldLabels[] = (string) ($f['label'] ?? $k);
+        }
+        $entries = $svc->entries($formId, 5000, 0);
+        if ($onlyIds) {
+            $entries = array_values(array_filter($entries, fn($e) => in_array((int)$e['id'], $onlyIds, true)));
+        }
+        $header = array_merge(['id', 'form_name'], $fieldLabels, ['status', 'created_at', 'page_url']);
+        $lines = [implode(',', array_map(function ($h) {
+            return '"' . str_replace('"', '""', $h) . '"';
+        }, $header))];
+        foreach ($entries as $e) {
+            $payload = $e['payload'] ?? [];
+            $row = [
+                (int) $e['id'],
+                '"' . str_replace('"', '""', (string) ($e['form_title'] ?? $form['title'] ?? '')) . '"',
+            ];
+            foreach ($fieldKeys as $k) {
+                $v = $payload[$k] ?? '';
+                if (is_array($v)) $v = implode('; ', $v);
+                $row[] = '"' . str_replace('"', '""', (string) $v) . '"';
+            }
+            $row[] = $e['status'] ?? '';
+            $row[] = $e['created_at'] ?? '';
+            $row[] = '"' . str_replace('"', '""', (string) ($e['page_url'] ?? '')) . '"';
+            $lines[] = implode(',', $row);
+        }
+        $filename = 'feedback-' . preg_replace('/[^a-z0-9_-]+/i', '-', (string) ($form['slug'] ?? 'form')) . '.csv';
+    } else {
+        $entries = $svc->entries(null, 5000, 0);
+        if ($onlyIds) {
+            $entries = array_values(array_filter($entries, fn($e) => in_array((int)$e['id'], $onlyIds, true)));
+        }
+        $lines = ['id,form,status,created_at,page_url,payload'];
+        foreach ($entries as $e) {
+            $payload = json_encode($e['payload'] ?? [], JSON_UNESCAPED_UNICODE);
+            $payload = '"' . str_replace('"', '""', $payload) . '"';
+            $lines[] = implode(',', [
+                (int) $e['id'],
+                '"' . str_replace('"', '""', (string) ($e['form_title'] ?? '')) . '"',
+                $e['status'] ?? '',
+                $e['created_at'] ?? '',
+                '"' . str_replace('"', '""', (string) ($e['page_url'] ?? '')) . '"',
+                $payload,
+            ]);
+        }
+        $filename = 'feedback-export.csv';
     }
     return (new Response())
         ->header('Content-Type', 'text/csv; charset=utf-8')
-        ->header('Content-Disposition', 'attachment; filename="feedback-export.csv"')
+        ->header('Content-Disposition', 'attachment; filename="' . $filename . '"')
         ->body(implode("\n", $lines) . "\n");
 });

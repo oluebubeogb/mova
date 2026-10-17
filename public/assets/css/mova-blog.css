@@ -4,9 +4,15 @@
 .mova-blog-page-desc { color: var(--color-muted, #64748b); margin: 0 0 1.5rem; }
 
 .mova-blog-grid {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr;
   gap: 1rem;
+}
+@media (min-width: 640px) {
+  .mova-blog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1024px) {
+  .mova-blog-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 .mova-blog-card {
   display: grid;
@@ -19,6 +25,8 @@
   border-radius: 12px;
   padding: 1rem 1.1rem;
   transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  height: 100%;
+  box-sizing: border-box;
 }
 .mova-blog-card.has-image {
   grid-template-columns: minmax(0, 7fr) minmax(0, 3fr);
@@ -91,9 +99,7 @@
   font-size: 0.8rem;
   padding: 1rem;
 }
-@media (max-width: 640px) {
-  .mova-blog-card.has-image {
-    grid-template-columns: 1fr;
-  }
+@media (max-width: 639px) {
+  .mova-blog-card.has-image { grid-template-columns: 1fr; }
   .mova-blog-col2 img { max-height: 180px; }
 }
