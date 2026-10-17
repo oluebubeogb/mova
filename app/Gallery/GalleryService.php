@@ -828,8 +828,8 @@ class GalleryService
             static $assets = false;
             if (!$assets && is_string($body) && strpos($body, 'mova-gallery') !== false) {
                 $assets = true;
-                $body .= "\n<link rel=\"stylesheet\" href=\"/assets/css/mova-gallery-embed.css?v=3\">"
-                    . "\n<script src=\"/assets/js/mova-gallery-embed.js?v=3\" defer></script>";
+                $body .= "\n<link rel=\"stylesheet\" href=\"/assets/css/mova-gallery-embed.css?v=4\">"
+                    . "\n<script src=\"/assets/js/mova-gallery-embed.js?v=4\" defer></script>";
             }
             return $body;
         }, 25);

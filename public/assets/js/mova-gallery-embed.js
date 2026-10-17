@@ -78,16 +78,24 @@
     var wrap = el('div', 'mova-g-carousel' + (visible > 1 ? ' is-multi' : ''));
     wrap.style.setProperty('--mova-g-visible', String(visible));
     var track = el('div', 'mova-g-track');
+    var mode = opts.name_mode || (opts.hover_name ? 'hover' : 'hide');
+    if (mode === 'caption') wrap.classList.add('has-captions');
     items.forEach(function (it, i) {
       var slide = el('div', 'mova-g-slide');
       slide.appendChild(el('img', '', { src: it.url, alt: it.alt || '', loading: i < visible ? 'eager' : 'lazy' }));
       if (opts.overlay_color) slide.style.setProperty('--mova-g-overlay', opts.overlay_color);
       var hover = nameOverlay(it, opts);
       if (hover) slide.appendChild(hover);
+      var unit = el('div', 'mova-g-slide-unit');
+      unit.appendChild(slide);
       var cap = nameCaption(it, opts);
-      if (cap) slide.appendChild(cap);
-      else if (it.caption && (opts.name_mode || 'hide') === 'hide') slide.appendChild(el('div', 'mova-g-caption', { text: it.caption }));
-      track.appendChild(slide);
+      if (cap) {
+        unit.appendChild(cap);
+      } else if (it.caption && mode === 'hide') {
+        /* gallery item caption only when names are hidden */
+        unit.appendChild(el('div', 'mova-g-caption', { text: it.caption }));
+      }
+      track.appendChild(unit);
     });
     wrap.appendChild(track);
     if (opts.arrows !== false && items.length > visible) {
@@ -155,16 +163,26 @@
     if (opts.gap != null) grid.style.gap = opts.gap + 'px';
     if (mode === 'columns') grid.style.setProperty('--mova-g-cols', String(opts.columns || 3));
     if (mode === 'grid') grid.style.setProperty('--mova-g-min', (opts.min_width || 200) + 'px');
+    var nameMode = opts.name_mode || (opts.hover_name ? 'hover' : 'hide');
     items.forEach(function (it, i) {
       var cell = el('figure', 'mova-g-cell' + (mode === 'collage' ? ' mova-g-span-' + ((i % 5) + 1) : ''));
       cell.appendChild(el('img', '', { src: it.url, alt: it.alt || '', loading: 'lazy' }));
       if (opts.overlay_color) cell.style.setProperty('--mova-g-overlay', opts.overlay_color);
       var hover = nameOverlay(it, opts);
       if (hover) cell.appendChild(hover);
-      var cap = nameCaption(it, opts);
-      if (cap) cell.appendChild(cap);
-      else if (it.caption && (opts.name_mode || 'hide') === 'hide') cell.appendChild(el('figcaption', 'mova-g-caption', { text: it.caption }));
       grid.appendChild(cell);
+      var cap = nameCaption(it, opts);
+      if (cap) {
+        /* caption sits under the cell */
+        var wrapCell = el('div', 'mova-g-cell-wrap');
+        // re-parent: replace last child
+        grid.removeChild(cell);
+        wrapCell.appendChild(cell);
+        wrapCell.appendChild(cap);
+        grid.appendChild(wrapCell);
+      } else if (it.caption && nameMode === 'hide') {
+        cell.appendChild(el('figcaption', 'mova-g-caption', { text: it.caption }));
+      }
     });
     root.appendChild(grid);
   }
