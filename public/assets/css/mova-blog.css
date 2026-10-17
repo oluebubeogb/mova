@@ -1,0 +1,99 @@
+/* Mova blog feed */
+.mova-blog-page { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+.mova-blog-page-title { font-size: 1.75rem; margin: 0 0 0.35rem; }
+.mova-blog-page-desc { color: var(--color-muted, #64748b); margin: 0 0 1.5rem; }
+
+.mova-blog-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.mova-blog-card {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
+  text-decoration: none;
+  color: inherit;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.mova-blog-card.has-image {
+  grid-template-columns: minmax(0, 7fr) minmax(0, 3fr);
+  align-items: stretch;
+}
+.mova-blog-card:hover {
+  border-color: color-mix(in srgb, var(--color-primary, #0d9488) 35%, #e2e8f0);
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+}
+.mova-blog-col1 { min-width: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.mova-blog-col2 {
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--color-surface-muted, #f1f5f9);
+  min-height: 100px;
+}
+.mova-blog-col2 img {
+  width: 100%;
+  height: 100%;
+  min-height: 100px;
+  max-height: 140px;
+  object-fit: cover;
+  display: block;
+}
+.mova-blog-cat {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+  font-variant: small-caps;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary, #0d9488) 14%, #fff);
+  color: var(--color-primary, #0d9488);
+}
+.mova-blog-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.35;
+  /* sentence case as saved — do not force transform */
+}
+.mova-blog-excerpt {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--color-muted, #64748b);
+}
+.mova-blog-more {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-primary, #0d9488);
+  margin-top: 0.15rem;
+}
+.mova-blog-sentinel {
+  height: 1px;
+  margin: 1rem 0;
+}
+.mova-blog-loading {
+  text-align: center;
+  color: var(--color-muted, #64748b);
+  font-size: 0.85rem;
+  padding: 0.75rem;
+}
+.mova-blog-end {
+  text-align: center;
+  color: var(--color-muted, #94a3b8);
+  font-size: 0.8rem;
+  padding: 1rem;
+}
+@media (max-width: 640px) {
+  .mova-blog-card.has-image {
+    grid-template-columns: 1fr;
+  }
+  .mova-blog-col2 img { max-height: 180px; }
+}

@@ -44,6 +44,7 @@ $routeFiles = [
     'assembly',
     'media',
     'galleries',
+    'blogs',
     'feedback',
     'taxonomy',
     'types',

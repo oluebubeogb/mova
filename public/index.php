@@ -57,7 +57,7 @@ try {
 
 // Page cache for anonymous GET (skip search, HQ, and system XML/text endpoints)
 // System routes must not be cached as bare body — they need correct Content-Type
-$systemPaths = ['/search', '/gallery', '/feedback', '/robots.txt', '/sitemap.xml', '/feed.xml', '/llms.txt', '/unsubscribe', '/mova.json'];
+$systemPaths = ['/search', '/gallery', '/feedback', '/blog', '/robots.txt', '/sitemap.xml', '/feed.xml', '/llms.txt', '/unsubscribe', '/mova.json'];
 $cacheable = $request->isGet()
     && !Auth::check()
     && !in_array($path, $systemPaths, true)
@@ -282,6 +282,71 @@ $router->post('/feedback/api/submit/{slug}', function (Request $req, array $para
     }
 });
 
+
+
+// —— Blogs ——
+$router->get('/blog', function (Request $req) use ($seo) {
+    $svc = new \Mova\Blog\BlogService();
+    $blog = $svc->findBySlug('blog', true);
+    if (!$blog) {
+        return renderTheme('404', ['seo' => $seo], 404);
+    }
+    $limit = (int) ($blog['per_page'] ?? 12);
+    $feed = $svc->feed((int) $blog['id'], $limit, 0);
+    $html = $svc->renderFeedHtml($blog, $feed['items']);
+    return renderTheme('blog', [
+        'seo' => $seo,
+        'title' => $blog['title'],
+        'blog' => $blog,
+        'feed' => $feed,
+        'html' => $html,
+    ]);
+});
+
+$router->get('/blog/api/feed/{id}', function (Request $req, array $params) {
+    $svc = new \Mova\Blog\BlogService();
+    $id = (int) ($params['id'] ?? 0);
+    $blog = $svc->find($id);
+    if (!$blog || ($blog['status'] ?? '') !== 'published') {
+        return (new Response())->header('Content-Type', 'application/json')->status(404)
+            ->body(json_encode(['error' => 'Not found']));
+    }
+    $limit = (int) $req->query('limit', $blog['per_page'] ?? 12);
+    $offset = (int) $req->query('offset', 0);
+    $feed = $svc->feed($id, $limit, $offset);
+    $html = $svc->renderFeedHtml($blog, $feed['items']);
+    return (new Response())->header('Content-Type', 'application/json')
+        ->body(json_encode([
+            'html' => $html,
+            'items' => $feed['items'],
+            'has_more' => $feed['has_more'],
+            'next_offset' => $feed['next_offset'],
+            'total' => $feed['total'],
+            'limit' => $limit,
+        ]));
+});
+
+$router->get('/blog/{slug}', function (Request $req, array $params) use ($seo) {
+    $svc = new \Mova\Blog\BlogService();
+    $slug = (string) ($params['slug'] ?? '');
+    if ($slug === '' || $slug === 'api') {
+        return renderTheme('404', ['seo' => $seo], 404);
+    }
+    $blog = $svc->findBySlug($slug, true);
+    if (!$blog) {
+        return renderTheme('404', ['seo' => $seo], 404);
+    }
+    $limit = (int) ($blog['per_page'] ?? 12);
+    $feed = $svc->feed((int) $blog['id'], $limit, 0);
+    $html = $svc->renderFeedHtml($blog, $feed['items']);
+    return renderTheme('blog', [
+        'seo' => $seo,
+        'title' => $blog['title'],
+        'blog' => $blog,
+        'feed' => $feed,
+        'html' => $html,
+    ]);
+});
 
 $router->get('/gallery/{slug}', function (Request $req, array $params) use ($seo) {
     $svc = new \Mova\Gallery\GalleryService();

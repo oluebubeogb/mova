@@ -29,6 +29,7 @@
                 { label: 'All content',    href: '/hq/content' },
                 { label: 'Media',          href: '/hq/media' },
                 { label: 'Galleries',      href: '/hq/galleries', prefixMatch: true, match: { path: '/hq/galleries' } },
+                { label: 'Blogs',          href: '/hq/blogs', prefixMatch: true, match: { path: '/hq/blogs' } },
                 { label: 'Types & fields', href: '/hq/types' },
                 { label: 'Categories',     href: '/hq/categories' },
                 { label: 'Tags',           href: '/hq/tags' },
@@ -276,7 +277,7 @@
         if (path === '/hq/content') {
             return { key: 'content.list', params, status };
         }
-        if (path === '/hq/content/upload' || path.startsWith('/hq/media') || path.startsWith('/hq/galleries')
+        if (path === '/hq/content/upload' || path.startsWith('/hq/media') || path.startsWith('/hq/galleries') || path.startsWith('/hq/blogs')
             || path.startsWith('/hq/types')
             || path.startsWith('/hq/categories') || path.startsWith('/hq/tags')
             || path.startsWith('/hq/assembly')) {
@@ -510,6 +511,7 @@
         { title: 'Media SEO',        href: '/hq/seo/media',       keywords: 'seo media alt text description filename csv import export', group: 'Content' },
         { title: 'Content SEO',      href: '/hq/seo/content',     keywords: 'seo content title meta description excerpt slug csv', group: 'Content' },
         { title: 'Galleries',        href: '/hq/galleries',       keywords: 'gallery galleries images collections album', group: 'Content' },
+        { title: 'Blogs',            href: '/hq/blogs',           keywords: 'blog blogs feed posts articles infinite scroll', group: 'Content' },
         { title: 'Types & fields',   href: '/hq/types',           keywords: 'types fields', group: 'Content' },
         { title: 'Categories',       href: '/hq/categories',      keywords: 'categories taxonomy', group: 'Content' },
         { title: 'Tags',             href: '/hq/tags',            keywords: 'tags taxonomy', group: 'Content' },

@@ -52,6 +52,17 @@
       <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
     </a>
 
+
+    <a class="hq-landing-card" href="/hq/blogs">
+      <div class="hq-landing-card-inner">
+        <div class="hq-landing-icon is-green"><i class="fa-solid fa-newspaper"></i></div>
+        <div class="hq-landing-card-body">
+          <strong>Blogs</strong>
+          <span>Feeds of content with infinite scroll at /blog</span>
+        </div>
+      </div>
+      <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
+    </a>
     <a class="hq-landing-card" href="/hq/galleries">
       <div class="hq-landing-card-inner">
         <div class="hq-landing-icon"><i class="fa-solid fa-panorama"></i></div>
