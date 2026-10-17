@@ -57,7 +57,7 @@ try {
 
 // Page cache for anonymous GET (skip search, HQ, and system XML/text endpoints)
 // System routes must not be cached as bare body — they need correct Content-Type
-$systemPaths = ['/search', '/gallery', '/robots.txt', '/sitemap.xml', '/feed.xml', '/media.xml', '/llms.txt', '/unsubscribe', '/mova.json'];
+$systemPaths = ['/search', '/gallery', '/feedback', '/robots.txt', '/sitemap.xml', '/feed.xml', '/llms.txt', '/unsubscribe', '/mova.json'];
 $cacheable = $request->isGet()
     && !Auth::check()
     && !in_array($path, $systemPaths, true)
@@ -105,12 +105,6 @@ $router->get('/feed.xml', function () use ($seo) {
     return (new Response())
         ->header('Content-Type', 'application/rss+xml; charset=utf-8')
         ->body($seo->generateFeed());
-});
-
-$router->get('/media.xml', function () use ($seo) {
-    return (new Response())
-        ->header('Content-Type', 'application/rss+xml; charset=utf-8')
-        ->body($seo->generateMediaFeed());
 });
 
 $router->get('/llms.txt', function () use ($seo) {
@@ -190,6 +184,98 @@ $router->get('/gallery/api/search', function (Request $req) {
         ->header('Content-Type', 'application/json; charset=utf-8')
         ->body(json_encode($results));
 });
+
+
+$router->get('/gallery/api/embed/{id}', function (Request $req, array $params) {
+    $id = (int) ($params['id'] ?? 0);
+    $svc = new \Mova\Gallery\GalleryService();
+    $layout = $req->query('layout');
+    $opts = [];
+    $optsRaw = $req->query('opts');
+    if (is_string($optsRaw) && $optsRaw !== '') {
+        $decoded = json_decode($optsRaw, true);
+        if (is_array($decoded)) {
+            $opts = $decoded;
+        }
+    }
+    $payload = $svc->embedPayload($id, $layout ? (string) $layout : null, $opts);
+    if (!$payload) {
+        return (new \Mova\Core\Response())
+            ->header('Content-Type', 'application/json')
+            ->status(404)
+            ->body(json_encode(['error' => 'Not found']));
+    }
+    // Only published on public
+    $g = $svc->find($id);
+    if (!$g || ($g['status'] ?? '') !== 'published') {
+        return (new \Mova\Core\Response())
+            ->header('Content-Type', 'application/json')
+            ->status(404)
+            ->body(json_encode(['error' => 'Not found']));
+    }
+    return (new \Mova\Core\Response())
+        ->header('Content-Type', 'application/json')
+        ->header('Cache-Control', 'public, max-age=60')
+        ->body(json_encode($payload));
+});
+
+$router->get('/feedback/api/form/{slug}', function (Request $req, array $params) {
+    $slug = (string) ($params['slug'] ?? '');
+    $svc = new \Mova\Feedback\FeedbackService();
+    $form = $svc->findBySlug($slug, true);
+    if (!$form) {
+        return (new \Mova\Core\Response())
+            ->header('Content-Type', 'application/json')
+            ->status(404)
+            ->body(json_encode(['error' => 'Not found']));
+    }
+    return (new \Mova\Core\Response())
+        ->header('Content-Type', 'application/json')
+        ->body(json_encode([
+            'form' => [
+                'id' => $form['id'],
+                'title' => $form['title'],
+                'slug' => $form['slug'],
+                'description' => $form['description'] ?? '',
+                'success_message' => $form['success_message'] ?? '',
+                'fields' => $form['fields'],
+            ],
+        ]));
+});
+
+$router->post('/feedback/api/submit/{slug}', function (Request $req, array $params) {
+    $slug = (string) ($params['slug'] ?? '');
+    $svc = new \Mova\Feedback\FeedbackService();
+    $form = $svc->findBySlug($slug, true);
+    if (!$form) {
+        return (new \Mova\Core\Response())
+            ->header('Content-Type', 'application/json')
+            ->status(404)
+            ->body(json_encode(['success' => false, 'error' => 'Form not found']));
+    }
+    $raw = file_get_contents('php://input');
+    $json = $raw ? json_decode($raw, true) : null;
+    $values = is_array($json['values'] ?? null) ? $json['values'] : ($req->post() ?: []);
+    try {
+        $svc->submit((int) $form['id'], $values, [
+            'page_url' => is_array($json) ? ($json['page_url'] ?? null) : null,
+            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+            'ip' => $_SERVER['REMOTE_ADDR'] ?? null,
+        ]);
+        return (new \Mova\Core\Response())
+            ->header('Content-Type', 'application/json')
+            ->body(json_encode([
+                'success' => true,
+                'message' => $form['success_message'] ?? 'Thank you.',
+            ]));
+    } catch (\Throwable $e) {
+        return (new \Mova\Core\Response())
+            ->header('Content-Type', 'application/json')
+            ->status(400)
+            ->body(json_encode(['success' => false, 'error' => $e->getMessage()]));
+    }
+});
+
 
 $router->get('/gallery/{slug}', function (Request $req, array $params) use ($seo) {
     $svc = new \Mova\Gallery\GalleryService();

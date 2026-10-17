@@ -1,0 +1,76 @@
+/* Mova in-page gallery embeds */
+.mova-gallery { --mova-g-aspect: 16/9; --mova-g-cols: 3; --mova-g-min: 200px; margin: 1rem 0; }
+.mova-g-loading, .mova-g-empty { color: var(--color-muted, #64748b); font-size: 0.9rem; padding: 1rem; text-align: center; }
+
+.mova-g-carousel { position: relative; overflow: hidden; border-radius: var(--radius-md, 10px); background: var(--color-surface, #0f172a); }
+.mova-g-track { position: relative; aspect-ratio: var(--mova-g-aspect); }
+.mova-g-slide {
+  position: absolute; inset: 0; opacity: 0; transition: opacity 0.35s ease;
+  display: flex; align-items: center; justify-content: center;
+}
+.mova-g-slide.is-active { opacity: 1; z-index: 1; }
+.mova-g-slide img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mova-g-caption {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 0.55rem 0.85rem; font-size: 0.85rem;
+  background: linear-gradient(transparent, rgba(0,0,0,0.65));
+  color: #fff;
+}
+.mova-g-nav {
+  position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
+  width: 2.25rem; height: 2.25rem; border-radius: 999px; border: none;
+  background: rgba(255,255,255,0.9); color: #0f172a; cursor: pointer;
+  font-size: 1.35rem; line-height: 1; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.mova-g-prev { left: 0.5rem; }
+.mova-g-next { right: 0.5rem; }
+.mova-g-dots { position: absolute; left: 0; right: 0; bottom: 0.5rem; z-index: 2; display: flex; gap: 0.35rem; justify-content: center; }
+.mova-g-dot {
+  width: 0.5rem; height: 0.5rem; border-radius: 999px; border: none;
+  background: rgba(255,255,255,0.45); cursor: pointer; padding: 0;
+}
+.mova-g-dot.is-active { background: #fff; }
+
+.mova-g-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--mova-g-min), 1fr));
+  gap: 12px;
+}
+.mova-g-columns {
+  display: grid;
+  grid-template-columns: repeat(var(--mova-g-cols), 1fr);
+  gap: 12px;
+}
+@media (max-width: 720px) {
+  .mova-g-columns { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+  .mova-g-columns { grid-template-columns: 1fr; }
+}
+.mova-g-collage {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: 120px;
+  gap: 8px;
+}
+.mova-g-collage .mova-g-span-1 { grid-column: span 2; grid-row: span 2; }
+.mova-g-collage .mova-g-span-2 { grid-column: span 2; }
+.mova-g-collage .mova-g-span-3 { grid-column: span 1; grid-row: span 2; }
+.mova-g-collage .mova-g-span-4 { grid-column: span 1; }
+.mova-g-collage .mova-g-span-5 { grid-column: span 2; }
+@media (max-width: 640px) {
+  .mova-g-collage { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 100px; }
+}
+
+.mova-g-cell {
+  margin: 0; overflow: hidden; border-radius: var(--radius-sm, 8px);
+  background: var(--color-surface-muted, #f1f5f9);
+  position: relative;
+}
+.mova-g-cell img { width: 100%; height: 100%; object-fit: cover; display: block; min-height: 140px; }
+.mova-g-collage .mova-g-cell img { min-height: 0; height: 100%; }
+.mova-g-cell .mova-g-caption {
+  position: static; background: transparent; color: var(--color-muted, #64748b);
+  padding: 0.35rem 0.15rem 0; font-size: 0.8rem;
+}

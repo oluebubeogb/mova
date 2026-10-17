@@ -70,6 +70,8 @@ class GalleryService
         $slug = $this->uniqueSlug($this->slugify((string) ($data['slug'] ?? $title)));
         $now = date('c');
         $groupSlug = $this->normalizeGroupSlug($data['group_slug'] ?? null);
+        $embedLayout = $this->normalizeEmbedLayout($data['embed_layout'] ?? 'carousel');
+        $embedOptions = $this->normalizeEmbedOptions($data['embed_options'] ?? []);
         $id = Database::insert('galleries', [
             'title' => $title,
             'slug' => $slug,
@@ -79,6 +81,8 @@ class GalleryService
                 ? ($data['status'] ?? 'published')
                 : 'published',
             'group_slug' => $groupSlug,
+            'embed_layout' => $embedLayout,
+            'embed_options' => json_encode($embedOptions),
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -126,7 +130,7 @@ class GalleryService
             ? $this->normalizeGroupSlug($data['group_slug'])
             : ($row['group_slug'] ?? null);
 
-        Database::update('galleries', [
+        $update = [
             'title' => $title,
             'slug' => $slug,
             'description' => array_key_exists('description', $data)
@@ -136,7 +140,14 @@ class GalleryService
             'status' => $status,
             'group_slug' => $groupSlug,
             'updated_at' => date('c'),
-        ], 'id = :id', ['id' => $id]);
+        ];
+        if (array_key_exists('embed_layout', $data)) {
+            $update['embed_layout'] = $this->normalizeEmbedLayout($data['embed_layout']);
+        }
+        if (array_key_exists('embed_options', $data)) {
+            $update['embed_options'] = json_encode($this->normalizeEmbedOptions($data['embed_options']));
+        }
+        Database::update('galleries', $update, 'id = :id', ['id' => $id]);
 
         if (array_key_exists('media_ids', $data) && is_array($data['media_ids'])) {
             $this->setItems($id, array_map('intval', $data['media_ids']), $data['captions'] ?? []);
@@ -395,6 +406,14 @@ class GalleryService
                 $row['cover_thumb'] = $this->media->url($m, 480);
             }
         }
+        if (!empty($row['embed_options']) && is_string($row['embed_options'])) {
+            $row['embed_options'] = json_decode($row['embed_options'], true) ?: [];
+        } elseif (empty($row['embed_options'])) {
+            $row['embed_options'] = [];
+        }
+        if (empty($row['embed_layout'])) {
+            $row['embed_layout'] = 'carousel';
+        }
         return $row;
     }
 
@@ -475,4 +494,163 @@ class GalleryService
         }
         return Database::fetch($sql, $params) !== null;
     }
+
+
+    public function normalizeEmbedLayout($layout): string
+    {
+        $layout = strtolower(trim((string) $layout));
+        $allowed = ['carousel', 'columns', 'grid', 'collage', 'slide'];
+        if ($layout === 'slide') {
+            $layout = 'carousel';
+        }
+        return in_array($layout, $allowed, true) ? $layout : 'carousel';
+    }
+
+    public function normalizeEmbedOptions($opts): array
+    {
+        if (is_string($opts)) {
+            $decoded = json_decode($opts, true);
+            $opts = is_array($decoded) ? $decoded : [];
+        }
+        if (!is_array($opts)) {
+            $opts = [];
+        }
+        return [
+            'autoplay' => !empty($opts['autoplay']),
+            'interval' => max(2000, min(20000, (int) ($opts['interval'] ?? 5000))),
+            'arrows' => array_key_exists('arrows', $opts) ? !empty($opts['arrows']) : true,
+            'dots' => array_key_exists('dots', $opts) ? !empty($opts['dots']) : true,
+            'columns' => max(2, min(4, (int) ($opts['columns'] ?? 3))),
+            'min_width' => max(120, min(480, (int) ($opts['min_width'] ?? 200))),
+            'gap' => max(0, min(48, (int) ($opts['gap'] ?? 12))),
+            'lightbox' => array_key_exists('lightbox', $opts) ? !empty($opts['lightbox']) : true,
+            'aspect' => in_array(($opts['aspect'] ?? '16/9'), ['auto', '1/1', '4/3', '16/9', '3/2'], true)
+                ? (string) ($opts['aspect'] ?? '16/9') : '16/9',
+        ];
+    }
+
+    /**
+     * Payload for frontend embed (mount div / API).
+     */
+    public function embedPayload(int $id, ?string $layoutOverride = null, array $optsOverride = []): ?array
+    {
+        $g = $this->find($id);
+        if (!$g || ($g['status'] ?? '') !== 'published') {
+            // Allow draft preview in HQ only when explicitly requested later
+            if (!$g) {
+                return null;
+            }
+        }
+        $layout = $this->normalizeEmbedLayout($layoutOverride ?? ($g['embed_layout'] ?? 'carousel'));
+        $opts = $this->normalizeEmbedOptions(array_merge(
+            is_array($g['embed_options'] ?? null) ? $g['embed_options'] : [],
+            $optsOverride
+        ));
+        $items = [];
+        foreach ($this->items($id) as $it) {
+            $media = [
+                'id' => (int) ($it['media_id'] ?? $it['id'] ?? 0),
+                'path' => (string) ($it['path'] ?? ''),
+                'alt' => (string) ($it['alt_text'] ?? $it['original_name'] ?? ''),
+                'caption' => (string) ($it['caption'] ?? ''),
+                'width' => (int) ($it['width'] ?? 0),
+                'height' => (int) ($it['height'] ?? 0),
+                'mime' => (string) ($it['mime_type'] ?? ''),
+            ];
+            $url = '';
+            try {
+                $row = [
+                    'path' => $it['path'] ?? '',
+                    'variants' => !empty($it['variants']) ? (is_string($it['variants']) ? json_decode($it['variants'], true) : $it['variants']) : [],
+                    'filename' => $it['filename'] ?? '',
+                ];
+                $url = $this->media->url($row);
+            } catch (\Throwable $e) {
+                $url = $media['path'] !== '' ? '/mova-uploads/' . ltrim($media['path'], '/') : '';
+            }
+            $items[] = array_merge($media, ['url' => $url]);
+        }
+        return [
+            'id' => (int) $g['id'],
+            'slug' => (string) $g['slug'],
+            'title' => (string) $g['title'],
+            'layout' => $layout,
+            'options' => $opts,
+            'items' => $items,
+        ];
+    }
+
+    public function mountHtml(int $id, ?string $layout = null, array $opts = []): string
+    {
+        $layout = $this->normalizeEmbedLayout($layout ?? 'carousel');
+        $attr = ' class="mova-gallery" data-gallery="' . (int) $id . '" data-layout="' . htmlspecialchars($layout, ENT_QUOTES) . '"';
+        if ($opts !== []) {
+            $attr .= ' data-opts=\'' . htmlspecialchars(json_encode($this->normalizeEmbedOptions($opts)), ENT_QUOTES) . '\'';
+        }
+        return '<div' . $attr . '></div>';
+    }
+
+    public function shortcode(int $id, ?string $layout = null): string
+    {
+        $layout = $this->normalizeEmbedLayout($layout ?? 'carousel');
+        return '[gallery id="' . (int) $id . '" layout="' . $layout . '"]';
+    }
+
+    /** Expand [gallery id="1" layout="carousel"] in content bodies */
+    public static function registerShortcodes(): void
+    {
+        static $done = false;
+        if ($done) {
+            return;
+        }
+        $done = true;
+        if (!class_exists(\Mova\Plugin\PluginManager::class)) {
+            return;
+        }
+        \Mova\Plugin\PluginManager::addFilter('content.render.body', function (string $body, array $content = []) {
+            if ($body === '' || (stripos($body, '[gallery') === false && stripos($body, 'mova-gallery') === false)) {
+                return $body;
+            }
+            $svc = new self();
+            $body = preg_replace_callback(
+                '/\[gallery\s+([^\]]*)\]/i',
+                function ($m) use ($svc) {
+                    $attrs = $m[1];
+                    $id = 0;
+                    $slug = '';
+                    $layout = null;
+                    if (preg_match('/\bid=["\']?(\d+)/i', $attrs, $mm)) {
+                        $id = (int) $mm[1];
+                    }
+                    if (preg_match('/\bslug=["\']([^"\']+)["\']/i', $attrs, $mm)) {
+                        $slug = $mm[1];
+                    }
+                    if (preg_match('/\blayout=["\']([^"\']+)["\']/i', $attrs, $mm)) {
+                        $layout = $mm[1];
+                    }
+                    if ($id <= 0 && $slug !== '') {
+                        $g = $svc->findBySlug($slug, false);
+                        $id = $g ? (int) $g['id'] : 0;
+                    }
+                    if ($id <= 0) {
+                        return '<!-- gallery: not found -->';
+                    }
+                    $g = $svc->find($id);
+                    if (!$layout && $g) {
+                        $layout = $g['embed_layout'] ?? 'carousel';
+                    }
+                    return $svc->mountHtml($id, $layout);
+                },
+                $body
+            );
+            static $assets = false;
+            if (!$assets && is_string($body) && strpos($body, 'mova-gallery') !== false) {
+                $assets = true;
+                $body .= "\n<link rel=\"stylesheet\" href=\"/assets/css/mova-gallery-embed.css?v=1\">"
+                    . "\n<script src=\"/assets/js/mova-gallery-embed.js?v=1\" defer></script>";
+            }
+            return $body;
+        }, 25);
+    }
+
 }

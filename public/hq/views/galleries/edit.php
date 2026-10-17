@@ -12,6 +12,12 @@ $groupSlugVal = $form['group_slug'] ?? ($gallery['group_slug'] ?? '');
 $descVal = $form['description'] ?? ($gallery['description'] ?? '');
 $statusVal = $form['status'] ?? ($gallery['status'] ?? 'published');
 $coverVal = $form['cover_media_id'] ?? ($gallery['cover_media_id'] ?? '');
+$embedLayout = $form['embed_layout'] ?? ($gallery['embed_layout'] ?? 'carousel');
+$embedOpts = $form['embed_options'] ?? ($gallery['embed_options'] ?? []);
+if (is_string($embedOpts)) { $embedOpts = json_decode($embedOpts, true) ?: []; }
+$eo = function ($k, $d) use ($embedOpts) { return array_key_exists($k, $embedOpts) ? $embedOpts[$k] : $d; };
+$gid = (int)($gallery['id'] ?? 0);
+
 
 $selectedIds = $form['media_ids'] ?? [];
 if (empty($selectedIds) && $items) {
@@ -37,6 +43,19 @@ $selectedMap = array_flip($selectedIds);
 <form method="post" action="/hq/galleries/save" class="design-form" id="gallery-edit-form">
     <?= Csrf::field() ?>
     <input type="hidden" name="id" value="<?= (int)($gallery['id'] ?? 0) ?>">
+
+<style>
+.g-edit-layout{display:flex;gap:1.25rem;align-items:flex-start;flex-wrap:wrap}
+.g-edit-main{flex:1 1 62%;min-width:280px}
+.g-edit-side{flex:0 0 30%;min-width:260px;max-width:360px;position:sticky;top:.75rem}
+.g-edit-side .panel{background:var(--hq-surface,#fff);border:1px solid var(--hq-border,#e5e7eb);border-radius:10px;padding:1rem}
+.g-edit-side h3{margin:0 0 .75rem;font-size:.95rem}
+.g-copy-row{display:flex;gap:.35rem;margin:.35rem 0}
+.g-copy-row input{flex:1;font-size:.8rem;padding:.35rem .5rem;border:1px solid var(--hq-border,#d1d5db);border-radius:6px;background:#f8fafc}
+.g-copy-row button{font-size:.75rem;padding:.35rem .55rem;border-radius:6px;border:1px solid var(--hq-border);background:#f1f5f9;cursor:pointer}
+</style>
+<div class="g-edit-layout">
+<div class="g-edit-main">
 
     <div class="form-group">
         <label for="g-title">Title</label>
@@ -102,6 +121,69 @@ $selectedMap = array_flip($selectedIds);
         <?php endif; ?>
     </div>
 
+</div><!-- .g-edit-main -->
+<aside class="g-edit-side">
+  <div class="panel">
+    <h3>In-page display</h3>
+    <p class="field-hint" style="margin-top:0">Defaults for embeds on other pages. Default layout: carousel.</p>
+    <div class="form-group">
+      <label for="embed_layout">Layout</label>
+      <select name="embed_layout" id="embed_layout">
+        <?php foreach (['carousel'=>'Carousel / slides','columns'=>'Columns','grid'=>'Responsive grid','collage'=>'Collage'] as $k=>$lab): ?>
+          <option value="<?= $k ?>" <?= ($embedLayout ?? 'carousel') === $k ? 'selected' : '' ?>><?= $lab ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div class="form-group">
+      <label><input type="checkbox" name="embed_autoplay" value="1" <?= !empty($eo('autoplay', false)) ? 'checked' : '' ?>> Autoplay (carousel)</label>
+    </div>
+    <div class="form-group">
+      <label for="embed_interval">Interval (ms)</label>
+      <input type="number" name="embed_interval" id="embed_interval" min="2000" max="20000" value="<?= (int)$eo('interval', 5000) ?>">
+    </div>
+    <div class="form-group">
+      <label><input type="checkbox" name="embed_arrows" value="1" <?= $eo('arrows', true) ? 'checked' : '' ?>> Arrows</label>
+      <label style="margin-left:.75rem"><input type="checkbox" name="embed_dots" value="1" <?= $eo('dots', true) ? 'checked' : '' ?>> Dots</label>
+    </div>
+    <div class="form-group">
+      <label for="embed_columns">Columns</label>
+      <input type="number" name="embed_columns" id="embed_columns" min="2" max="4" value="<?= (int)$eo('columns', 3) ?>">
+    </div>
+    <div class="form-group">
+      <label for="embed_min_width">Grid min width (px)</label>
+      <input type="number" name="embed_min_width" id="embed_min_width" min="120" max="480" value="<?= (int)$eo('min_width', 200) ?>">
+    </div>
+    <div class="form-group">
+      <label for="embed_gap">Gap (px)</label>
+      <input type="number" name="embed_gap" id="embed_gap" min="0" max="48" value="<?= (int)$eo('gap', 12) ?>">
+    </div>
+    <div class="form-group">
+      <label for="embed_aspect">Carousel aspect</label>
+      <select name="embed_aspect" id="embed_aspect">
+        <?php foreach (['16/9','4/3','1/1','3/2','auto'] as $a): ?>
+          <option value="<?= $a ?>" <?= $eo('aspect','16/9') === $a ? 'selected' : '' ?>><?= $a ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <?php if ($gid > 0): ?>
+    <hr style="border:none;border-top:1px solid var(--hq-border,#e5e7eb);margin:1rem 0">
+    <p style="font-size:.8rem;font-weight:600;margin:0 0 .35rem">Copy embed</p>
+    <div class="g-copy-row">
+      <input type="text" readonly id="g-sc" value='[gallery id="<?= $gid ?>" layout="<?= htmlspecialchars($embedLayout ?? 'carousel') ?>"]'>
+      <button type="button" data-copy="g-sc">Copy</button>
+    </div>
+    <div class="g-copy-row">
+      <input type="text" readonly id="g-html" value='<div class="mova-gallery" data-gallery="<?= $gid ?>" data-layout="<?= htmlspecialchars($embedLayout ?? 'carousel') ?>"></div>'>
+      <button type="button" data-copy="g-html">Copy</button>
+    </div>
+    <p class="field-hint">Paste into any content body. Site-wide CSS/JS load automatically.</p>
+    <?php else: ?>
+    <p class="field-hint">Save the gallery to get shortcode and HTML mount.</p>
+    <?php endif; ?>
+  </div>
+</aside>
+</div><!-- .g-edit-layout -->
+
     <div class="form-actions" style="display:flex;gap:0.5rem;margin-top:1.25rem;">
         <button type="submit" class="btn-primary">Save gallery</button>
         <a href="/hq/galleries" class="btn-ghost">Cancel</a>
@@ -142,4 +224,16 @@ $selectedMap = array_flip($selectedIds);
     slug.value = slugify(title.value);
   }
 })();
+document.querySelectorAll('[data-copy]').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    var id = btn.getAttribute('data-copy');
+    var input = document.getElementById(id);
+    if (!input) return;
+    input.select();
+    navigator.clipboard.writeText(input.value).then(function () {
+      btn.textContent = 'Copied';
+      setTimeout(function () { btn.textContent = 'Copy'; }, 1200);
+    });
+  });
+});
 </script>

@@ -62,6 +62,13 @@ class Bootstrap
                 if (class_exists(\Mova\Assembly\AssemblyService::class)) {
                     \Mova\Assembly\AssemblyService::registerRenderFilter();
                 }
+                if (class_exists(\Mova\Gallery\GalleryService::class)) {
+                    \Mova\Gallery\GalleryService::registerShortcodes();
+                }
+                if (class_exists(\Mova\Feedback\FeedbackService::class)) {
+                    \Mova\Feedback\FeedbackService::registerShortcodes();
+                    \Mova\Feedback\FeedbackService::ensureDefaultContactForm();
+                }
                 // Markdown → HTML only for non-HTML bodies (before shortcodes)
                 if (class_exists(\Mova\Content\Markdown::class)) {
                     \Mova\Content\Markdown::registerRenderFilter();
