@@ -22,6 +22,8 @@ $fieldDefs = $form['fields'] ?? [];
 $single = $formId > 0;
 ?>
 <section class="hq-page fb-inbox-page">
+<div class="fb-inbox-layout" id="fb-inbox-layout">
+  <div class="fb-inbox-main" id="fb-inbox-main">
   <div class="fb-inbox-head">
     <div>
       <h1>Feedback inbox</h1>
@@ -128,28 +130,32 @@ $single = $formId > 0;
     <?php endif; ?>
   </div>
   <?php endif; ?>
-</section>
 
-<aside class="fb-entry-sidebar" id="fb-sidebar" hidden>
-  <div class="fb-sidebar-inner">
-    <div class="fb-sidebar-head">
-      <div>
-        <div class="fb-sidebar-dt" id="fb-side-dt"></div>
-        <div class="fb-sidebar-form" id="fb-side-form"></div>
+  </div><!-- .fb-inbox-main -->
+
+  <aside class="fb-entry-sidebar" id="fb-sidebar" hidden aria-hidden="true">
+    <div class="fb-sidebar-inner">
+      <div class="fb-sidebar-head">
+        <div class="fb-sidebar-head-text">
+          <div class="fb-sidebar-dt" id="fb-side-dt"></div>
+          <div class="fb-sidebar-form" id="fb-side-form"></div>
+        </div>
+        <button type="button" class="fb-sidebar-close" id="fb-side-close" title="Close" aria-label="Close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
       </div>
-      <button type="button" class="fb-sidebar-close" id="fb-side-close" aria-label="Close">×</button>
+      <div class="fb-sidebar-body" id="fb-side-body"></div>
+      <div class="fb-sidebar-foot">
+        <form method="post" id="fb-side-del" action="">
+          <?= Csrf::field() ?>
+          <input type="hidden" name="form" value="<?= $formId ?>">
+          <button type="submit" class="btn-ghost btn-sm" style="color:#dc2626" onclick="return confirm('Delete this entry?')">Delete</button>
+        </form>
+      </div>
     </div>
-    <div class="fb-sidebar-body" id="fb-side-body"></div>
-    <div class="fb-sidebar-foot">
-      <form method="post" id="fb-side-del" action="">
-        <?= Csrf::field() ?>
-        <input type="hidden" name="form" value="<?= $formId ?>">
-        <button type="submit" class="btn-ghost btn-sm" style="color:#dc2626" onclick="return confirm('Delete this entry?')">Delete</button>
-      </form>
-    </div>
-  </div>
-</aside>
-<div class="fb-sidebar-backdrop" id="fb-backdrop" hidden></div>
+  </aside>
+</div><!-- .fb-inbox-layout -->
+</section>
 
 <style>
 .fb-inbox-head{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
@@ -183,28 +189,87 @@ $single = $formId > 0;
 .fb-pager{display:flex;gap:1rem;align-items:center;justify-content:center;margin-top:1rem;font-size:0.85rem}
 .fb-pager a{color:var(--hq-accent,#0f766e);text-decoration:none}
 
-.fb-sidebar-backdrop{position:fixed;inset:0;background:rgba(15,23,42,0.25);z-index:40}
-.fb-entry-sidebar{
-  position:fixed;top:0;right:0;bottom:0;width:min(32vw,420px);min-width:300px;z-index:50;
-  background:#fff;border-left:1px solid #e5e7eb;box-shadow:-8px 0 30px rgba(15,23,42,0.08);
-  display:flex;flex-direction:column;
+/* Flex push layout — under HQ dynamic nav, never overlays top bar */
+.fb-inbox-layout{
+  display:flex;
+  align-items:flex-start;
+  gap:1.25rem;
+  width:100%;
 }
-.fb-sidebar-inner{display:flex;flex-direction:column;height:100%}
-.fb-sidebar-head{display:flex;justify-content:space-between;gap:0.75rem;padding:1rem 1.1rem;border-bottom:1px solid #f1f5f9}
+.fb-inbox-main{
+  flex:1 1 auto;
+  min-width:0;
+  transition:max-width 0.15s ease;
+}
+.fb-inbox-layout.is-sidebar-open .fb-inbox-main{
+  flex:1 1 70%;
+  max-width:calc(100% - min(30vw, 380px) - 1.25rem);
+}
+.fb-entry-sidebar{
+  display:none;
+  flex:0 0 min(30vw, 380px);
+  width:min(30vw, 380px);
+  max-width:380px;
+  min-width:260px;
+  align-self:flex-start;
+  position:sticky;
+  top:0.75rem;
+  max-height:none;
+  background:var(--hq-surface, #fff);
+  border:1px solid var(--hq-border, #e5e7eb);
+  border-radius:12px;
+  box-shadow:0 4px 20px rgba(15,23,42,0.06);
+  z-index:2;
+}
+.fb-inbox-layout.is-sidebar-open .fb-entry-sidebar,
+.fb-entry-sidebar.is-open{
+  display:flex;
+  flex-direction:column;
+}
+.fb-entry-sidebar[hidden]{
+  display:none !important;
+}
+.fb-sidebar-inner{display:flex;flex-direction:column;min-height:12rem}
+.fb-sidebar-head{
+  display:flex;justify-content:space-between;align-items:flex-start;gap:0.75rem;
+  padding:0.85rem 0.9rem;border-bottom:1px solid #f1f5f9;
+}
+.fb-sidebar-head-text{min-width:0;flex:1}
 .fb-sidebar-dt{font-size:0.95rem;font-weight:650;font-variant-numeric:tabular-nums}
 .fb-sidebar-form{font-size:0.8rem;color:#64748b;margin-top:0.15rem}
-.fb-sidebar-close{border:none;background:transparent;font-size:1.4rem;line-height:1;cursor:pointer;color:#94a3b8;padding:0 0.25rem}
-.fb-sidebar-close:hover{color:#0f172a}
+.fb-sidebar-close{
+  flex-shrink:0;
+  width:2.25rem;height:2.25rem;
+  border:1px solid #e2e8f0;
+  border-radius:8px;
+  background:#f8fafc;
+  color:#0f172a;
+  font-size:1.1rem;
+  line-height:1;
+  cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+  box-shadow:0 1px 2px rgba(15,23,42,0.04);
+}
+.fb-sidebar-close:hover{
+  background:#fee2e2;
+  border-color:#fca5a5;
+  color:#dc2626;
+}
 .fb-sidebar-body{flex:1;overflow:auto;padding:1rem 1.1rem}
 .fb-side-field{margin-bottom:0.85rem}
 .fb-side-field label{display:block;font-size:0.72rem;font-weight:650;color:#94a3b8;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.03em}
 .fb-side-field div{font-size:0.92rem;line-height:1.45;white-space:pre-wrap;word-break:break-word}
 .fb-sidebar-foot{padding:0.75rem 1.1rem;border-top:1px solid #f1f5f9}
+@media (max-width: 800px) {
+  .fb-inbox-layout.is-sidebar-open{flex-direction:column}
+  .fb-inbox-layout.is-sidebar-open .fb-inbox-main{max-width:100%;flex:1 1 auto}
+  .fb-entry-sidebar{width:100%;max-width:100%;flex:1 1 auto;position:relative;top:0}
+}
 </style>
 <script>
 (function(){
   var sidebar = document.getElementById('fb-sidebar');
-  var backdrop = document.getElementById('fb-backdrop');
+  var layout = document.getElementById('fb-inbox-layout');
   var csrf = document.querySelector('#fb-bulk-form input[name="_mova_csrf"], #fb-bulk-form input[name="_csrf"]');
   var csrfToken = csrf ? csrf.value : '';
 
@@ -245,11 +310,15 @@ $single = $formId > 0;
   });
 
   function closeSide() {
+    if (!sidebar) return;
     sidebar.hidden = true;
-    backdrop.hidden = true;
+    sidebar.classList.remove('is-open');
+    sidebar.setAttribute('aria-hidden', 'true');
+    if (layout) layout.classList.remove('is-sidebar-open');
   }
   document.getElementById('fb-side-close').addEventListener('click', closeSide);
-  backdrop.addEventListener('click', closeSide);
+  // Ensure closed on load (display:flex must not override [hidden])
+  closeSide();
 
   function openEntry(id) {
     fetch('/hq/feedback/entry/' + id + '?format=json', {
@@ -290,10 +359,16 @@ $single = $formId > 0;
       }
       document.getElementById('fb-side-del').action = '/hq/feedback/entry/delete/' + id;
       sidebar.hidden = false;
-      backdrop.hidden = false;
+      sidebar.classList.add('is-open');
+      sidebar.setAttribute('aria-hidden', 'false');
+      if (layout) layout.classList.add('is-sidebar-open');
       // mark row as read visually
       var row = document.querySelector('.fb-entry-row[data-id="'+id+'"]');
-      if (row) row.classList.remove('is-unread');
+      if (row) {
+        row.classList.remove('is-unread');
+        document.querySelectorAll('.fb-entry-row.is-active').forEach(function(r){ r.classList.remove('is-active'); });
+        row.classList.add('is-active');
+      }
     });
   }
 
