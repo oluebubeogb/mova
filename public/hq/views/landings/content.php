@@ -118,6 +118,29 @@
       <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
     </a>
 
+
+    <a class="hq-landing-card" href="/hq/seo/media">
+      <div class="hq-landing-card-inner">
+        <div class="hq-landing-icon is-mix"><i class="fa-solid fa-image"></i></div>
+        <div class="hq-landing-card-body">
+          <strong>Media SEO</strong>
+          <span>Bulk edit name, alt, description · CSV import/export</span>
+        </div>
+      </div>
+      <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
+    </a>
+
+    <a class="hq-landing-card" href="/hq/seo/content">
+      <div class="hq-landing-card-inner">
+        <div class="hq-landing-icon is-green"><i class="fa-solid fa-magnifying-glass-chart"></i></div>
+        <div class="hq-landing-card-body">
+          <strong>Content SEO</strong>
+          <span>Bulk edit titles, meta description, excerpt, slug · CSV</span>
+        </div>
+      </div>
+      <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
+    </a>
+
     <a class="hq-landing-card" href="/hq/content/find-replace">
       <div class="hq-landing-card-inner">
         <div class="hq-landing-icon is-mix"><i class="fa-solid fa-magnifying-glass-arrow-right"></i></div>
