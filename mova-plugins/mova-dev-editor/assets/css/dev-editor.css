@@ -244,3 +244,24 @@ textarea.mova-dev-fallback {
   line-height: 1.5 !important;
   background-attachment: local;
 }
+
+
+/* Respect content editor sidebar (form-layout) — keep Dev Mode in the 70% main column */
+.form-layout:not(.sidebar-closed) .form-main {
+  min-width: 0;
+  overflow-x: hidden;
+}
+.form-layout:not(.sidebar-closed) .mova-dev-editor {
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+}
+.form-layout:not(.sidebar-closed) .mova-dev-monaco,
+.form-layout:not(.sidebar-closed) .monaco-editor,
+.form-layout:not(.sidebar-closed) .monaco-editor .overflow-guard {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+.form-layout:not(.sidebar-closed) .form-sidebar {
+  flex-shrink: 0;
+}

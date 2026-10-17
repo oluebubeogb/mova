@@ -2237,3 +2237,17 @@ body.hq-sidebar-open {
         width: 100%;
     }
 }
+
+
+/* Dev Mode editor + sidebar coexistence */
+.form-layout:not(.sidebar-closed) .form-main {
+  min-width: 0;
+  overflow-x: hidden;
+}
+.form-layout:not(.sidebar-closed) .mova-dev-editor,
+.form-layout:not(.sidebar-closed) .mova-dev-monaco,
+.form-layout:not(.sidebar-closed) .monaco-editor {
+  max-width: 100% !important;
+  width: 100% !important;
+  box-sizing: border-box;
+}

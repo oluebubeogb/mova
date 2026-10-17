@@ -40,6 +40,11 @@
     }
     var wrap = el('div', 'mova-g-carousel');
     var track = el('div', 'mova-g-track');
+    items = items.filter(function (it) { return it && it.url && !/\/mova-uploads\/?$/.test(it.url); });
+    if (!items.length) {
+      root.innerHTML = '<p class="mova-g-empty">No images</p>';
+      return;
+    }
     items.forEach(function (it, i) {
       var slide = el('div', 'mova-g-slide' + (i === 0 ? ' is-active' : ''));
       slide.appendChild(el('img', '', { src: it.url, alt: it.alt || '', loading: i ? 'lazy' : 'eager' }));

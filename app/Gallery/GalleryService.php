@@ -535,11 +535,12 @@ class GalleryService
     public function embedPayload(int $id, ?string $layoutOverride = null, array $optsOverride = []): ?array
     {
         $g = $this->find($id);
-        if (!$g || ($g['status'] ?? '') !== 'published') {
-            // Allow draft preview in HQ only when explicitly requested later
-            if (!$g) {
-                return null;
-            }
+        if (!$g) {
+            return null;
+        }
+        // Public embeds only for published galleries
+        if (($g['status'] ?? '') !== 'published') {
+            return null;
         }
         $layout = $this->normalizeEmbedLayout($layoutOverride ?? ($g['embed_layout'] ?? 'carousel'));
         $opts = $this->normalizeEmbedOptions(array_merge(
@@ -548,27 +549,48 @@ class GalleryService
         ));
         $items = [];
         foreach ($this->items($id) as $it) {
-            $media = [
-                'id' => (int) ($it['media_id'] ?? $it['id'] ?? 0),
-                'path' => (string) ($it['path'] ?? ''),
-                'alt' => (string) ($it['alt_text'] ?? $it['original_name'] ?? ''),
-                'caption' => (string) ($it['caption'] ?? ''),
-                'width' => (int) ($it['width'] ?? 0),
-                'height' => (int) ($it['height'] ?? 0),
-                'mime' => (string) ($it['mime_type'] ?? ''),
-            ];
-            $url = '';
-            try {
-                $row = [
-                    'path' => $it['path'] ?? '',
-                    'variants' => !empty($it['variants']) ? (is_string($it['variants']) ? json_decode($it['variants'], true) : $it['variants']) : [],
-                    'filename' => $it['filename'] ?? '',
-                ];
-                $url = $this->media->url($row);
-            } catch (\Throwable $e) {
-                $url = $media['path'] !== '' ? '/mova-uploads/' . ltrim($media['path'], '/') : '';
+            // hydrateItem already sets url, thumb_url, media{}, alt
+            $m = is_array($it['media'] ?? null) ? $it['media'] : [];
+            $url = (string) ($it['url'] ?? '');
+            $thumb = (string) ($it['thumb_url'] ?? '');
+            if ($url === '' && $m) {
+                try {
+                    $url = $this->media->url($m);
+                    $thumb = $this->media->url($m, 480);
+                } catch (\Throwable $e) {
+                    $path = ltrim((string) ($m['path'] ?? ''), '/');
+                    $url = $path !== '' ? '/mova-uploads/' . $path : '';
+                }
             }
-            $items[] = array_merge($media, ['url' => $url]);
+            // Prefer site-relative paths so embeds work on any host
+            try {
+                if ($url !== '' && method_exists($this->media, 'publicPath') && $m) {
+                    $rel = $this->media->publicPath($m);
+                    if (is_string($rel) && str_starts_with($rel, '/')) {
+                        $url = $rel;
+                    }
+                    if ($thumb !== '' && $m) {
+                        $relT = $this->media->publicPath($m, 480);
+                        if (is_string($relT) && str_starts_with($relT, '/')) {
+                            $thumb = $relT;
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+            }
+            if ($url === '' || rtrim($url, '/') === '/mova-uploads') {
+                continue; // skip broken media rows
+            }
+            $items[] = [
+                'id' => (int) ($it['media_id'] ?? $m['id'] ?? 0),
+                'url' => $url,
+                'thumb' => $thumb !== '' ? $thumb : $url,
+                'alt' => (string) ($it['alt'] ?? $m['alt_text'] ?? $m['original_name'] ?? ''),
+                'caption' => (string) ($it['caption'] ?? ''),
+                'width' => (int) ($m['width'] ?? $it['width'] ?? 0),
+                'height' => (int) ($m['height'] ?? $it['height'] ?? 0),
+                'mime' => (string) ($m['mime_type'] ?? ''),
+            ];
         }
         return [
             'id' => (int) $g['id'],
