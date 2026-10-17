@@ -17,10 +17,10 @@ window.MOVA_HQ_SEARCH_INDEX = [
   { title: 'Upload Contents', href: '/hq/content/upload', group: 'Content', keywords: 'upload bulk import html css js dev editor multi file', body: 'Bulk upload HTML, CSS and JS files as Dev Mode content. Group related files by name (e.g. home.html + home.css) and create pages in one step.' },
   { title: 'Media', href: '/hq/media', group: 'Content', keywords: 'images files uploads media library', body: 'Upload and manage images and files for your site.' },
   { title: 'Media SEO', href: '/hq/seo/media', group: 'Content',
-    keywords: 'seo media alt text description filename csv import export accessibility name',
+    keywords: 'seo media alt text description filename csv import export accessibility name bulk',
     body: 'Bulk edit media names, alt text, and descriptions. Mark rows, export CSV, import with id or url matching.' },
   { title: 'Content SEO', href: '/hq/seo/content', group: 'Content',
-    keywords: 'seo content title meta description excerpt slug csv import export',
+    keywords: 'seo content title meta description excerpt slug csv import export bulk',
     body: 'Bulk edit content titles, SEO titles, meta descriptions, excerpts, and slugs. Mark, export, and import CSV.' },
 
   { title: 'Galleries', href: '/hq/galleries', group: 'Content', keywords: 'gallery galleries images collections album slideshow explore', body: 'Create image collections for the public /gallery page. Manage saved galleries, covers, and membership.' },

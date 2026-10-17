@@ -556,14 +556,14 @@ if (!empty($content['published_at'])) {
 
     layout.classList.remove('sidebar-closed');
     sidebar.hidden = false;
-    // On narrow screens present sidebar as an overlay so users notice it
+    // Narrow screens: local overlay inside the content area (does not shift topbar/search)
     if (window.matchMedia && window.matchMedia('(max-width: 900px)').matches) {
       layout.classList.add('sidebar-overlay');
-      document.body.classList.add('hq-sidebar-open');
     } else {
       layout.classList.remove('sidebar-overlay');
-      document.body.classList.remove('hq-sidebar-open');
     }
+    // Never lock/shift the whole HQ chrome
+    document.body.classList.remove('hq-sidebar-open');
 
     // Show only the requested panel — sidebar stays otherwise empty
     document.querySelectorAll('.form-sidebar .panel.collapsible').forEach(function (p) {
@@ -578,14 +578,11 @@ if (!empty($content['published_at'])) {
     if (titleEl) titleEl.textContent = LABELS[name] || 'Tool';
     document.body.dataset.activeTool = name;
 
-    // Bring the sidebar into view so users notice Publish / Featured image / SEO
-    try { sidebar.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {}
-
     var panel = document.querySelector('.form-sidebar .panel.collapsible[data-panel="' + name + '"]');
     if (panel) {
       var focusEl = panel.querySelector('select, input, textarea, button:not(.panel-head)');
       if (focusEl) {
-        try { focusEl.focus({ preventScroll: true }); } catch (e) { focusEl.focus(); }
+        try { focusEl.focus({ preventScroll: true }); } catch (e) { try { focusEl.focus(); } catch (e2) {} }
       }
     }
   }

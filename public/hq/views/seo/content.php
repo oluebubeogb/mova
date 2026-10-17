@@ -4,28 +4,116 @@ $rows = $rows ?? [];
 $q = $q ?? '';
 ?>
 <style>
-.seo-page { max-width: 1200px; }
-.seo-toolbar { display:flex; flex-wrap:wrap; gap:.6rem; align-items:center; margin-bottom:1rem; }
-.seo-toolbar .input { max-width: 220px; }
-.seo-banner { border-radius:8px; padding:.75rem 1rem; margin-bottom:.75rem; font-size:.9rem; }
-.seo-banner.ok { background:#ecfdf5; border:1px solid #a7f3d0; color:#065f46; }
-.seo-banner.err { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; }
-.seo-banner ul { margin:.35rem 0 0; padding-left:1.2rem; }
-.seo-table-wrap { overflow:auto; border:1px solid var(--hq-border, #e5e7eb); border-radius:10px; background:#fff; }
-.seo-table { width:100%; border-collapse:collapse; font-size:.9rem; }
-.seo-table th, .seo-table td { padding:.55rem .65rem; border-bottom:1px solid #f1f5f9; text-align:left; vertical-align:middle; }
-.seo-table th { background:#f8fafc; font-weight:600; white-space:nowrap; }
-.seo-table tr:hover td { background:#fafbfc; }
-.seo-links a { margin-right:.55rem; color:var(--hq-accent, #0f766e); text-decoration:none; font-size:.85rem; }
-.seo-links a:hover { text-decoration:underline; }
-.seo-links a.is-active { font-weight:600; text-decoration:underline; }
-.seo-edit { min-width:240px; max-width:380px; }
-.seo-edit input, .seo-edit textarea { width:100%; font:inherit; padding:.4rem .5rem; border:1px solid #d1d5db; border-radius:6px; }
-.seo-edit textarea { min-height:64px; resize:vertical; }
-.seo-hint { font-size:.75rem; color:#64748b; min-height:1em; margin-top:.25rem; }
-.seo-id { font-variant-numeric: tabular-nums; color:#475569; }
-.seo-muted { color:#94a3b8; font-size:.8rem; }
-.seo-status { font-size:.75rem; padding:.15rem .4rem; border-radius:4px; background:#f1f5f9; color:#475569; }
+
+.seo-page { max-width: 100%; }
+.seo-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.65rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 0.65rem 0.85rem;
+  background: var(--hq-surface, #fff);
+  border: 1px solid var(--hq-border, #e2e8f0);
+  border-radius: 10px;
+}
+.seo-toolbar .input {
+  max-width: 220px;
+  border: 1px solid var(--hq-border, #d1d5db);
+  border-radius: 6px;
+  padding: 0.4rem 0.55rem;
+  background: var(--hq-input-bg, #f8fafc);
+  font: inherit;
+}
+.seo-toolbar .btn, .seo-toolbar label.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--hq-border, #d1d5db);
+  border-radius: 6px;
+  background: var(--hq-input-bg, #f8fafc);
+  color: var(--hq-text, #0f172a);
+  font-size: 0.875rem;
+  cursor: pointer;
+  text-decoration: none;
+}
+.seo-toolbar .btn:hover, .seo-toolbar label.btn:hover {
+  background: #eef2f7;
+}
+.seo-toolbar label.mark-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+  margin: 0;
+  color: var(--hq-muted, #64748b);
+}
+.seo-banner { border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 0.75rem; font-size: 0.9rem; }
+.seo-banner.ok { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
+.seo-banner.err { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+.seo-banner ul { margin: 0.35rem 0 0; padding-left: 1.2rem; }
+.seo-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--hq-border, #e5e7eb);
+  border-radius: 10px;
+  background: #fff;
+}
+.seo-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; table-layout: fixed; }
+.seo-table th, .seo-table td {
+  padding: 0.5rem 0.55rem;
+  border-bottom: 1px solid #f1f5f9;
+  text-align: left;
+  vertical-align: middle;
+}
+.seo-table th { background: #f8fafc; font-weight: 600; white-space: nowrap; }
+.seo-table tr:hover td { background: #fafbfc; }
+.seo-table col.col-mark { width: 2.4rem; }
+.seo-table col.col-id { width: 3.5rem; }
+.seo-table col.col-thumb { width: 3.6rem; }
+.seo-table col.col-status { width: 5.5rem; }
+.seo-table col.col-fields { width: 28%; }
+.seo-table col.col-edit { width: auto; }
+.seo-thumb {
+  width: 44px; height: 44px; object-fit: cover; border-radius: 6px;
+  background: #f1f5f9; display: block;
+}
+.seo-links { padding-right: 0.25rem !important; }
+.seo-links a {
+  margin-right: 0.5rem;
+  color: var(--hq-accent, #0f766e);
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+.seo-links a:hover { text-decoration: underline; }
+.seo-links a.is-active { font-weight: 600; text-decoration: underline; }
+.seo-edit { padding-left: 0.15rem !important; }
+.seo-edit input,
+.seo-edit textarea {
+  width: 100%;
+  font: inherit;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--hq-border, #d1d5db);
+  border-radius: 6px;
+  background: var(--hq-input-bg, #f8fafc);
+  color: inherit;
+  box-shadow: none;
+  outline: none;
+}
+.seo-edit input:focus,
+.seo-edit textarea:focus {
+  border-color: var(--hq-border, #cbd5e1);
+  box-shadow: none;
+  outline: none;
+}
+.seo-edit textarea { min-height: 64px; resize: vertical; }
+.seo-hint { font-size: 0.75rem; color: #64748b; min-height: 1em; margin-top: 0.25rem; }
+.seo-id { font-variant-numeric: tabular-nums; color: #475569; }
+.seo-muted { color: #94a3b8; font-size: 0.8rem; }
+.seo-status {
+  font-size: 0.75rem; padding: 0.15rem 0.4rem; border-radius: 4px;
+  background: #f1f5f9; color: #475569;
+}
 </style>
 
 <div class="seo-page">
@@ -41,9 +129,7 @@ $q = $q ?? '';
       <input class="input" type="search" name="q" value="<?= htmlspecialchars($q) ?>" placeholder="Filter…">
       <button class="btn btn-sm" type="submit">Filter</button>
     </form>
-    <label style="display:flex;align-items:center;gap:.35rem;font-size:.9rem;">
-      <input type="checkbox" id="seo-mark-all"> Mark all
-    </label>
+    <label class="mark-all"><input type="checkbox" id="seo-mark-all"> Mark all</label>
     <button type="button" class="btn btn-sm" id="seo-export">Export marked (CSV)</button>
     <label class="btn btn-sm" style="cursor:pointer;margin:0;">
       Import CSV
@@ -54,6 +140,9 @@ $q = $q ?? '';
 
   <div class="seo-table-wrap">
     <table class="seo-table" id="seo-table">
+      <colgroup>
+        <col class="col-mark"><col class="col-id"><col class="col-status"><col class="col-fields"><col class="col-edit">
+      </colgroup>
       <thead>
         <tr>
           <th style="width:2.5rem;"></th>

@@ -34,6 +34,8 @@
                 { label: 'Tags',           href: '/hq/tags' },
                 { label: 'Assembly',       href: '/hq/assembly' },
                 { label: 'Studio',         href: '/hq/studio', match: { path: '/hq/studio' } },
+                { label: 'Media SEO', href: '/hq/seo/media', match: { path: '/hq/seo/media' } },
+                { label: 'Content SEO', href: '/hq/seo/content', match: { path: '/hq/seo/content' } },
                 { label: 'Find & Replace', href: '/hq/content/find-replace', match: { path: '/hq/content/find-replace' } },
                 { label: 'Upload Contents', href: '/hq/content/upload', match: { path: '/hq/content/upload' } }
             ]
@@ -261,6 +263,7 @@
 
         // Section landings
         if (path === '/hq/content-hub') return { key: 'content', params };
+        if (path.indexOf('/hq/seo') === 0) return { key: 'content', params };
         if (path === '/hq/audience') return { key: 'audience', params };
         if (path === '/hq/design') return { key: 'design', params };
         if (path === '/hq/extend') return { key: 'extend', params };
@@ -504,6 +507,8 @@
         { title: 'All content',      href: '/hq/content',         keywords: 'posts pages articles content list', group: 'Content' },
         { title: 'New content',      href: '/hq/content/new',     keywords: 'new create add content post page', group: 'Content' },
         { title: 'Media library',    href: '/hq/media',           keywords: 'media images files upload', group: 'Content' },
+        { title: 'Media SEO',        href: '/hq/seo/media',       keywords: 'seo media alt text description filename csv import export', group: 'Content' },
+        { title: 'Content SEO',      href: '/hq/seo/content',     keywords: 'seo content title meta description excerpt slug csv', group: 'Content' },
         { title: 'Galleries',        href: '/hq/galleries',       keywords: 'gallery galleries images collections album', group: 'Content' },
         { title: 'Types & fields',   href: '/hq/types',           keywords: 'types fields', group: 'Content' },
         { title: 'Categories',       href: '/hq/categories',      keywords: 'categories taxonomy', group: 'Content' },
