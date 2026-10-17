@@ -56,20 +56,34 @@
   color: #fff;
   border-radius: 0 0 var(--mova-g-radius) var(--mova-g-radius);
 }
-.mova-g-hover-name {
+.mova-g-name {
   position: absolute;
   left: 0; right: 0; bottom: 0;
-  padding: 0.45rem 0.65rem;
+  padding: 0.55rem 0.85rem;
   font-size: 0.8rem;
-  background: rgba(15, 23, 42, 0.72);
+  text-align: center;
+  background: var(--mova-g-overlay, rgba(15, 23, 42, 0.72));
   color: #fff;
-  opacity: 0;
-  transition: opacity 0.2s ease;
   pointer-events: none;
   border-radius: 0 0 var(--mova-g-radius) var(--mova-g-radius);
 }
-.mova-g-slide:hover .mova-g-hover-name,
-.mova-g-cell:hover .mova-g-hover-name { opacity: 1; }
+.mova-g-name.is-hover {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.mova-g-slide:hover .mova-g-name.is-hover,
+.mova-g-cell:hover .mova-g-name.is-hover { opacity: 1; }
+.mova-g-name.is-always { opacity: 1; }
+.mova-g-name-caption {
+  display: block;
+  margin-top: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.78rem;
+  text-align: center;
+  color: var(--color-text, #0f172a);
+  background: color-mix(in srgb, var(--color-primary, var(--mova-fb-primary, #0d9488)) 12%, #fff);
+  border-radius: 6px;
+}
 
 .mova-g-nav {
   position: absolute;

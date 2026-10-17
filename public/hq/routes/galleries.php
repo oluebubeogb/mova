@@ -109,6 +109,53 @@ $router->post('/galleries/save', function (Request $req) {
     }
 });
 
+$router->post('/galleries/presets/{id}', function (Request $req, array $params) {
+    requireAuth();
+    if (!Csrf::validate()) {
+        return (new Response())->header('Content-Type', 'application/json')->status(403)
+            ->body(json_encode(['success' => false, 'error' => 'Forbidden']));
+    }
+    $id = (int) ($params['id'] ?? 0);
+    if ($id <= 0) {
+        return (new Response())->header('Content-Type', 'application/json')->status(400)
+            ->body(json_encode(['success' => false, 'error' => 'Save the gallery first']));
+    }
+    $svc = new GalleryService();
+    $g = $svc->find($id);
+    if (!$g) {
+        return (new Response())->header('Content-Type', 'application/json')->status(404)
+            ->body(json_encode(['success' => false, 'error' => 'Not found']));
+    }
+    $raw = file_get_contents('php://input');
+    $json = $raw ? json_decode($raw, true) : null;
+    $presets = [];
+    if (is_array($json) && isset($json['presets']) && is_array($json['presets'])) {
+        $presets = $json['presets'];
+    } else {
+        $presetsRaw = $req->input('presets', $req->input('embed_presets_json', '[]'));
+        $presets = is_string($presetsRaw) ? json_decode($presetsRaw, true) : $presetsRaw;
+        if (!is_array($presets)) {
+            $presets = [];
+        }
+    }
+    try {
+        $svc->update($id, [
+            'embed_presets' => $presets,
+            'embed_layout' => (string) ($presets[0]['layout'] ?? $g['embed_layout'] ?? 'carousel'),
+        ]);
+        try { PageCache::flush(); } catch (\Throwable $e) {}
+        $fresh = $svc->find($id);
+        return (new Response())->header('Content-Type', 'application/json')
+            ->body(json_encode([
+                'success' => true,
+                'presets' => $svc->getPresets($fresh ?: $g),
+            ]));
+    } catch (\Throwable $e) {
+        return (new Response())->header('Content-Type', 'application/json')->status(400)
+            ->body(json_encode(['success' => false, 'error' => $e->getMessage()]));
+    }
+});
+
 $router->post('/galleries/delete/{id}', function (Request $req, array $params) {
     requireAuth();
     if (!Csrf::validate($req->input('_csrf'))) {

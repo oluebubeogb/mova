@@ -38,6 +38,7 @@
     if (opts.radius) root.style.setProperty('--mova-g-radius', opts.radius);
     if (opts.gap != null) root.style.setProperty('--mova-g-gap', opts.gap + 'px');
     if (opts.aspect && opts.aspect !== 'auto') root.style.setProperty('--mova-g-aspect', opts.aspect);
+    if (opts.overlay_color) root.style.setProperty('--mova-g-overlay', opts.overlay_color);
   }
 
   function validItems(items) {
@@ -46,11 +47,23 @@
     });
   }
 
-  function nameOverlay(it, opts) {
-    if (!opts.hover_name) return null;
-    var name = it.alt || it.caption || '';
+  function nameLabel(it) {
+    return (it && (it.alt || it.caption)) || '';
+  }
+  function nameOverlay(it, opts, mode) {
+    mode = mode || opts.name_mode || (opts.hover_name ? 'hover' : 'hide');
+    if (mode === 'hide' || mode === 'caption') return null;
+    var name = nameLabel(it);
     if (!name) return null;
-    return el('div', 'mova-g-hover-name', { text: name });
+    var cls = mode === 'always' ? 'mova-g-name is-always' : 'mova-g-name is-hover';
+    return el('div', cls, { text: name });
+  }
+  function nameCaption(it, opts) {
+    var mode = opts.name_mode || (opts.hover_name ? 'hover' : 'hide');
+    if (mode !== 'caption') return null;
+    var name = nameLabel(it);
+    if (!name) return null;
+    return el('div', 'mova-g-name-caption', { text: name });
   }
 
   function renderCarousel(root, data) {
@@ -68,9 +81,12 @@
     items.forEach(function (it, i) {
       var slide = el('div', 'mova-g-slide');
       slide.appendChild(el('img', '', { src: it.url, alt: it.alt || '', loading: i < visible ? 'eager' : 'lazy' }));
+      if (opts.overlay_color) slide.style.setProperty('--mova-g-overlay', opts.overlay_color);
       var hover = nameOverlay(it, opts);
       if (hover) slide.appendChild(hover);
-      if (it.caption && !opts.hover_name) slide.appendChild(el('div', 'mova-g-caption', { text: it.caption }));
+      var cap = nameCaption(it, opts);
+      if (cap) slide.appendChild(cap);
+      else if (it.caption && (opts.name_mode || 'hide') === 'hide') slide.appendChild(el('div', 'mova-g-caption', { text: it.caption }));
       track.appendChild(slide);
     });
     wrap.appendChild(track);
@@ -142,9 +158,12 @@
     items.forEach(function (it, i) {
       var cell = el('figure', 'mova-g-cell' + (mode === 'collage' ? ' mova-g-span-' + ((i % 5) + 1) : ''));
       cell.appendChild(el('img', '', { src: it.url, alt: it.alt || '', loading: 'lazy' }));
+      if (opts.overlay_color) cell.style.setProperty('--mova-g-overlay', opts.overlay_color);
       var hover = nameOverlay(it, opts);
       if (hover) cell.appendChild(hover);
-      if (it.caption && !opts.hover_name) cell.appendChild(el('figcaption', 'mova-g-caption', { text: it.caption }));
+      var cap = nameCaption(it, opts);
+      if (cap) cell.appendChild(cap);
+      else if (it.caption && (opts.name_mode || 'hide') === 'hide') cell.appendChild(el('figcaption', 'mova-g-caption', { text: it.caption }));
       grid.appendChild(cell);
     });
     root.appendChild(grid);
