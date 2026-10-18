@@ -11,6 +11,9 @@ use Mova\Core\Database;
 
 class FeedbackService
 {
+    /** Bump when frontend feedback JS/CSS changes (cache bust). */
+    public const ASSETS_VER = '8';
+
     public const FIELD_TYPES = [
         'text', 'email', 'phone', 'intl_phone', 'country', 'textarea', 'select', 'radio', 'checkbox', 'date', 'number', 'hidden',
     ];
@@ -273,7 +276,13 @@ class FeedbackService
 
     public function mountHtml(string $slug): string
     {
-        return '<div class="mova-feedback" data-form="' . htmlspecialchars($slug, ENT_QUOTES) . '"></div>';
+        $v = self::ASSETS_VER;
+        $slug = htmlspecialchars($slug, ENT_QUOTES);
+        // Inline assets with the mount so version always follows ASSETS_VER (no stale shortcode-only inject)
+        return '<div class="mova-feedback" data-form="' . $slug . '"></div>'
+            . '<link rel="stylesheet" href="/assets/css/mova-feedback.css?v=' . $v . '">'
+            . '<script src="/assets/js/mova-feedback-countries.js?v=' . $v . '"></script>'
+            . '<script src="/assets/js/mova-feedback.js?v=' . $v . '" defer></script>';
     }
 
     public static function ensureDefaultContactForm(): void
@@ -324,9 +333,13 @@ class FeedbackService
             static $assets = false;
             if (!$assets && is_string($body) && strpos($body, 'mova-feedback') !== false) {
                 $assets = true;
-                $body .= "\n<link rel=\"stylesheet\" href=\"/assets/css/mova-feedback.css?v=7\">"
-                    . "\n<script src=\"/assets/js/mova-feedback-countries.js?v=1\"></script>"
-                    . "\n<script src=\"/assets/js/mova-feedback.js?v=7\" defer></script>";
+                $v = self::ASSETS_VER;
+                $body .= "
+<link rel=\"stylesheet\" href=\"/assets/css/mova-feedback.css?v={$v}\">"
+                    . "
+<script src=\"/assets/js/mova-feedback-countries.js?v={$v}\"></script>"
+                    . "
+<script src=\"/assets/js/mova-feedback.js?v={$v}\" defer></script>";
             }
             return $body;
         }, 26);

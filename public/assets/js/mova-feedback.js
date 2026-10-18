@@ -88,7 +88,7 @@
     if (!document.querySelector('link[href*="mova-feedback.css"]')) {
       var l = document.createElement('link');
       l.rel = 'stylesheet';
-      l.href = '/assets/css/mova-feedback.css?v=7';
+      l.href = '/assets/css/mova-feedback.css?v=8';
       document.head.appendChild(l);
     }
   }
