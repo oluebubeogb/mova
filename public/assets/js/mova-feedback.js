@@ -119,11 +119,12 @@
     list.forEach(function (c) {
       var row = el('button', 'mova-fb-panel-item', { type: 'button' });
       if (mode === 'dial') {
-        row.innerHTML = '<span class="mova-fb-flag">' + c.f + '</span><span class="mova-fb-panel-name">' +
-          c.n + '</span><span class="mova-fb-panel-dial">+' + c.d + '</span>';
+        row.innerHTML = '<span class="mova-fb-flag" aria-hidden="true">' + (c.f || '') + '</span>' +
+          '<span class="mova-fb-panel-name">' + c.n + '</span>' +
+          '<span class="mova-fb-panel-dial">+' + c.d + '</span>';
       } else {
-        row.innerHTML = '<span class="mova-fb-flag">' + c.f + '</span><span class="mova-fb-panel-name">' +
-          c.n + '</span><span class="mova-fb-panel-code">' + c.c + '</span>';
+        row.innerHTML = '<span class="mova-fb-flag" aria-hidden="true">' + (c.f || '') + '</span>' +
+          '<span class="mova-fb-panel-name">' + c.n + '</span>';
       }
       row.addEventListener('click', function (e) {
         e.preventDefault();
@@ -147,9 +148,11 @@
 
     var trigger = el('button', 'mova-fb-intl-trigger', { type: 'button', 'aria-label': 'Country code' });
     function paintTrigger() {
-      trigger.innerHTML = '<span class="mova-fb-flag">' + current.f + '</span>' +
+      // Flag + dial only (no ISO letters like NG) — same weight as the number input
+      trigger.innerHTML = '<span class="mova-fb-flag" aria-hidden="true">' + (current.f || '') + '</span>' +
         '<span class="mova-fb-dial">+' + current.d + '</span>' +
-        '<span class="mova-fb-chevron">▾</span>';
+        '<span class="mova-fb-chevron" aria-hidden="true">▾</span>';
+      trigger.setAttribute('title', (current.n || '') + ' +' + current.d);
     }
     paintTrigger();
 

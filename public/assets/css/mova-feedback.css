@@ -89,21 +89,43 @@
 .mova-fb-intl-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.3rem;
   flex-shrink: 0;
   border: none;
   border-right: 1px solid var(--mova-fb-border);
-  background: color-mix(in srgb, var(--mova-fb-surface) 80%, var(--mova-fb-border));
-  padding: 0.5rem 0.55rem;
+  background: transparent;
+  padding: 0.5rem 0.5rem 0.5rem 0.55rem;
   cursor: pointer;
+  /* Match number input text exactly */
   font: inherit;
+  font-size: inherit;
+  font-weight: 400;
+  line-height: inherit;
   color: var(--mova-fb-text);
   border-radius: calc(var(--mova-fb-radius) - 2px) 0 0 calc(var(--mova-fb-radius) - 2px);
 }
-.mova-fb-intl-trigger:hover { filter: brightness(0.98); }
-.mova-fb-flag { font-size: 1.15rem; line-height: 1; }
-.mova-fb-dial { font-size: 0.85rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-.mova-fb-chevron { font-size: 0.65rem; opacity: 0.55; margin-left: 0.1rem; }
+.mova-fb-intl-trigger:hover { background: color-mix(in srgb, var(--mova-fb-surface) 70%, var(--mova-fb-border)); }
+.mova-fb-flag {
+  font-size: 1em;
+  line-height: 1;
+  display: inline-block;
+  transform: scale(0.95);
+  transform-origin: center;
+}
+.mova-fb-dial {
+  font: inherit;
+  font-size: inherit;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+.mova-fb-chevron {
+  font-size: 0.7em;
+  font-weight: 400;
+  opacity: 0.45;
+  margin-left: 0.05rem;
+  line-height: 1;
+}
 .mova-fb-intl-num {
   flex: 1;
   min-width: 0;
@@ -181,12 +203,23 @@
   outline: none;
 }
 .mova-fb-panel-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.88rem; }
-.mova-fb-panel-dial,
-.mova-fb-panel-code {
-  font-size: 0.78rem;
+.mova-fb-panel-dial {
+  font-size: inherit;
+  font-weight: 400;
   color: var(--mova-fb-muted);
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
+}
+.mova-fb-panel-code {
+  /* ISO code de-emphasized — flag is the primary marker */
+  display: none;
+}
+.mova-fb-panel-item .mova-fb-flag {
+  font-size: 1em;
+  flex-shrink: 0;
+}
+.mova-fb-panel-name {
+  font-weight: 400;
 }
 .mova-fb-panel-empty {
   padding: 0.75rem;
