@@ -67,6 +67,67 @@
   font-weight: 600 !important;
 }
 
+
+/* Embed spacing — cards/grid keep padding inside content body */
+.mova-blog,
+.article-body .mova-blog {
+  margin: 1.25rem 0 1.75rem;
+  padding: 0;
+  box-sizing: border-box;
+}
+.mova-blog .mova-blog-grid,
+.mova-blog-feed .mova-blog-grid,
+.article-body .mova-blog-grid {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 1rem !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+@media (min-width: 640px) {
+  .mova-blog .mova-blog-grid,
+  .mova-blog-feed .mova-blog-grid,
+  .article-body .mova-blog-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+.mova-blog .mova-blog-card,
+.mova-blog-feed .mova-blog-card,
+.article-body .mova-blog-card,
+.article-body a.mova-blog-card {
+  padding: 1rem 1.1rem !important;
+  margin: 0 !important;
+  gap: 0.85rem !important;
+  box-sizing: border-box !important;
+  border-radius: 12px !important;
+}
+.mova-blog .mova-blog-card.is-modern,
+.article-body .mova-blog-card.is-modern {
+  padding: 0 !important;
+}
+.mova-blog .mova-blog-card.is-modern .mova-blog-col1,
+.article-body .mova-blog-card.is-modern .mova-blog-col1 {
+  padding: 1rem 1.15rem 1.15rem !important;
+}
+.mova-blog .mova-blog-card.is-minimal,
+.article-body .mova-blog-card.is-minimal {
+  padding: 1.1rem 0 !important;
+  border-radius: 0 !important;
+}
+.mova-blog .mova-blog-col1,
+.article-body .mova-blog-col1 {
+  gap: 0.4rem !important;
+  padding: 0; /* default cards use card padding */
+}
+.mova-blog .mova-blog-cat,
+.article-body .mova-blog-cat {
+  padding: 0.2rem 0.55rem !important;
+}
+.mova-blog .mova-blog-card.is-minimal .mova-blog-cat,
+.article-body .mova-blog-card.is-minimal .mova-blog-cat {
+  padding: 0 !important;
+}
+
 /* Mova blog feed */
 .mova-blog-page {
   /* Fill the theme .container (uses site --max-width); no extra max-width */
