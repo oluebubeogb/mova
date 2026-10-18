@@ -98,8 +98,12 @@ if (!$fields) {
     return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
   }
   function typesOpts(sel) {
-    return ['text','email','phone','textarea','select','checkbox','radio','date','number']
-      .map(function(t){ return '<option value="'+t+'"'+(sel===t?' selected':'')+'>'+t+'</option>'; }).join('');
+    var labels = {
+        text:'Text', email:'Email', phone:'Phone', intl_phone:'Intl Phone', country:'Country',
+        textarea:'Textarea', select:'Dropdown', checkbox:'Checkbox', radio:'Radio', date:'Date', number:'Number'
+      };
+      return ['text','email','phone','intl_phone','country','textarea','select','checkbox','radio','date','number']
+      .map(function(t){ return '<option value="'+t+'"'+(sel===t?' selected':'')+'>'+(labels[t]||t)+'</option>'; }).join('');
   }
   function row(f) {
     f = f || {};

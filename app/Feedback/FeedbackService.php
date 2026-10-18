@@ -12,7 +12,7 @@ use Mova\Core\Database;
 class FeedbackService
 {
     public const FIELD_TYPES = [
-        'text', 'email', 'phone', 'textarea', 'select', 'radio', 'checkbox', 'date', 'hidden',
+        'text', 'email', 'phone', 'intl_phone', 'country', 'textarea', 'select', 'radio', 'checkbox', 'date', 'number', 'hidden',
     ];
 
     public function find(int $id): ?array

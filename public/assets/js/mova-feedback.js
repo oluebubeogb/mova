@@ -1,5 +1,6 @@
 /**
  * Mova Feedback — mounts .mova-feedback[data-form]
+ * Supports Intl Phone (flag + dial) and Country (searchable) fields.
  */
 (function () {
   'use strict';
@@ -14,6 +15,253 @@
     return n;
   }
 
+  function countries() {
+    return window.MOVA_FB_COUNTRIES || [];
+  }
+
+  function findCountry(code) {
+    code = String(code || '').toUpperCase();
+    var list = countries();
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].c === code) return list[i];
+    }
+    return list[0] || { c: 'US', n: 'United States', d: '1', f: '🇺🇸' };
+  }
+
+  function guessCountryCode() {
+    try {
+      var lang = (navigator.language || navigator.userLanguage || 'en-US').split(/[-_]/);
+      if (lang.length > 1) {
+        var c = lang[1].toUpperCase();
+        if (findCountry(c).c === c) return c;
+      }
+      // timezone heuristic for a few regions
+      var tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+      if (/Lagos|Africa\//.test(tz)) return 'NG';
+      if (/London/.test(tz)) return 'GB';
+      if (/New_York|Chicago|Los_Angeles|Denver/.test(tz)) return 'US';
+    } catch (e) {}
+    return 'US';
+  }
+
+  function ensureCountriesScript(cb) {
+    if (countries().length) {
+      cb();
+      return;
+    }
+    if (document.querySelector('script[src*="mova-feedback-countries"]')) {
+      var tries = 0;
+      var t = setInterval(function () {
+        tries++;
+        if (countries().length || tries > 40) {
+          clearInterval(t);
+          cb();
+        }
+      }, 50);
+      return;
+    }
+    var s = document.createElement('script');
+    s.src = '/assets/js/mova-feedback-countries.js?v=1';
+    s.onload = function () { cb(); };
+    s.onerror = function () { cb(); };
+    document.head.appendChild(s);
+  }
+
+  function ensureCss() {
+    if (!document.querySelector('link[href*="mova-feedback.css"]')) {
+      var l = document.createElement('link');
+      l.rel = 'stylesheet';
+      l.href = '/assets/css/mova-feedback.css?v=2';
+      document.head.appendChild(l);
+    }
+  }
+
+  function closeAllPanels(except) {
+    document.querySelectorAll('.mova-fb-panel.is-open').forEach(function (p) {
+      if (p !== except) p.classList.remove('is-open');
+    });
+  }
+
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('.mova-fb-intl') && !e.target.closest('.mova-fb-country')) {
+      closeAllPanels();
+    }
+  });
+
+  function buildCountryList(panel, filter, onPick, mode) {
+    panel.innerHTML = '';
+    var q = String(filter || '').toLowerCase().trim();
+    var list = countries().filter(function (c) {
+      if (!q) return true;
+      return (c.n + ' ' + c.c + ' ' + c.d).toLowerCase().indexOf(q) !== -1;
+    }).slice(0, 80);
+    if (!list.length) {
+      panel.appendChild(el('div', 'mova-fb-panel-empty', { text: 'No matches' }));
+      return;
+    }
+    list.forEach(function (c) {
+      var row = el('button', 'mova-fb-panel-item', { type: 'button' });
+      if (mode === 'dial') {
+        row.innerHTML = '<span class="mova-fb-flag">' + c.f + '</span><span class="mova-fb-panel-name">' +
+          c.n + '</span><span class="mova-fb-panel-dial">+' + c.d + '</span>';
+      } else {
+        row.innerHTML = '<span class="mova-fb-flag">' + c.f + '</span><span class="mova-fb-panel-name">' +
+          c.n + '</span><span class="mova-fb-panel-code">' + c.c + '</span>';
+      }
+      row.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        onPick(c);
+        panel.classList.remove('is-open');
+      });
+      panel.appendChild(row);
+    });
+  }
+
+  function intlPhoneField(f) {
+    var wrap = el('div', 'mova-fb-field mova-fb-field-intl');
+    var lab = el('label', '');
+    lab.innerHTML = (f.label || f.key) + (f.required ? ' <span class="req">*</span>' : '');
+    wrap.appendChild(lab);
+
+    var widget = el('div', 'mova-fb-intl');
+    var iso = guessCountryCode();
+    var current = findCountry(iso);
+
+    var trigger = el('button', 'mova-fb-intl-trigger', { type: 'button', 'aria-label': 'Country code' });
+    function paintTrigger() {
+      trigger.innerHTML = '<span class="mova-fb-flag">' + current.f + '</span>' +
+        '<span class="mova-fb-dial">+' + current.d + '</span>' +
+        '<span class="mova-fb-chevron">▾</span>';
+    }
+    paintTrigger();
+
+    var num = el('input', 'mova-fb-intl-num', {
+      type: 'tel',
+      inputmode: 'tel',
+      autocomplete: 'tel-national',
+      placeholder: f.placeholder || 'Phone number'
+    });
+    if (f.required) num.required = true;
+
+    var hidden = el('input', '', { type: 'hidden', name: f.key, value: '' });
+    var hiddenIso = el('input', '', { type: 'hidden', name: f.key + '_country', value: current.c });
+
+    var panel = el('div', 'mova-fb-panel mova-fb-intl-panel');
+    var search = el('input', 'mova-fb-panel-search', {
+      type: 'search',
+      placeholder: 'Search country or code…',
+      autocomplete: 'off'
+    });
+    panel.appendChild(search);
+    var listBox = el('div', 'mova-fb-panel-list');
+    panel.appendChild(listBox);
+
+    function syncHidden() {
+      var raw = String(num.value || '').replace(/[^\d+()\-\s]/g, '').trim();
+      var digits = raw.replace(/\D/g, '');
+      if (!digits) {
+        hidden.value = '';
+      } else {
+        hidden.value = '+' + current.d + ' ' + raw.replace(/^\+?/, '').replace(new RegExp('^' + current.d), '').trim();
+        if (hidden.value.indexOf('+' + current.d) !== 0) {
+          hidden.value = '+' + current.d + ' ' + digits;
+        }
+      }
+      hiddenIso.value = current.c;
+    }
+
+    function openPanel() {
+      closeAllPanels(panel);
+      panel.classList.add('is-open');
+      buildCountryList(listBox, search.value, function (c) {
+        current = c;
+        paintTrigger();
+        syncHidden();
+      }, 'dial');
+      setTimeout(function () { search.focus(); }, 10);
+    }
+
+    trigger.addEventListener('click', function (e) {
+      e.preventDefault();
+      if (panel.classList.contains('is-open')) panel.classList.remove('is-open');
+      else openPanel();
+    });
+    search.addEventListener('input', function () {
+      buildCountryList(listBox, search.value, function (c) {
+        current = c;
+        paintTrigger();
+        syncHidden();
+      }, 'dial');
+    });
+    num.addEventListener('input', syncHidden);
+    num.addEventListener('change', syncHidden);
+
+    widget.appendChild(trigger);
+    widget.appendChild(num);
+    widget.appendChild(hidden);
+    widget.appendChild(hiddenIso);
+    widget.appendChild(panel);
+    wrap.appendChild(widget);
+    if (f.help) wrap.appendChild(el('div', 'mova-fb-help', { text: f.help }));
+    syncHidden();
+    return wrap;
+  }
+
+  function countryField(f) {
+    var wrap = el('div', 'mova-fb-field mova-fb-field-country');
+    var lab = el('label', '');
+    lab.innerHTML = (f.label || f.key) + (f.required ? ' <span class="req">*</span>' : '');
+    wrap.appendChild(lab);
+
+    var widget = el('div', 'mova-fb-country');
+    var search = el('input', 'mova-fb-country-input', {
+      type: 'text',
+      autocomplete: 'country-name',
+      placeholder: f.placeholder || 'Start typing a country…',
+      role: 'combobox',
+      'aria-autocomplete': 'list'
+    });
+    if (f.required) search.required = true;
+    var hidden = el('input', '', { type: 'hidden', name: f.key, value: '' });
+    var hiddenCode = el('input', '', { type: 'hidden', name: f.key + '_code', value: '' });
+
+    var panel = el('div', 'mova-fb-panel mova-fb-country-panel');
+    var listBox = el('div', 'mova-fb-panel-list');
+    panel.appendChild(listBox);
+
+    function pick(c) {
+      search.value = c.n;
+      hidden.value = c.n;
+      hiddenCode.value = c.c;
+      panel.classList.remove('is-open');
+    }
+
+    function openList() {
+      closeAllPanels(panel);
+      panel.classList.add('is-open');
+      buildCountryList(listBox, search.value, pick, 'country');
+    }
+
+    search.addEventListener('focus', openList);
+    search.addEventListener('input', function () {
+      hidden.value = '';
+      hiddenCode.value = '';
+      openList();
+    });
+    search.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') panel.classList.remove('is-open');
+    });
+
+    widget.appendChild(search);
+    widget.appendChild(hidden);
+    widget.appendChild(hiddenCode);
+    widget.appendChild(panel);
+    wrap.appendChild(widget);
+    if (f.help) wrap.appendChild(el('div', 'mova-fb-help', { text: f.help }));
+    return wrap;
+  }
+
   function fieldHtml(f) {
     var wrap = el('div', 'mova-fb-field');
     if (f.type === 'hidden') {
@@ -21,6 +269,9 @@
       wrap.appendChild(hi);
       return wrap;
     }
+    if (f.type === 'intl_phone') return intlPhoneField(f);
+    if (f.type === 'country') return countryField(f);
+
     var lab = el('label', '');
     lab.innerHTML = (f.label || f.key) + (f.required ? ' <span class="req">*</span>' : '');
     wrap.appendChild(lab);
@@ -55,7 +306,7 @@
       if (f.help) wrap.appendChild(el('div', 'mova-fb-help', { text: f.help }));
       return wrap;
     } else {
-      var type = f.type === 'phone' ? 'tel' : (f.type === 'date' ? 'date' : (f.type === 'email' ? 'email' : 'text'));
+      var type = f.type === 'phone' ? 'tel' : (f.type === 'date' ? 'date' : (f.type === 'email' ? 'email' : (f.type === 'number' ? 'number' : 'text')));
       input = el('input', '', { type: type, name: f.key, placeholder: f.placeholder || '' });
       if (f.required) input.required = true;
     }
@@ -67,83 +318,110 @@
   function mount(node) {
     if (node.dataset.movaMounted) return;
     node.dataset.movaMounted = '1';
+    ensureCss();
     var slug = node.getAttribute('data-form') || 'contact';
     node.innerHTML = '<div class="mova-fb-card"><p class="mova-fb-desc">Loading form…</p></div>';
-    fetch('/feedback/api/form/' + encodeURIComponent(slug), { credentials: 'same-origin' })
-      .then(function (r) {
-        if (!r.ok) throw new Error('Form not found');
-        return r.json();
-      })
-      .then(function (data) {
-        var formDef = data.form;
-        var card = el('div', 'mova-fb-card');
-        card.appendChild(el('h3', 'mova-fb-title', { text: formDef.title || 'Feedback' }));
-        if (formDef.description) card.appendChild(el('p', 'mova-fb-desc', { text: formDef.description }));
-        var form = el('form', 'mova-fb-form', { novalidate: 'novalidate' });
-        (formDef.fields || []).forEach(function (f) { form.appendChild(fieldHtml(f)); });
-        // honeypot
-        var hp = el('div', 'mova-fb-hp');
-        hp.appendChild(el('input', '', { type: 'text', name: '_mova_hp', tabindex: '-1', autocomplete: 'off' }));
-        form.appendChild(hp);
-        var btn = el('button', 'mova-fb-submit', { type: 'submit', text: 'Send' });
-        form.appendChild(btn);
-        var msg = el('div', 'mova-fb-msg');
-        form.appendChild(msg);
-        form.addEventListener('submit', function (e) {
-          e.preventDefault();
-          msg.textContent = '';
-          msg.className = 'mova-fb-msg';
-          btn.disabled = true;
-          var fd = new FormData(form);
-          var payload = {};
-          fd.forEach(function (v, k) {
-            if (k.slice(-2) === '[]') {
-              var key = k.slice(0, -2);
-              if (!payload[key]) payload[key] = [];
-              payload[key].push(v);
-            } else {
-              payload[k] = v;
-            }
-          });
-          fetch('/feedback/api/submit/' + encodeURIComponent(slug), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            credentials: 'same-origin',
-            body: JSON.stringify({
-              values: payload,
-              page_url: location.href
-            })
-          }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-            .then(function (res) {
-              btn.disabled = false;
-              if (!res.ok || !res.j.success) {
-                msg.className = 'mova-fb-msg err';
-                msg.textContent = (res.j && res.j.error) || 'Could not send.';
-                return;
-              }
-              msg.className = 'mova-fb-msg ok';
-              msg.textContent = res.j.message || formDef.success_message || 'Thank you.';
-              form.reset();
-            })
-            .catch(function () {
-              btn.disabled = false;
-              msg.className = 'mova-fb-msg err';
-              msg.textContent = 'Network error.';
-            });
+
+    function build(formDef) {
+      var card = el('div', 'mova-fb-card');
+      card.appendChild(el('h3', 'mova-fb-title', { text: formDef.title || 'Feedback' }));
+      if (formDef.description) card.appendChild(el('p', 'mova-fb-desc', { text: formDef.description }));
+      var form = el('form', 'mova-fb-form', { novalidate: 'novalidate' });
+      (formDef.fields || []).forEach(function (f) { form.appendChild(fieldHtml(f)); });
+      var hp = el('div', 'mova-fb-hp');
+      hp.appendChild(el('input', '', { type: 'text', name: '_mova_hp', tabindex: '-1', autocomplete: 'off' }));
+      form.appendChild(hp);
+      var btn = el('button', 'mova-fb-submit', { type: 'submit', text: 'Send' });
+      form.appendChild(btn);
+      var msg = el('div', 'mova-fb-msg');
+      form.appendChild(msg);
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        msg.textContent = '';
+        msg.className = 'mova-fb-msg';
+        // Validate country/intl required (hidden may be empty if only typed)
+        var invalid = false;
+        form.querySelectorAll('.mova-fb-field-country').forEach(function (w) {
+          var req = w.querySelector('input.mova-fb-country-input');
+          var hid = w.querySelector('input[type="hidden"]');
+          if (req && req.required && (!hid || !hid.value)) {
+            invalid = true;
+            msg.className = 'mova-fb-msg err';
+            msg.textContent = 'Please select a country from the list.';
+          }
         });
-        card.appendChild(form);
-        node.innerHTML = '';
-        node.appendChild(card);
-      })
-      .catch(function (err) {
-        node.innerHTML = '<div class="mova-fb-card"><p class="mova-fb-msg err">' + (err.message || 'Unavailable') + '</p></div>';
+        form.querySelectorAll('.mova-fb-field-intl').forEach(function (w) {
+          var num = w.querySelector('.mova-fb-intl-num');
+          var hid = w.querySelector('input[type="hidden"]');
+          if (num && num.required && (!hid || !String(hid.value).replace(/\D/g, ''))) {
+            invalid = true;
+            msg.className = 'mova-fb-msg err';
+            msg.textContent = 'Please enter a phone number.';
+          }
+        });
+        if (invalid) return;
+        btn.disabled = true;
+        var fd = new FormData(form);
+        var payload = {};
+        fd.forEach(function (v, k) {
+          if (k === '_mova_hp') return;
+          if (k.slice(-2) === '[]') {
+            var key = k.slice(0, -2);
+            if (!payload[key]) payload[key] = [];
+            payload[key].push(v);
+          } else {
+            payload[k] = v;
+          }
+        });
+        fetch('/feedback/api/submit/' + encodeURIComponent(slug), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ values: payload, page_url: location.href })
+        }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+          .then(function (res) {
+            btn.disabled = false;
+            if (!res.ok || !res.j.success) {
+              msg.className = 'mova-fb-msg err';
+              msg.textContent = (res.j && res.j.error) || 'Could not send. Try again.';
+              return;
+            }
+            msg.className = 'mova-fb-msg ok';
+            msg.textContent = (formDef.success_message || 'Thank you — we received your message.');
+            form.reset();
+            form.querySelectorAll('.mova-fb-intl input[type="hidden"], .mova-fb-country input[type="hidden"]').forEach(function (h) {
+              h.value = '';
+            });
+          }).catch(function () {
+            btn.disabled = false;
+            msg.className = 'mova-fb-msg err';
+            msg.textContent = 'Network error. Try again.';
+          });
       });
+      card.appendChild(form);
+      node.innerHTML = '';
+      node.appendChild(card);
+    }
+
+    ensureCountriesScript(function () {
+      fetch('/feedback/api/form/' + encodeURIComponent(slug), { credentials: 'same-origin' })
+        .then(function (r) {
+          if (!r.ok) throw new Error('Form not found');
+          return r.json();
+        })
+        .then(function (data) { build(data.form); })
+        .catch(function () {
+          node.innerHTML = '<div class="mova-fb-card"><p class="mova-fb-msg err">Form unavailable.</p></div>';
+        });
+    });
   }
 
   function boot() {
+    ensureCss();
     document.querySelectorAll('.mova-feedback[data-form]').forEach(mount);
   }
+
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
-  window.MovaFeedback = { boot: boot, mount: mount };
+  window.MovaFeedback = { boot: boot };
 })();
