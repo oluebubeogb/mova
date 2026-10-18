@@ -105,12 +105,16 @@
   border-radius: calc(var(--mova-fb-radius) - 2px) 0 0 calc(var(--mova-fb-radius) - 2px);
 }
 .mova-fb-intl-trigger:hover { background: color-mix(in srgb, var(--mova-fb-surface) 70%, var(--mova-fb-border)); }
+img.mova-fb-flag,
 .mova-fb-flag {
-  font-size: 1em;
-  line-height: 1;
+  width: 20px;
+  height: 15px;
+  object-fit: cover;
+  border-radius: 2px;
   display: inline-block;
-  transform: scale(0.95);
-  transform-origin: center;
+  flex-shrink: 0;
+  vertical-align: middle;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08);
 }
 .mova-fb-dial {
   font: inherit;
@@ -214,9 +218,9 @@
   /* ISO code de-emphasized — flag is the primary marker */
   display: none;
 }
-.mova-fb-panel-item .mova-fb-flag {
-  font-size: 1em;
-  flex-shrink: 0;
+.mova-fb-panel-item img.mova-fb-flag {
+  width: 20px;
+  height: 15px;
 }
 .mova-fb-panel-name {
   font-weight: 400;

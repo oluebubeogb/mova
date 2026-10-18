@@ -36,6 +36,17 @@
     ];
   }
 
+
+  /** Real flag images — emoji flags often render as ISO letters (NG) on Windows */
+  function flagImg(code, cls) {
+    code = String(code || '').toLowerCase();
+    if (!/^[a-z]{2}$/.test(code)) code = 'un';
+    cls = cls || 'mova-fb-flag';
+    return '<img class="' + cls + '" src="https://flagcdn.com/w40/' + code + '.png" ' +
+      'srcset="https://flagcdn.com/w40/' + code + '.png 1x, https://flagcdn.com/w80/' + code + '.png 2x" ' +
+      'width="20" height="15" alt="" loading="lazy" decoding="async">';
+  }
+
   function findCountry(code) {
     code = String(code || '').toUpperCase();
     var list = countries();
@@ -88,7 +99,7 @@
     if (!document.querySelector('link[href*="mova-feedback.css"]')) {
       var l = document.createElement('link');
       l.rel = 'stylesheet';
-      l.href = '/assets/css/mova-feedback.css?v=2';
+      l.href = '/assets/css/mova-feedback.css?v=5';
       document.head.appendChild(l);
     }
   }
@@ -119,11 +130,11 @@
     list.forEach(function (c) {
       var row = el('button', 'mova-fb-panel-item', { type: 'button' });
       if (mode === 'dial') {
-        row.innerHTML = '<span class="mova-fb-flag" aria-hidden="true">' + (c.f || '') + '</span>' +
+        row.innerHTML = flagImg(c.c) +
           '<span class="mova-fb-panel-name">' + c.n + '</span>' +
           '<span class="mova-fb-panel-dial">+' + c.d + '</span>';
       } else {
-        row.innerHTML = '<span class="mova-fb-flag" aria-hidden="true">' + (c.f || '') + '</span>' +
+        row.innerHTML = flagImg(c.c) +
           '<span class="mova-fb-panel-name">' + c.n + '</span>';
       }
       row.addEventListener('click', function (e) {
@@ -148,8 +159,8 @@
 
     var trigger = el('button', 'mova-fb-intl-trigger', { type: 'button', 'aria-label': 'Country code' });
     function paintTrigger() {
-      // Flag + dial only (no ISO letters like NG) — same weight as the number input
-      trigger.innerHTML = '<span class="mova-fb-flag" aria-hidden="true">' + (current.f || '') + '</span>' +
+      // PNG flag + dial (emoji flags show as ISO letters on many Windows systems)
+      trigger.innerHTML = flagImg(current.c) +
         '<span class="mova-fb-dial">+' + current.d + '</span>' +
         '<span class="mova-fb-chevron" aria-hidden="true">▾</span>';
       trigger.setAttribute('title', (current.n || '') + ' +' + current.d);
