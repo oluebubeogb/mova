@@ -15,8 +15,25 @@
     return n;
   }
 
+
   function countries() {
-    return window.MOVA_FB_COUNTRIES || [];
+    var list = window.MOVA_FB_COUNTRIES;
+    if (list && list.length) return list;
+    // Minimal fallback if countries script failed to load
+    return [
+      {c:'US',n:'United States',d:'1',f:'🇺🇸'},
+      {c:'GB',n:'United Kingdom',d:'44',f:'🇬🇧'},
+      {c:'NG',n:'Nigeria',d:'234',f:'🇳🇬'},
+      {c:'CA',n:'Canada',d:'1',f:'🇨🇦'},
+      {c:'AU',n:'Australia',d:'61',f:'🇦🇺'},
+      {c:'IN',n:'India',d:'91',f:'🇮🇳'},
+      {c:'DE',n:'Germany',d:'49',f:'🇩🇪'},
+      {c:'FR',n:'France',d:'33',f:'🇫🇷'},
+      {c:'GH',n:'Ghana',d:'233',f:'🇬🇭'},
+      {c:'KE',n:'Kenya',d:'254',f:'🇰🇪'},
+      {c:'ZA',n:'South Africa',d:'27',f:'🇿🇦'},
+      {c:'AE',n:'United Arab Emirates',d:'971',f:'🇦🇪'}
+    ];
   }
 
   function findCountry(code) {
@@ -61,7 +78,7 @@
       return;
     }
     var s = document.createElement('script');
-    s.src = '/assets/js/mova-feedback-countries.js?v=1';
+    s.src = '/assets/js/mova-feedback-countries.js?v=1&t=' + Date.now();
     s.onload = function () { cb(); };
     s.onerror = function () { cb(); };
     document.head.appendChild(s);
@@ -262,55 +279,69 @@
     return wrap;
   }
 
-  function fieldHtml(f) {
-    var wrap = el('div', 'mova-fb-field');
-    if (f.type === 'hidden') {
-      var hi = el('input', '', { type: 'hidden', name: f.key, value: f.placeholder || '' });
-      wrap.appendChild(hi);
-      return wrap;
-    }
-    if (f.type === 'intl_phone') return intlPhoneField(f);
-    if (f.type === 'country') return countryField(f);
 
+  function normType(t) {
+    t = String(t || 'text').toLowerCase().trim().replace(/[-\s]+/g, '_');
+    if (t === 'international_phone' || t === 'intlphone' || t === 'phone_intl') return 'intl_phone';
+    return t;
+  }
+
+  function fieldHtml(f) {
+    f = f || {};
+    var type = normType(f.type);
+    f = Object.assign({}, f, { type: type });
+
+    if (type === 'hidden') {
+      var wrapH = el('div', 'mova-fb-field');
+      wrapH.appendChild(el('input', '', { type: 'hidden', name: f.key, value: f.placeholder || '' }));
+      return wrapH;
+    }
+    if (type === 'intl_phone') return intlPhoneField(f);
+    if (type === 'country') return countryField(f);
+
+    var wrap = el('div', 'mova-fb-field');
     var lab = el('label', '');
     lab.innerHTML = (f.label || f.key) + (f.required ? ' <span class="req">*</span>' : '');
     wrap.appendChild(lab);
-    var input;
-    if (f.type === 'textarea') {
-      input = el('textarea', '', { name: f.key, placeholder: f.placeholder || '' });
-      if (f.required) input.required = true;
-    } else if (f.type === 'select') {
-      input = el('select', '', { name: f.key });
-      input.appendChild(el('option', '', { value: '', text: '—' }));
+
+    if (type === 'textarea') {
+      var ta = el('textarea', '', { name: f.key, placeholder: f.placeholder || '' });
+      if (f.required) ta.required = true;
+      wrap.appendChild(ta);
+    } else if (type === 'select') {
+      var sel = el('select', '', { name: f.key });
+      sel.appendChild(el('option', '', { value: '', text: '—' }));
       (f.options || []).forEach(function (o) {
-        input.appendChild(el('option', '', { value: o, text: o }));
+        sel.appendChild(el('option', '', { value: o, text: o }));
       });
-      if (f.required) input.required = true;
-    } else if (f.type === 'radio' || f.type === 'checkbox') {
+      if (f.required) sel.required = true;
+      wrap.appendChild(sel);
+    } else if (type === 'radio' || type === 'checkbox') {
       var box = el('div', 'mova-fb-options');
       (f.options || []).forEach(function (o, i) {
         var id = f.key + '_' + i;
         var row = el('label', '');
         var inp = el('input', '', {
-          type: f.type,
-          name: f.type === 'checkbox' ? f.key + '[]' : f.key,
+          type: type,
+          name: type === 'checkbox' ? f.key + '[]' : f.key,
           value: o,
           id: id
         });
-        if (f.required && i === 0 && f.type === 'radio') inp.required = true;
+        if (f.required && i === 0 && type === 'radio') inp.required = true;
         row.appendChild(inp);
         row.appendChild(document.createTextNode(' ' + o));
         box.appendChild(row);
       });
       wrap.appendChild(box);
-      if (f.help) wrap.appendChild(el('div', 'mova-fb-help', { text: f.help }));
-      return wrap;
     } else {
-      var type = f.type === 'phone' ? 'tel' : (f.type === 'date' ? 'date' : (f.type === 'email' ? 'email' : (f.type === 'number' ? 'number' : 'text')));
-      input = el('input', '', { type: type, name: f.key, placeholder: f.placeholder || '' });
+      var inputType = type === 'phone' ? 'tel'
+        : (type === 'date' ? 'date'
+        : (type === 'email' ? 'email'
+        : (type === 'number' ? 'number' : 'text')));
+      var input = el('input', '', { type: inputType, name: f.key, placeholder: f.placeholder || '' });
       if (f.required) input.required = true;
+      wrap.appendChild(input);
     }
-    wrap.appendChild(input);
     if (f.help) wrap.appendChild(el('div', 'mova-fb-help', { text: f.help }));
     return wrap;
   }
