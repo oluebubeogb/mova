@@ -57,19 +57,8 @@
   }
 
   function guessCountryCode() {
-    try {
-      var lang = (navigator.language || navigator.userLanguage || 'en-US').split(/[-_]/);
-      if (lang.length > 1) {
-        var c = lang[1].toUpperCase();
-        if (findCountry(c).c === c) return c;
-      }
-      // timezone heuristic for a few regions
-      var tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-      if (/Lagos|Africa\//.test(tz)) return 'NG';
-      if (/London/.test(tz)) return 'GB';
-      if (/New_York|Chicago|Los_Angeles|Denver/.test(tz)) return 'US';
-    } catch (e) {}
-    return 'US';
+    // Default for this site: Nigeria (most clients). Users can change in the picker.
+    return 'NG';
   }
 
   function ensureCountriesScript(cb) {
@@ -99,7 +88,7 @@
     if (!document.querySelector('link[href*="mova-feedback.css"]')) {
       var l = document.createElement('link');
       l.rel = 'stylesheet';
-      l.href = '/assets/css/mova-feedback.css?v=6';
+      l.href = '/assets/css/mova-feedback.css?v=7';
       document.head.appendChild(l);
     }
   }
@@ -395,6 +384,13 @@
     widget.appendChild(hidden);
     widget.appendChild(hiddenCode);
     widget.appendChild(panel);
+    // Preselect Nigeria
+    var def = findCountry('NG');
+    if (def) {
+      search.value = def.n;
+      hidden.value = def.n;
+      hiddenCode.value = def.c;
+    }
     wrap.appendChild(widget);
     if (f.help) wrap.appendChild(el('div', 'mova-fb-help', { text: f.help }));
     return wrap;
