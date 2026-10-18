@@ -274,6 +274,7 @@ $router->get('/seo/content', function (Request $req) {
             'seo_title' => (string) ($meta['seo_title'] ?? ''),
             'meta_description' => (string) ($meta['meta_description'] ?? $meta['seo_description'] ?? ''),
             'excerpt' => (string) ($c['excerpt'] ?? ''),
+            'featured_image' => (string) ($c['featured_image'] ?? ''),
         ];
     }
     return renderHq('seo/content', [
@@ -294,7 +295,7 @@ $router->post('/seo/content/export', function (Request $req) {
         return (new Response())->status(400)->body('Mark at least one row to export.');
     }
     $repo = new ContentRepository();
-    $lines = ['id,slug,title,seo_title,meta_description,excerpt,status'];
+    $lines = ['id,slug,title,seo_title,meta_description,excerpt,featured_image,status'];
     foreach ($ids as $id) {
         $c = $repo->find($id);
         if (!$c) {
@@ -308,6 +309,7 @@ $router->post('/seo/content/export', function (Request $req) {
             (string) ($meta['seo_title'] ?? ''),
             (string) ($meta['meta_description'] ?? ''),
             (string) ($c['excerpt'] ?? ''),
+            (string) ($c['featured_image'] ?? ''),
             (string) ($c['status'] ?? ''),
         ]);
     }
@@ -379,6 +381,16 @@ $router->post('/seo/content/import', function (Request $req) {
         if (array_key_exists('excerpt', $row) && trim((string) $row['excerpt']) !== '') {
             $data['excerpt'] = trim((string) $row['excerpt']);
         }
+        // featured_image: allow clear via special token, otherwise set non-empty URL/path
+        if (array_key_exists('featured_image', $row)) {
+            $fi = trim((string) $row['featured_image']);
+            if ($fi === '-' || strcasecmp($fi, 'clear') === 0 || strcasecmp($fi, 'null') === 0) {
+                $data['featured_image'] = '';
+            } elseif ($fi !== '') {
+                $data['featured_image'] = $fi;
+            }
+            // empty cell = leave unchanged (partial import)
+        }
         if (array_key_exists('seo_title', $row) && trim((string) $row['seo_title']) !== '') {
             $meta['seo_title'] = trim((string) $row['seo_title']);
             $metaChanged = true;
@@ -437,6 +449,9 @@ $router->post('/seo/content/{id}', function (Request $req, array $params) {
     if (array_key_exists('slug', $payload)) {
         $data['slug'] = (string) $payload['slug'];
     }
+    if (array_key_exists('featured_image', $payload)) {
+        $data['featured_image'] = (string) $payload['featured_image'];
+    }
     if (array_key_exists('seo_title', $payload)) {
         $meta['seo_title'] = (string) $payload['seo_title'];
         $data['meta'] = $meta;
@@ -461,6 +476,7 @@ $router->post('/seo/content/{id}', function (Request $req, array $params) {
                     'title' => (string) ($fresh['title'] ?? ''),
                     'slug' => (string) ($fresh['slug'] ?? ''),
                     'excerpt' => (string) ($fresh['excerpt'] ?? ''),
+                    'featured_image' => (string) ($fresh['featured_image'] ?? ''),
                     'seo_title' => (string) ($freshMeta['seo_title'] ?? ''),
                     'meta_description' => (string) ($freshMeta['meta_description'] ?? ''),
                 ],
@@ -515,6 +531,9 @@ function seo_parse_csv_file(string $path): array
         }
         if ($h === 'meta-description' || $h === 'seo_description') {
             $h = 'meta_description';
+        }
+        if ($h === 'featured' || $h === 'image' || $h === 'feat_image' || $h === 'featuredimage' || $h === 'featured_img') {
+            $h = 'featured_image';
         }
         $map[$i] = $h;
     }

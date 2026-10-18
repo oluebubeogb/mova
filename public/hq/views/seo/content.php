@@ -119,7 +119,7 @@ $q = $q ?? '';
 <div class="seo-page">
   <div class="page-header" style="margin-bottom:1rem;">
     <h1>Content SEO</h1>
-    <p class="text-muted" style="margin:0;">Edit title, SEO title, meta description, excerpt, and slug. Export only marked rows. Empty CSV cells leave values unchanged.</p>
+    <p class="text-muted" style="margin:0;">Edit title, SEO title, meta description, excerpt, slug, and image. Export only marked rows. Empty CSV cells leave values unchanged.</p>
   </div>
 
   <div id="seo-import-results"></div>
@@ -159,7 +159,8 @@ $q = $q ?? '';
             data-slug="<?= htmlspecialchars($r['slug'], ENT_QUOTES) ?>"
             data-seo_title="<?= htmlspecialchars($r['seo_title'], ENT_QUOTES) ?>"
             data-meta_description="<?= htmlspecialchars($r['meta_description'], ENT_QUOTES) ?>"
-            data-excerpt="<?= htmlspecialchars($r['excerpt'], ENT_QUOTES) ?>">
+            data-excerpt="<?= htmlspecialchars($r['excerpt'], ENT_QUOTES) ?>"
+            data-featured_image="<?= htmlspecialchars($r['featured_image'] ?? '', ENT_QUOTES) ?>">
           <td><input type="checkbox" class="seo-mark" value="<?= (int) $r['id'] ?>"></td>
           <td class="seo-id"><?= (int) $r['id'] ?></td>
           <td><span class="seo-status"><?= htmlspecialchars($r['status']) ?></span></td>
@@ -169,6 +170,7 @@ $q = $q ?? '';
             <a href="#" data-field="meta_description">Meta desc</a>
             <a href="#" data-field="excerpt">Excerpt</a>
             <a href="#" data-field="slug">Slug</a>
+            <a href="#" data-field="featured_image" title="Featured image">Image</a>
             <div class="seo-muted" style="margin-top:.2rem;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
               <?= htmlspecialchars($r['title'] !== '' ? $r['title'] : '(no title)') ?>
               <?php if ($r['slug']): ?> · /<?= htmlspecialchars($r['slug']) ?><?php endif; ?>
@@ -223,7 +225,7 @@ $q = $q ?? '';
         }
         var tr = document.querySelector('tr[data-id="' + id + '"]');
         if (tr && data.content) {
-          ['title','slug','seo_title','meta_description','excerpt'].forEach(function (k) {
+          ['title','slug','seo_title','meta_description','excerpt','featured_image'].forEach(function (k) {
             if (data.content[k] !== undefined) tr.setAttribute('data-' + k, data.content[k] || '');
           });
           var muted = tr.querySelector('.seo-muted');
@@ -235,7 +237,113 @@ $q = $q ?? '';
         if (hintEl) hintEl.textContent = 'Saved';
         setTimeout(function () { if (hintEl && hintEl.textContent === 'Saved') hintEl.textContent = ''; }, 1500);
       })
-      .catch(function () { if (hintEl) hintEl.textContent = 'Error'; });
+      .catch(function () { if (hintEl) hintEl.textContent = 'Er  var mediaPickerTarget = null; // { id, slot, hint }
+
+  function openMediaPicker(id, slot, hint) {
+    mediaPickerTarget = { id: id, slot: slot, hint: hint };
+    var overlay = document.getElementById('seo-media-overlay');
+    if (!overlay) return;
+    overlay.hidden = false;
+    overlay.setAttribute('aria-hidden', 'false');
+    loadMediaPage(1, '');
+  }
+  window.closeMediaPicker = closeMediaPicker;
+  function closeMediaPicker() {
+    var overlay = document.getElementById('seo-media-overlay');
+    if (!overlay) return;
+    overlay.hidden = true;
+    overlay.setAttribute('aria-hidden', 'true');
+    mediaPickerTarget = null;
+  }
+  window.closeMediaPicker = closeMediaPicker;
+  function loadMediaPage(page, q) {
+    var grid = document.getElementById('seo-media-grid');
+    var status = document.getElementById('seo-media-status');
+    if (status) status.textContent = 'Loading…';
+    var url = '/hq/media/json?page=' + page + '&per_page=48';
+    if (q) url += '&q=' + encodeURIComponent(q);
+    fetch(url, { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var items = (data.items || data.media || data) || [];
+        if (!Array.isArray(items)) items = items.data || [];
+        grid.innerHTML = '';
+        if (!items.length) {
+          grid.innerHTML = '<div class="seo-muted" style="padding:1rem;grid-column:1/-1">No images found.</div>';
+          if (status) status.textContent = '';
+          return;
+        }
+        items.forEach(function (item) {
+          var mime = item.mime_type || item.mime || '';
+          if (mime && mime.indexOf('image/') !== 0 && !/\.(webp|jpe?g|png|gif)$/i.test(item.url || item.path || '')) {
+            return;
+          }
+          var thumb = item.thumb_url || item.url || '';
+          if (!thumb && item.path) thumb = '/mova-uploads/' + String(item.path).replace(/^\/+/, '');
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'seo-media-item';
+          btn.title = item.original_name || item.filename || '';
+          btn.innerHTML = '<img src="' + (thumb || '') + '" alt="" loading="lazy">';
+          btn.addEventListener('click', function () {
+            if (!mediaPickerTarget) return;
+            var url = item.url || thumb;
+            saveField(mediaPickerTarget.id, 'featured_image', url, mediaPickerTarget.hint);
+            var tr = document.querySelector('tr[data-id="' + mediaPickerTarget.id + '"]');
+            if (tr) tr.setAttribute('data-featured_image', url);
+            renderImageEditor(mediaPickerTarget.id, mediaPickerTarget.slot, url);
+            closeMediaPicker();
+          });
+          grid.appendChild(btn);
+        });
+        if (status) status.textContent = items.length + ' items';
+      })
+      .catch(function () {
+        if (status) status.textContent = 'Failed to load media';
+      });
+  }
+  window.loadMediaPage = loadMediaPage;
+  function renderImageEditor(id, slot, val) {
+    val = val || '';
+    slot.innerHTML =
+      '<div class="seo-img-edit">' +
+        (val
+          ? '<img class="seo-img-preview" src="' + val.replace(/"/g, '&quot;') + '" alt="">'
+          : '<div class="seo-img-empty">No image</div>') +
+        '<div class="seo-img-actions">' +
+          '<button type="button" class="btn btn-sm" data-act="pick">Pick from media</button>' +
+          (val ? '<button type="button" class="btn btn-sm" data-act="clear">Clear</button>' : '') +
+        '</div>' +
+        '<input type="text" class="seo-input seo-img-url" placeholder="/mova-uploads/… or full URL" value="' + String(val).replace(/"/g, '&quot;') + '">' +
+        '<div class="seo-hint"></div>' +
+      '</div>';
+    var hint = slot.querySelector('.seo-hint');
+    var urlInput = slot.querySelector('.seo-img-url');
+    slot.querySelector('[data-act="pick"]').addEventListener('click', function () {
+      openMediaPicker(id, slot, hint);
+    });
+    var clearBtn = slot.querySelector('[data-act="clear"]');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function () {
+        saveField(id, 'featured_image', '', hint);
+        var tr = document.querySelector('tr[data-id="' + id + '"]');
+        if (tr) tr.setAttribute('data-featured_image', '');
+        renderImageEditor(id, slot, '');
+      });
+    }
+    urlInput.addEventListener('input', function () {
+      clearTimeout(timers[id + 'featured_image']);
+      timers[id + 'featured_image'] = setTimeout(function () {
+        saveField(id, 'featured_image', urlInput.value, hint);
+        var tr = document.querySelector('tr[data-id="' + id + '"]');
+        if (tr) tr.setAttribute('data-featured_image', urlInput.value);
+        var prev = slot.querySelector('.seo-img-preview, .seo-img-empty');
+        if (urlInput.value) {
+          if (prev && prev.tagName === 'IMG') prev.src = urlInput.value;
+          else renderImageEditor(id, slot, urlInput.value);
+        }
+      }, 500);
+    });
   }
 
   document.getElementById('seo-table').addEventListener('click', function (e) {
@@ -250,14 +358,17 @@ $q = $q ?? '';
     tr.querySelectorAll('.seo-links a').forEach(function (x) { x.classList.remove('is-active'); });
     a.classList.add('is-active');
     var val = tr.getAttribute('data-' + field) || '';
-    if (longFields[field]) {
-      slot.innerHTML = '<textarea data-field="' + field + '"></textarea><div class="seo-hint"></div>';
-      slot.querySelector('textarea').value = val;
-    } else {
-      slot.innerHTML = '<input type="text" data-field="' + field + '"><div class="seo-hint"></div>';
-      slot.querySelector('input').value = val;
+    if (field === 'featured_image') {
+      renderImageEditor(id, slot, val);
+      return;
     }
-    var input = slot.querySelector('input, textarea');
+    if (longFields[field]) {
+      slot.innerHTML = '<textarea class="seo-input" rows="3"></textarea><div class="seo-hint"></div>';
+    } else {
+      slot.innerHTML = '<input class="seo-input" type="text"><div class="seo-hint"></div>';
+    }
+    var input = slot.querySelector('.seo-input');
+    input.value = val;
     var hint = slot.querySelector('.seo-hint');
     input.focus();
     input.addEventListener('input', function () {
@@ -265,6 +376,8 @@ $q = $q ?? '';
       timers[id + field] = setTimeout(function () {
         saveField(id, field, input.value, hint);
       }, 450);
+    });
+  });0);
     });
   });
 
