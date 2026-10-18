@@ -2250,3 +2250,90 @@ body.hq-sidebar-open {
   width: 100% !important;
   box-sizing: border-box;
 }
+
+
+/* ===== Dynamic contextual nav (hq-line2) ===== */
+.hq-line2 {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.3rem 1rem 0.35rem;
+    border-bottom: 1px solid var(--hq-border);
+    background: var(--hq-surface);
+    /* Horizontal scroll when links overflow */
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    scrollbar-width: thin;
+    scrollbar-color: var(--hq-border) transparent;
+}
+.hq-line2::-webkit-scrollbar {
+    height: 4px;
+}
+.hq-line2::-webkit-scrollbar-thumb {
+    background: var(--hq-border);
+    border-radius: 4px;
+}
+.hq-line2 .hq-nav-divider {
+    width: 1px;
+    height: 1.1rem;
+    background: var(--hq-border);
+    margin: 0 0.35rem;
+    flex-shrink: 0;
+}
+.hq-hist-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--hq-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 0;
+    font-size: 12px;
+}
+.hq-hist-btn:hover:not(:disabled) {
+    background: var(--hq-hover);
+    color: var(--hq-text);
+}
+.hq-hist-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+/* Links: 2px smaller than previous ~14px (0.875rem) */
+.hq-nav-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.28rem 0.55rem;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--hq-muted);
+    text-decoration: none;
+    font: inherit;
+    font-size: 12px; /* was ~14px */
+    font-weight: 500;
+    line-height: 1.3;
+    cursor: pointer;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+.hq-nav-item:hover {
+    background: var(--hq-hover);
+    color: var(--hq-text);
+}
+.hq-nav-item.is-active,
+.hq-nav-item.active {
+    background: color-mix(in srgb, var(--hq-accent) 14%, transparent);
+    color: var(--hq-accent);
+}
+.hq-nav-item.is-primary {
+    font-weight: 600;
+}
