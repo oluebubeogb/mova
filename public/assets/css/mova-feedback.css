@@ -173,7 +173,7 @@ img.mova-fb-flag,
   border: 1px solid var(--mova-fb-border);
   border-radius: 10px;
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
-  max-height: 16rem;
+  max-height: min(70vh, 22rem);
   overflow: hidden;
   flex-direction: column;
 }
@@ -187,7 +187,7 @@ img.mova-fb-flag,
   color: var(--mova-fb-text);
 }
 .mova-fb-panel-search:focus { outline: none; }
-.mova-fb-panel-list { overflow: auto; max-height: 13rem; }
+.mova-fb-panel-list { overflow: auto; max-height: min(60vh, 18rem); }
 .mova-fb-panel-item {
   display: flex;
   align-items: center;

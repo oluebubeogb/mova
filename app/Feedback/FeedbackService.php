@@ -324,9 +324,9 @@ class FeedbackService
             static $assets = false;
             if (!$assets && is_string($body) && strpos($body, 'mova-feedback') !== false) {
                 $assets = true;
-                $body .= "\n<link rel=\"stylesheet\" href=\"/assets/css/mova-feedback.css?v=5\">"
+                $body .= "\n<link rel=\"stylesheet\" href=\"/assets/css/mova-feedback.css?v=6\">"
                     . "\n<script src=\"/assets/js/mova-feedback-countries.js?v=1\"></script>"
-                    . "\n<script src=\"/assets/js/mova-feedback.js?v=5\" defer></script>";
+                    . "\n<script src=\"/assets/js/mova-feedback.js?v=6\" defer></script>";
             }
             return $body;
         }, 26);

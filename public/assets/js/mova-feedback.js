@@ -99,7 +99,7 @@
     if (!document.querySelector('link[href*="mova-feedback.css"]')) {
       var l = document.createElement('link');
       l.rel = 'stylesheet';
-      l.href = '/assets/css/mova-feedback.css?v=5';
+      l.href = '/assets/css/mova-feedback.css?v=6';
       document.head.appendChild(l);
     }
   }
@@ -116,13 +116,84 @@
     }
   });
 
+  /**
+   * Resolve typed text to a country (exact → starts-with → contains → fuzzy).
+   * Used when users type a full name without clicking the list.
+   */
+  function resolveCountryMatch(text) {
+    var q = String(text || '').toLowerCase().trim().replace(/\s+/g, ' ');
+    if (!q) return null;
+    var list = countries();
+    var i, c, name, code;
+    // Exact name or ISO
+    for (i = 0; i < list.length; i++) {
+      c = list[i];
+      name = String(c.n || '').toLowerCase();
+      code = String(c.c || '').toLowerCase();
+      if (name === q || code === q) return c;
+    }
+    // Exact dial (+234 / 234)
+    var dialQ = q.replace(/^\+/, '');
+    if (/^\d{1,4}$/.test(dialQ)) {
+      for (i = 0; i < list.length; i++) {
+        if (String(list[i].d) === dialQ) return list[i];
+      }
+    }
+    // Starts with name
+    var starts = [];
+    for (i = 0; i < list.length; i++) {
+      c = list[i];
+      name = String(c.n || '').toLowerCase();
+      if (name.indexOf(q) === 0) starts.push(c);
+    }
+    if (starts.length === 1) return starts[0];
+    if (starts.length > 1) {
+      // Prefer shortest name (e.g. "Niger" vs "Nigeria" when typing "Niger ")
+      starts.sort(function (a, b) { return a.n.length - b.n.length; });
+      return starts[0];
+    }
+    // Contains
+    var contains = [];
+    for (i = 0; i < list.length; i++) {
+      c = list[i];
+      name = String(c.n || '').toLowerCase();
+      code = String(c.c || '').toLowerCase();
+      if (name.indexOf(q) !== -1 || code.indexOf(q) !== -1) contains.push(c);
+    }
+    if (contains.length === 1) return contains[0];
+    if (contains.length > 1) {
+      contains.sort(function (a, b) { return a.n.length - b.n.length; });
+      return contains[0];
+    }
+    // Simple fuzzy: all query tokens appear in name
+    var tokens = q.split(' ').filter(Boolean);
+    if (tokens.length) {
+      var fuzzy = [];
+      for (i = 0; i < list.length; i++) {
+        c = list[i];
+        name = String(c.n || '').toLowerCase();
+        var ok = true;
+        for (var t = 0; t < tokens.length; t++) {
+          if (name.indexOf(tokens[t]) === -1) { ok = false; break; }
+        }
+        if (ok) fuzzy.push(c);
+      }
+      if (fuzzy.length) {
+        fuzzy.sort(function (a, b) { return a.n.length - b.n.length; });
+        return fuzzy[0];
+      }
+    }
+    return null;
+  }
+
   function buildCountryList(panel, filter, onPick, mode) {
     panel.innerHTML = '';
     var q = String(filter || '').toLowerCase().trim();
     var list = countries().filter(function (c) {
       if (!q) return true;
       return (c.n + ' ' + c.c + ' ' + c.d).toLowerCase().indexOf(q) !== -1;
-    }).slice(0, 80);
+    });
+    // Full list when not filtering — no slice so scroll reaches N, Z, etc.
     if (!list.length) {
       panel.appendChild(el('div', 'mova-fb-panel-empty', { text: 'No matches' }));
       return;
@@ -262,27 +333,63 @@
     panel.appendChild(listBox);
 
     function pick(c) {
+      if (!c) return;
       search.value = c.n;
       hidden.value = c.n;
       hiddenCode.value = c.c;
       panel.classList.remove('is-open');
     }
 
+    function resolveTyped() {
+      var typed = String(search.value || '').trim();
+      if (!typed) {
+        hidden.value = '';
+        hiddenCode.value = '';
+        return null;
+      }
+      // Already matched
+      if (hidden.value && hidden.value.toLowerCase() === typed.toLowerCase()) {
+        return { n: hidden.value, c: hiddenCode.value };
+      }
+      var match = resolveCountryMatch(typed);
+      if (match) {
+        pick(match);
+        return match;
+      }
+      return null;
+    }
+
     function openList() {
       closeAllPanels(panel);
       panel.classList.add('is-open');
+      // Empty filter → full world list for scroll
       buildCountryList(listBox, search.value, pick, 'country');
     }
 
-    search.addEventListener('focus', openList);
-    search.addEventListener('input', function () {
-      hidden.value = '';
-      hiddenCode.value = '';
+    search.addEventListener('focus', function () {
       openList();
+    });
+    search.addEventListener('input', function () {
+      // Keep list filtered while typing; commit happens on blur/submit
+      openList();
+    });
+    search.addEventListener('blur', function () {
+      // Delay so list click can fire first
+      setTimeout(function () {
+        resolveTyped();
+        panel.classList.remove('is-open');
+      }, 180);
     });
     search.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') panel.classList.remove('is-open');
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        resolveTyped();
+        panel.classList.remove('is-open');
+      }
     });
+    // Expose for form submit
+    widget._resolveCountry = resolveTyped;
 
     widget.appendChild(search);
     widget.appendChild(hidden);
@@ -384,20 +491,35 @@
         e.preventDefault();
         msg.textContent = '';
         msg.className = 'mova-fb-msg';
-        // Validate country/intl required (hidden may be empty if only typed)
+        // Resolve type-to-search fields before validate/submit
         var invalid = false;
+        form.querySelectorAll('.mova-fb-country').forEach(function (w) {
+          if (typeof w._resolveCountry === 'function') w._resolveCountry();
+        });
         form.querySelectorAll('.mova-fb-field-country').forEach(function (w) {
           var req = w.querySelector('input.mova-fb-country-input');
           var hid = w.querySelector('input[type="hidden"]');
+          // Try match once more from visible input
+          if (req && (!hid || !hid.value)) {
+            var m = resolveCountryMatch(req.value);
+            if (m) {
+              req.value = m.n;
+              if (hid) hid.value = m.n;
+              var hc = w.querySelector('input[name$="_code"]');
+              if (hc) hc.value = m.c;
+            }
+          }
           if (req && req.required && (!hid || !hid.value)) {
             invalid = true;
             msg.className = 'mova-fb-msg err';
-            msg.textContent = 'Please select a country from the list.';
+            msg.textContent = 'Please enter or select a valid country.';
           }
         });
         form.querySelectorAll('.mova-fb-field-intl').forEach(function (w) {
           var num = w.querySelector('.mova-fb-intl-num');
           var hid = w.querySelector('input[type="hidden"]');
+          // sync phone hidden
+          if (num) num.dispatchEvent(new Event('input'));
           if (num && num.required && (!hid || !String(hid.value).replace(/\D/g, ''))) {
             invalid = true;
             msg.className = 'mova-fb-msg err';
