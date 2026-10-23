@@ -479,7 +479,11 @@ body.hq-drawer-open { overflow: hidden; }
 }
 #mova-ai-send:hover { filter: brightness(1.07); }
 #mova-ai-send:active { transform: translateY(1px); }
-#mova-ai-header-btn, .mova-ai-fab { position: relative; }
+#mova-ai-header-btn { position: relative; }
+/* P5-fix: the FAB must stay fixed bottom-right (the badge anchors to it because fixed is a containing block too) */
+.mova-ai-fab { position: fixed !important; right: 1.25rem; left: auto; bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px)); }
+@media (max-width: 720px) { .mova-ai-fab { right: .85rem; bottom: calc(.85rem + env(safe-area-inset-bottom, 0px)); } }
+.hq-content { padding-bottom: max(var(--hq-content-pb, 0px), 4.5rem); }
 .hq-jobs-badge {
     position: absolute; top: 2px; right: 2px; min-width: 17px; height: 17px; padding: 0 4px;
     display: inline-flex; align-items: center; justify-content: center;
@@ -912,3 +916,33 @@ html body .editor-toolbar .toolbar-tab.is-active, html body .cl-pill.is-active, 
 html:not([data-theme="dark"]) body .token-swatch-hint { color: #5f5f66; opacity: 1; }
 [data-theme="dark"] body .token-swatch-hint { opacity: 1; }
 html:not([data-theme="dark"]) .hq-landing-kicker { color: color-mix(in srgb, var(--lp-mix, #5B5CE2) 62%, #000); }
+
+/* P5-fix: workspace shortcuts restored on the dashboard */
+.dash-grid > .dash-workspaces { grid-column: span 12; }
+.dash-ws-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.dash-ws { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--hq-border); border-radius: 12px; color: inherit; text-decoration: none; min-width: 0; transition: border-color .2s, background .2s; }
+.dash-ws:hover, .dash-ws:focus-visible { border-color: var(--hq-accent); background: color-mix(in srgb, var(--hq-accent) 6%, transparent); }
+.dash-ws-ic { flex: 0 0 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: color-mix(in srgb, var(--hq-accent) 12%, transparent); color: var(--hq-accent); }
+.dash-ws-body { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.dash-ws-body small { color: var(--hq-muted); font-size: .78rem; line-height: 1.35; }
+.dash-ws-go { color: var(--hq-muted); font-size: .8rem; }
+
+/* P5-fix: content list row actions — room for every icon + edge spacing, no clipping (1440 & 390) */
+.content-list-table th.col-actions, .content-list-table td.col-actions { width: 11rem; padding-left: .5rem; padding-right: 1.1rem; }
+.content-list-table.is-trash .col-actions { width: 12rem; }
+.content-list-table td.col-actions { text-align: right; }
+.cl-row-actions { gap: 4px; align-items: center; vertical-align: middle; }
+.content-list-table td.col-actions > .row-action + .row-action { margin-left: 4px; }
+.cl-status-m { display: none; }
+@media (max-width: 640px) {
+  .content-list-card { overflow-x: hidden; }
+  .content-list-table th.col-status, .content-list-table td.col-status { display: none; }
+  .cl-status-m { display: inline-block; margin-top: 6px; }
+  .content-list-table th.col-check, .content-list-table td.col-check { width: 2.5rem; padding-left: .75rem; padding-right: .25rem; }
+  .content-list-table th.col-actions, .content-list-table td.col-actions { width: 8.9rem; padding-left: .25rem; padding-right: .75rem; }
+  .content-list-table.is-trash .col-actions { width: 9.5rem; }
+  .content-list-table.is-trash td.col-actions { white-space: normal; }
+  .content-list-table .row-action { min-width: 38px; height: 38px; padding: 0 .4rem; }
+  .content-title-link { overflow-wrap: anywhere; }
+  .cl-slug { max-width: 100%; }
+}

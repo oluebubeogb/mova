@@ -53,7 +53,7 @@
             <td><?= htmlspecialchars($w['status']) ?></td>
             <td>
                 <?php if ($w['last_triggered_at']): ?>
-                    <?= htmlspecialchars(date('Y-m-d H:i', strtotime($w['last_triggered_at']))) ?>
+                    <?= hqTimeTag($w['last_triggered_at'], 'both') ?>
                     (<?= (int) $w['last_status'] ?>)
                 <?php else: ?>
                     —

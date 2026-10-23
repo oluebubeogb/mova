@@ -4,14 +4,18 @@ $__e = static fn($v) => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
 ?>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="<?= $__e($F['brand']) ?>">
+<?php $__pwa = class_exists(\Mova\Site\Pwa::class) && \Mova\Site\Pwa::enabled() ? \Mova\Site\Pwa::config() : null; ?>
+    <meta name="theme-color" content="<?= $__e($__pwa ? $__pwa['theme_color'] : $F['brand']) ?>">
     <meta name="generator" content="Mova">
     <script>document.documentElement.setAttribute('data-mova-hq','0');document.documentElement.classList.add('mx-js');if(/[?&]mx_static=1/.test(location.search))document.documentElement.classList.add('mx-static');</script>
     <script src="/assets/js/theme-boot.js"></script>
     <?= $F['head_html'] ?>
 
     <link rel="icon" href="<?= $__e($F['favicon']) ?>"<?= substr($F['favicon'], -4) === '.svg' ? ' type="image/svg+xml"' : '' ?>>
+<?php if (!$__pwa): ?>
     <link rel="apple-touch-icon" href="<?= $__e($F['favicon']) ?>">
+<?php endif; ?>
+<?php if (class_exists(\Mova\Site\Pwa::class)) { echo \Mova\Site\Pwa::headHtml(); } ?>
     <link rel="preload" href="/assets/fonts/inter-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="/assets/fonts/fonts.css?v=<?= $__e($F['ver']) ?>">
 <?php if ($F['need_fa']): ?>

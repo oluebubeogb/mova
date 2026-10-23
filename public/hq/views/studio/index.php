@@ -65,4 +65,4 @@ $status = $status ?? '';
   <?php endif; ?>
 </section>
 
-<link rel="stylesheet" href="/assets/css/studio.css?v=20261023p5f">
+<link rel="stylesheet" href="/assets/css/studio.css?v=20261023p5x">

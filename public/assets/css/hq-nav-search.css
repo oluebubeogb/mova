@@ -93,6 +93,19 @@
     padding: 8px 10px 4px; font-size: 11px; font-weight: 700; letter-spacing: .06em;
     text-transform: uppercase; color: var(--hq-muted);
 }
+.hq-sr-group-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.hq-sr-head-action {
+    border: 0; background: transparent; color: var(--hq-accent); cursor: pointer;
+    font: 600 11.5px/1 var(--font); letter-spacing: 0; text-transform: none; padding: 4px 6px; border-radius: 6px;
+}
+.hq-sr-head-action:hover, .hq-sr-head-action:focus-visible { background: color-mix(in srgb, var(--hq-accent) 10%, transparent); outline: none; }
+.hq-sr-remove {
+    flex-shrink: 0; align-self: center; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
+    border: 0; border-radius: 7px; background: transparent; color: var(--hq-muted); cursor: pointer; opacity: .7;
+}
+.hq-sr-remove:hover { background: color-mix(in srgb, var(--hq-text) 8%, transparent); color: var(--hq-text); opacity: 1; }
+.hq-sr-item.is-active .hq-sr-remove { opacity: 1; }
+.hq-sr-remove i { font-size: 12px !important; }
 .hq-sr-item {
     display: flex; align-items: flex-start; gap: 12px; padding: 8px 10px; border-radius: 10px;
     color: var(--hq-text); text-decoration: none; cursor: pointer; scroll-margin: 8px;
@@ -154,13 +167,12 @@ html.hq-palette-open { overflow: hidden; }
     animation: hqPop .16s cubic-bezier(.2,.8,.2,1);
 }
 @keyframes hqPop { from { opacity: 0; transform: translateY(-8px) scale(.985); } to { opacity: 1; transform: none; } }
-.hq-palette-bar { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--hq-border); }
-.hq-palette-bar > i { color: var(--hq-muted); font-size: 15px; }
-.hq-palette-input {
-    flex: 1 1 auto; min-width: 0; border: 0; outline: 0; background: transparent;
-    font: 500 16px/1.4 var(--font); color: var(--hq-text);
-}
-.hq-palette-input::placeholder { color: var(--hq-muted); }
+/* The palette input IS the top-bar search component (.hq-search): same input, icon, font, radius, border,
+   colours and focus ring. Only the wrapper spacing differs. */
+.hq-palette-bar { display: flex; align-items: center; padding: 12px; border-bottom: 1px solid var(--hq-border); }
+.hq-search--palette { flex: 1 1 auto; min-width: 0; max-width: none; }
+.hq-search--palette .hq-search-kbd { opacity: 1; }
+.hq-search input::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
 .hq-palette-list { overflow-y: auto; padding: 6px; overscroll-behavior: contain; }
 @media (max-width: 720px) {
     .hq-palette-overlay { padding: 10px; align-items: stretch; }
@@ -201,3 +213,12 @@ html.hq-palette-open { overflow: hidden; }
 }
 .hq-content select.input { padding-right: 2rem; }
 .hq-content .input:focus { outline: none; border-color: var(--hq-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hq-accent) 22%, transparent); }
+
+/* P5-fix: keep a tappable Esc/close on the palette on phones */
+@media (max-width: 720px) {
+    .hq-search--palette .hq-search-kbd { display: inline-block; cursor: pointer; }
+    .hq-search--palette input { padding-right: 56px; }
+}
+
+/* P5-fix: identical search glyph in the top bar and the palette */
+.hq-search > i.fa-magnifying-glass, .hq-header .hq-search > i, .hq-search--palette > i { font-size: 13px !important; left: 14px; }

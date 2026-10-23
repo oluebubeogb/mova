@@ -16,6 +16,7 @@
     var ENDPOINT = '/hq/search';
     var RECENT_Q = 'movaHqRecentQ';
     var MIN_CHARS = 2;
+    var RECENT_MAX = 3;
     var cache = new Map();
 
     function el(tag, cls, text) {
@@ -29,13 +30,31 @@
     function isTyping(t) { return t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)); }
 
     function readList(key) { try { var v = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+    function readRecent() { return readList(RECENT_Q).filter(function (x) { return typeof x === 'string' && x.trim(); }).slice(0, RECENT_MAX); }
+    function removeRecent(q) { writeList(RECENT_Q, readRecent().filter(function (x) { return x !== q; })); }
+    function clearRecent() { writeList(RECENT_Q, []); }
+    /**
+     * Shared "Recent searches" group for the header search AND the Ctrl+K palette:
+     * max 3 items, a × per item and "Clear all" in the group head.
+     */
+    function recentGroup(onRun, onChange) {
+        return {
+            name: 'Recent searches',
+            action: { label: 'Clear all', run: function () { clearRecent(); onChange(); } },
+            items: readRecent().map(function (q) {
+                return { title: q, icon: 'fa-solid fa-clock-rotate-left', recent: true,
+                    run: function () { onRun(q); },
+                    remove: function () { removeRecent(q); onChange(); } };
+            })
+        };
+    }
     function writeList(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* ignore */ } }
     function pushRecent(q) {
         q = String(q || '').trim();
         if (q.length < MIN_CHARS) return;
         var list = readList(RECENT_Q).filter(function (x) { return x.toLowerCase() !== q.toLowerCase(); });
         list.unshift(q);
-        writeList(RECENT_Q, list.slice(0, 8));
+        writeList(RECENT_Q, list.slice(0, RECENT_MAX));
     }
 
     var inflight = null;
@@ -87,7 +106,17 @@
             main.appendChild(el('span', 'hq-sr-snippet', item.hint));
         }
         a.appendChild(main);
-        if (item.kbd) a.appendChild(el('kbd', 'hq-sr-kbd', item.kbd));
+        if (item.remove) {
+            var x = el('button', 'hq-sr-remove');
+            x.type = 'button';
+            x.tabIndex = -1;
+            x.setAttribute('aria-label', 'Remove “' + (item.title || '') + '” from recent searches');
+            x.setAttribute('data-tip', 'Remove from history');
+            x.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
+            x.addEventListener('mousedown', function (e) { e.preventDefault(); });
+            x.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); item.remove(); });
+            a.appendChild(x);
+        } else if (item.kbd) a.appendChild(el('kbd', 'hq-sr-kbd', item.kbd));
         else a.appendChild(el('span', 'hq-sr-go', '↵'));
         if (item.run) a.addEventListener('click', function (e) { e.preventDefault(); item.run(); });
         return a;
@@ -109,7 +138,15 @@
             if (!g.items || !g.items.length) return;
             var sec = el('div', 'hq-sr-group');
             sec.setAttribute('role', 'group');
-            var head = el('div', 'hq-sr-group-head', g.name);
+            var head = el('div', 'hq-sr-group-head');
+            head.appendChild(el('span', '', g.name));
+            if (g.action) {
+                var ab = el('button', 'hq-sr-head-action', g.action.label);
+                ab.type = 'button';
+                ab.addEventListener('mousedown', function (e) { e.preventDefault(); });
+                ab.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); g.action.run(); });
+                head.appendChild(ab);
+            }
             head.id = self.idPrefix + 'g' + self.rows.length;
             sec.setAttribute('aria-labelledby', head.id);
             sec.appendChild(head);
@@ -130,6 +167,12 @@
         c.replaceChildren(frag);
         if (this.rows.length) this.setActive(0, false);
         return this.rows.length;
+    };
+    /** Delete key on a highlighted recent-search row removes it. */
+    ListView.prototype.removeActive = function () {
+        var it = this.items[this.active];
+        if (it && it.remove) { it.remove(); return true; }
+        return false;
     };
     ListView.prototype.setActive = function (i, scroll) {
         if (this.active > -1 && this.rows[this.active]) {
@@ -203,16 +246,15 @@
         function close() { dd.hidden = true; input.setAttribute('aria-expanded', 'false'); input.removeAttribute('aria-activedescendant'); wrap && wrap.classList.remove('is-open'); }
 
         function showRecent() {
-            var rec = readList(RECENT_Q);
+            var rec = readRecent();
             if (!rec.length) {
                 view.render([]);
                 dd.replaceChildren(emptyState('Search everything in HQ', 'Pages, settings, fields, content, media, people, plugins, themes, sections. Try "favic", "smtp" or "seo".'));
                 open();
                 return;
             }
-            view.render([{ name: 'Recent searches', items: rec.map(function (q) {
-                return { title: q, icon: 'fa-solid fa-clock-rotate-left', run: function () { input.value = q; search(q); input.focus(); } };
-            }) }], footerHint('↑↓ to move · Enter to open · Ctrl K for the command palette'));
+            view.render([recentGroup(function (q) { input.value = q; search(q); input.focus(); }, showRecent)],
+                footerHint('↑↓ to move · Enter to open · Del removes · Ctrl K for the command palette'));
             open();
         }
 
@@ -246,6 +288,7 @@
         input.addEventListener('keydown', function (e) {
             if (e.key === 'ArrowDown') { e.preventDefault(); if (dd.hidden) input.dispatchEvent(new Event('focus')); else view.move(1); }
             else if (e.key === 'ArrowUp') { e.preventDefault(); view.move(-1); }
+            else if (e.key === 'Delete' && !input.value && view.removeActive()) { e.preventDefault(); }
             else if (e.key === 'Enter') {
                 if (!dd.hidden && view.active > -1) { e.preventDefault(); view.pick(e); }
             } else if (e.key === 'Escape') {
@@ -316,10 +359,12 @@
         dlg.setAttribute('role', 'dialog');
         dlg.setAttribute('aria-modal', 'true');
         dlg.setAttribute('aria-label', 'Command palette');
+        // Same component as the top-bar search (.hq-search): identical input, icon, radius, focus ring.
         var bar = el('div', 'hq-palette-bar');
+        var box = el('div', 'hq-search hq-search--palette');
         var ic = el('i', 'fa-solid fa-magnifying-glass'); ic.setAttribute('aria-hidden', 'true');
         var input = el('input', 'hq-palette-input');
-        input.type = 'text';
+        input.type = 'search';
         input.placeholder = 'Type a command, page, setting or content…';
         input.setAttribute('role', 'combobox');
         input.setAttribute('aria-expanded', 'true');
@@ -327,8 +372,10 @@
         input.setAttribute('aria-autocomplete', 'list');
         input.setAttribute('aria-label', 'Search commands');
         input.autocomplete = 'off'; input.spellcheck = false;
-        var esc = el('kbd', 'hq-sr-kbd', 'Esc');
-        bar.appendChild(ic); bar.appendChild(input); bar.appendChild(esc);
+        var esc = el('kbd', 'hq-search-kbd', 'Esc');
+        esc.addEventListener('mousedown', function (e) { e.preventDefault(); closePalette(); });
+        box.appendChild(ic); box.appendChild(input); box.appendChild(esc);
+        bar.appendChild(box);
         var list = el('div', 'hq-palette-list');
         list.id = 'hq-palette-list';
         list.setAttribute('role', 'listbox');
@@ -356,12 +403,10 @@
             var acts = localMatch(q);
             if (q.length < MIN_CHARS) {
                 view.render([
+                    recentGroup(function (s) { input.value = s; refresh(); input.focus(); }, refresh),
                     { name: 'Quick actions', items: acts },
-                    { name: 'Recent pages', items: recentPages() },
-                    { name: 'Recent searches', items: readList(RECENT_Q).slice(0, 4).map(function (s) {
-                        return { title: s, icon: 'fa-solid fa-magnifying-glass', run: function () { input.value = s; refresh(); } };
-                    }) }
-                ], footerHint('↑↓ navigate · Enter open · Ctrl+Enter new tab · Esc close'));
+                    { name: 'Recent pages', items: recentPages() }
+                ], footerHint('↑↓ navigate · Enter open · Ctrl+Enter new tab · Del removes · Esc close'));
                 return;
             }
             clearTimeout(timer);
@@ -393,6 +438,7 @@
         input.addEventListener('keydown', function (e) {
             if (e.key === 'ArrowDown') { e.preventDefault(); view.move(1); }
             else if (e.key === 'ArrowUp') { e.preventDefault(); view.move(-1); }
+            else if (e.key === 'Delete' && !input.value && view.removeActive()) { e.preventDefault(); }
             else if (e.key === 'Enter') { e.preventDefault(); view.pick(e); }
             else if (e.key === 'Escape') { e.preventDefault(); closePalette(); }
             else if (e.key === 'Tab') { e.preventDefault(); view.move(e.shiftKey ? -1 : 1); } // focus trap

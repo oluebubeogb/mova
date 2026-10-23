@@ -58,6 +58,7 @@ $routeFiles = [
     'settings',
     'api_keys',
     'webhooks',
+    'pwa',
     'ai',
     'site_ai',
     'ai_usage',

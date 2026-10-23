@@ -1,0 +1,2 @@
+inter-bold-latin.ttf — Inter (wght 700 static instance, latin subset), © The Inter Project Authors, SIL Open Font License 1.1.
+Used server-side only (GD) to draw the PWA fallback icon initial when the site has no raster logo.

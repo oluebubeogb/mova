@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Phase 5b: installable app / PWA)
+- **HQ → Extend → App (PWA)** (`/hq/pwa`, admin only; listed in the nav, HQ search and the Mova AI HQ map via `RouteRegistry`). The page has: an enable switch; app name and short name (prefilled from the site name); theme and background colours (prefilled from the brand and theme tokens); an icon field (site logo, a URL or an upload); display mode; start URL (same-origin only, never `/hq` or `/api`); and an offline page switch. Install banner settings: on/off, message, show after a delay or after N page views, and snooze days after dismissal. It also shows a live home-screen and banner preview, tooltips instead of help text, an HTTPS warning and a notice when GD is missing.
+- `app/Site/Pwa.php` serves these routes from PHP (works on shared hosting, no build step):
+  - `/manifest.webmanifest` (`application/manifest+json`);
+  - `/sw.js` from the site root (scope `/`, `Service-Worker-Allowed: /`, `Cache-Control: no-cache`);
+  - `/pwa-offline`;
+  - `/pwa-icon-{192,512,maskable,180}.png`, generated with GD into `storage/pwa/` (rounded "any" icon, full-bleed maskable with a safe zone, Apple 180);
+  - `/pwa-icon.svg`.
+  If the site has no logo, the icon is a lettermark in the theme colour, using the bundled Inter Bold in `resources/fonts/` (OFL). Without GD, the manifest uses the logo plus the SVG icon.
+- Service worker:
+  - network-first for HTML, falling back to the cached copy and then the offline page;
+  - cache-first for static assets;
+  - versioned caches (`mova-pages-*` / `mova-assets-*`): the version changes when PWA settings, content, settings or asset versions change, and old caches are deleted on activate.
+  It never handles `/hq`, `/api`, requests made by HQ pages, non-GET or range requests, preview URLs, or responses marked private. Signed-in visitors get an `X-Mova-Private: 1` header, so their pages are never cached.
+- Turning the app off serves a kill-switch `/sw.js` that deletes the `mova-*` caches and unregisters. Pages also run a small inline clean-up for visitors who still have the old worker.
+- The install banner (`public/assets/js/pwa.js`, `public/assets/css/pwa.css`) uses each theme's tokens (colours, font, radius) in all 4 themes and all kits (it is injected from the shared `resources/theme-parts/head.php`):
+  - uses `beforeinstallprompt`; iOS Safari gets Share > Add to Home Screen instructions;
+  - is hidden when the app is installed or running standalone (`display-mode` or `navigator.standalone`) and on `appinstalled`;
+  - remembers dismissal for N days and closes with Esc;
+  - is a labelled `role="dialog"`, honours `prefers-reduced-motion`, and is skipped inside iframes and previews.
+- `nginx.conf` routes the PWA paths to PHP ahead of the static-asset rule. `.htaccess` adds the `.webmanifest` MIME type.
+
+### Fixed (Phase 5 regression fixes)
+- Site AI: the Design and Knowledge layers are restored, with all previous fields.
+- HQ navigation drills down one level at a time.
+- The Mova AI button is fixed at the bottom right on every HQ page, and hides while you type on mobile.
+- The Ctrl+K palette now matches the top search exactly and shares its recent history (max 3, remove one with ×, Clear all). The duplicate Quick actions and Recent pages groups are gone.
+- Padding for row actions in the content list.
+- Human-friendly times everywhere ("8 h ago · 23 Oct 2026, 2:15 PM WAT"), using a shared PHP helper (`hqTimeTag`) and a JS formatter (`hq-time.js`). The display timezone is set in Settings → General (default Africa/Lagos). Storage stays UTC.
+- HQ "M" favicon (SVG, PNG, ICO, apple-touch-icon).
+
 ### Added (Phase 5: HQ polish, security, REST API)
 - **REST API v1** (`app/Api/RestApi.php`, `/api/v1`): Bearer (or `X-Api-Key`) auth validated by `ApiKeyService::authenticate()` (`validate()` alias), a scope check on every route (`site:read`, `content:read`, `content:write`, `media:read`, `taxonomy:read`; legacy `read`/`write`/`*` honoured), per-key rate limit (120/60 s), JSON errors (401/403/404/405/429), method override for restrictive hosts. The HQ API keys page keeps its copy-once display and now offers the scopes. Documented in the README.
 - **Dashboard** rebuilt: greeting hero with quick actions, status lights, storage ring (cached 15 min), AI usage stats, recent edits, a Quick setup checklist until setup is complete, faint background art.

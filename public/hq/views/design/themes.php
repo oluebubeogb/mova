@@ -14,8 +14,8 @@ foreach ($themes as $t) {
     }
 }
 ?>
-<link rel="stylesheet" href="/assets/css/hq-section-picker.css?v=20261023p5f">
-<link rel="stylesheet" href="/assets/css/hq-themes.css?v=20261023p5f">
+<link rel="stylesheet" href="/assets/css/hq-section-picker.css?v=20261023p5x">
+<link rel="stylesheet" href="/assets/css/hq-themes.css?v=20261023p5x">
 <link rel="stylesheet" href="/assets/fonts/fonts.css">
 
 <div class="mtg">
@@ -48,7 +48,7 @@ foreach ($themes as $t) {
   </noscript>
 </div>
 
-<script src="/assets/js/hq-section-picker.js?v=20261023p5f"></script>
+<script src="/assets/js/hq-section-picker.js?v=20261023p5x"></script>
 <script src="/assets/js/hq-theme-gallery.js?v=p3"></script>
 <script>
 (function () {

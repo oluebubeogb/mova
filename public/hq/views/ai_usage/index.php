@@ -59,7 +59,7 @@ $gwQuota = is_array($gw ?? null) ? ($gw['quota'] ?? null) : null;
       <?php endif; ?>
     </p>
   <?php else: ?>
-    <p class="hq-muted" style="margin:.35rem 0 .8rem">What the gateway billed to site <code><?= $h($gw['site'] ?? $siteId) ?></code> since <?= $h($gw['since'] ?? '') ?> · fetched <?= $h(substr((string) ($gw['fetched_at'] ?? ''), 0, 16)) ?></p>
+    <p class="hq-muted" style="margin:.35rem 0 .8rem">What the gateway billed to site <code><?= $h($gw['site'] ?? $siteId) ?></code> since <?= !empty($gw['since']) ? hqTimeTag($gw['since'], 'abs') : '—' ?> · fetched <?= hqTimeTag($gw['fetched_at'] ?? null, 'rel') ?></p>
     <div class="ai-usage-stats ai-usage-stats--gw">
       <div class="ai-stat"><span class="ai-stat-label">Requests</span><strong><?= $n($gwT['requests'] ?? 0) ?></strong><span class="ai-stat-sub"><?= $n($gwT['errors'] ?? 0) ?> failed · Mova logged <?= $n($t['calls'] ?? 0) ?></span></div>
       <div class="ai-stat"><span class="ai-stat-label">Tokens</span><strong><?= $n($gwT['total_tokens'] ?? 0) ?></strong><span class="ai-stat-sub"><?= $n($gwT['prompt_tokens'] ?? 0) ?> in · <?= $n($gwT['completion_tokens'] ?? 0) ?> out</span></div>
@@ -128,7 +128,7 @@ $gwQuota = is_array($gw ?? null) ? ($gw['quota'] ?? null) : null;
     <thead><tr><th>When</th><th>Feature</th><th>Kind</th><th>Model</th><th>Tokens</th><th>ms</th><th>Status</th><th>User</th></tr></thead><tbody>
     <?php foreach ($report['recent'] as $r): ?>
       <tr>
-        <td><?= $h(substr((string) $r['created_at'], 0, 16)) ?></td>
+        <td><?= hqTimeTag($r['created_at'], 'both') ?></td>
         <td><?= $h($featureName((string) $r['feature'])) ?></td>
         <td><?= $h($r['kind']) ?></td>
         <td><?= $h($r['model']) ?></td>

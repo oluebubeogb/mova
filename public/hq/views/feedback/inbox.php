@@ -14,9 +14,7 @@ $per = (int) ($per ?? 25);
 
 function fb_dt(?string $iso): string {
   if (!$iso) return '';
-  $ts = strtotime($iso);
-  if ($ts === false) return $iso;
-  return date('d/m/y H:i', $ts);
+  return hqTime($iso, $iso);
 }
 $fieldDefs = $form['fields'] ?? [];
 $single = $formId > 0;
@@ -327,14 +325,7 @@ $single = $formId > 0;
     }).then(function(r){ return r.json(); }).then(function(data){
       var e = data.entry || {};
       var dt = e.created_at || '';
-      // format client-side similar to PHP d/m/y H:i
-      try {
-        var d = new Date(dt);
-        if (!isNaN(d.getTime())) {
-          var p = function(n){ return n < 10 ? '0'+n : ''+n; };
-          dt = p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+String(d.getFullYear()).slice(2)+' '+p(d.getHours())+':'+p(d.getMinutes());
-        }
-      } catch (err) {}
+      if (window.MovaTime) dt = MovaTime.both(dt, dt);
       document.getElementById('fb-side-dt').textContent = dt;
       document.getElementById('fb-side-form').textContent = e.form_title || '';
       var body = document.getElementById('fb-side-body');

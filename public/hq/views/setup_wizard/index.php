@@ -39,8 +39,8 @@ $steps = [
 $packIcons = ['school' => 'fa-graduation-cap', 'organization' => 'fa-people-group', 'generic' => 'fa-briefcase'];
 ?>
 <link rel="stylesheet" href="/assets/fonts/fonts.css">
-<link rel="stylesheet" href="/assets/css/hq-section-picker.css?v=20261023p5f">
-<link rel="stylesheet" href="/assets/css/hq-themes.css?v=20261023p5f">
+<link rel="stylesheet" href="/assets/css/hq-section-picker.css?v=20261023p5x">
+<link rel="stylesheet" href="/assets/css/hq-themes.css?v=20261023p5x">
 <link rel="stylesheet" href="/hq/setup-wizard/asset/css?v=<?= $swVer('css/setup-wizard.css') ?>">
 <style>
 /* Critical: one step visible even if the stylesheet fails to load */
@@ -246,6 +246,6 @@ $packIcons = ['school' => 'fa-graduation-cap', 'organization' => 'fa-people-grou
 
 <noscript><p class="qs-noscript">Quick setup needs JavaScript. You can still build pages in <a href="/hq/content">Content</a> and choose a look in <a href="/hq/themes">Themes</a>.</p></noscript>
 <script type="application/json" id="qs-boot"><?= json_encode($boot, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
-<script src="/assets/js/hq-section-picker.js?v=20261023p5f"></script>
+<script src="/assets/js/hq-section-picker.js?v=20261023p5x"></script>
 <script src="/assets/js/hq-theme-gallery.js?v=p3"></script>
 <script src="/hq/setup-wizard/asset/js?v=<?= $swVer('js/setup-wizard.js') ?>"></script>

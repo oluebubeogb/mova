@@ -119,7 +119,7 @@ $router->post('/content/new', function (Request $req) {
     $status = (string) $req->post('status', 'draft');
     $publishedAt = trim((string) $req->post('published_at', ''));
     if ($publishedAt !== '') {
-        $publishedAt = date('c', strtotime($publishedAt));
+        $publishedAt = \Mova\Core\Time::fromLocalInput($publishedAt);
     } else {
         $publishedAt = null;
     }
@@ -257,7 +257,7 @@ $router->post('/content/edit/{id}', function (Request $req, array $params) {
     $status = (string) $req->post('status', 'draft');
     $publishedAt = trim((string) $req->post('published_at', ''));
     if ($publishedAt !== '') {
-        $publishedAt = date('c', strtotime($publishedAt));
+        $publishedAt = \Mova\Core\Time::fromLocalInput($publishedAt);
     } else {
         $publishedAt = $existing['published_at'] ?? null;
     }

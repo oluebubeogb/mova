@@ -12,7 +12,7 @@ $lockLeft = class_exists(\Mova\Auth\Auth::class) ? \Mova\Auth\Auth::lockoutRemai
 if ($lockLeft > 0 && empty($error)) {
     $error = 'Too many sign-in attempts. Try again in ' . max(1, (int) ceil($lockLeft / 60)) . ' minute(s).';
 }
-$__h = (int) date('G');
+$__h = (int) (new \DateTimeImmutable('now', \Mova\Core\Time::zone()))->format('G');
 $__hello = $__h < 12 ? 'Good morning' : ($__h < 18 ? 'Good afternoon' : 'Good evening');
 ?>
 <div class="auth-split">

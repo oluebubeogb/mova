@@ -216,6 +216,9 @@ final class RouteRegistry
             'view' => 'api/keys', 'keywords' => ['api', 'api key', 'token', 'headless', 'rest'], 'desc' => 'Keys for the REST API.']);
         $add(['id' => 'webhooks', 'label' => 'Webhooks', 'path' => '/hq/webhooks', 'section' => 'extend', 'icon' => 'fa-solid fa-satellite-dish', 'nav' => true, 'perm' => 'admin',
             'view' => 'webhooks/index', 'keywords' => ['webhook', 'callbacks', 'events', 'notify'], 'desc' => 'Send events to other services.']);
+        $add(['id' => 'pwa', 'label' => 'App (PWA)', 'path' => '/hq/pwa', 'section' => 'extend', 'icon' => 'fa-solid fa-mobile-screen-button', 'nav' => true, 'perm' => 'admin',
+            'view' => 'pwa/index', 'keywords' => ['pwa', 'app', 'progressive web app', 'install', 'home screen', 'offline', 'manifest', 'service worker', 'install banner', 'add to home screen'],
+            'desc' => 'Make the site installable: app name, icon, colours, offline page and install banner.']);
 
         // ---------- Operations ----------
         $add(['id' => 'health', 'label' => 'Health', 'path' => '/hq/health', 'section' => 'operations', 'icon' => 'fa-solid fa-heart-pulse', 'nav' => true, 'perm' => 'admin',

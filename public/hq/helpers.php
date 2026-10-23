@@ -168,21 +168,27 @@ HTML;
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0F1115" data-theme-sync data-light="#F5F5F7" data-dark="#0F1115">
     <title><?= htmlspecialchars($pageTitle) ?> — Mova HQ</title>
+    <link rel="icon" href="/assets/hq/favicon.svg?v=p5x" type="image/svg+xml">
+    <link rel="icon" href="/assets/hq/favicon-32.png?v=p5x" type="image/png" sizes="32x32">
+    <link rel="alternate icon" href="/assets/hq/favicon.ico?v=p5x" sizes="16x16 32x32 48x48">
+    <link rel="apple-touch-icon" href="/assets/hq/apple-touch-icon.png?v=p5x" sizes="180x180">
     <script src="/assets/js/theme-boot.js"></script>
+    <script>window.MOVA_TZ = <?= json_encode(\Mova\Core\Time::zoneName()) ?>;</script>
+    <script src="/assets/js/hq-time.js?v=20261023p5x"></script>
     <link rel="preload" href="/assets/fonts/inter-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="/assets/fonts/fonts.css">
     <link rel="stylesheet" href="/assets/vendor/fontawesome/css/all.min.css?v=6.5.2">
-    <link rel="stylesheet" href="/assets/css/hq.css?v=20261023p5f">
-    <link rel="stylesheet" href="/assets/css/hq-vnext.css?v=20261023p5f">
-    <link rel="stylesheet" href="/assets/css/hq-landings.css?v=20261023p5f">
-    <link rel="stylesheet" href="/assets/css/hq-nav-search.css?v=20261023p5f">
+    <link rel="stylesheet" href="/assets/css/hq.css?v=20261023p5x">
+    <link rel="stylesheet" href="/assets/css/hq-vnext.css?v=20261023p5x">
+    <link rel="stylesheet" href="/assets/css/hq-landings.css?v=20261023p5x">
+    <link rel="stylesheet" href="/assets/css/hq-nav-search.css?v=20261023p5x">
     <?php if ($isAuth): ?>
     <meta name="csrf-token" content="<?= htmlspecialchars(\Mova\Security\Csrf::token()) ?>">
-    <link rel="stylesheet" href="/assets/css/mova-ai-panel.css?v=20260929templates2">
+    <link rel="stylesheet" href="/assets/css/mova-ai-panel.css?v=20261023p5x">
     <?php endif; ?>
-    <link rel="stylesheet" href="/assets/css/hq-p5.css?v=20261023p5f">
+    <link rel="stylesheet" href="/assets/css/hq-p5.css?v=20261023p5x">
 </head>
-<body class="hq hq-vnext <?= $isAuth ? 'hq-authenticated' : 'hq-guest' ?>" data-workspace="<?= htmlspecialchars($workspace) ?>"<?php if ($isAuth): ?> data-hq-admin="<?= \Mova\Hq\RouteRegistry::allowed('admin') ? '1' : '0' ?>" data-hq-design="<?= \Mova\Hq\RouteRegistry::allowed('manage_appearance') ? '1' : '0' ?>" data-hq-ai="<?= \Mova\Hq\RouteRegistry::allowed('use_ai') ? '1' : '0' ?>"<?php endif; ?>>
+<body class="hq hq-vnext <?= $isAuth ? 'hq-authenticated' : 'hq-guest' ?>" data-workspace="<?= htmlspecialchars($workspace) ?>" data-hq-tz="<?= htmlspecialchars(\Mova\Core\Time::zoneName()) ?>"<?php if ($isAuth): ?> data-hq-admin="<?= \Mova\Hq\RouteRegistry::allowed('admin') ? '1' : '0' ?>" data-hq-design="<?= \Mova\Hq\RouteRegistry::allowed('manage_appearance') ? '1' : '0' ?>" data-hq-ai="<?= \Mova\Hq\RouteRegistry::allowed('use_ai') ? '1' : '0' ?>"<?php endif; ?>>
 <a class="hq-skip-link" href="#hq-main">Skip to content</a>
 
 <?php if ($isAuth): ?>
@@ -357,12 +363,12 @@ HTML;
     <?php if ($isAuth && $navPayload): ?>
     <script>window.MOVA_HQ_NAV = <?= json_encode($navPayload, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
     <?php endif; ?>
-    <script src="/assets/js/hq-nav.js?v=20261023p5" defer></script>
+    <script src="/assets/js/hq-nav.js?v=20261023p5x" defer></script>
     <?php if ($isAuth): ?>
-    <script src="/assets/js/hq-search.js?v=20261023p5f" defer></script>
+    <script src="/assets/js/hq-search.js?v=20261023p5x" defer></script>
     <?php endif; ?>
-    <script src="/assets/js/hq-layers.js" defer></script>
-    <script src="/assets/js/hq-p5.js?v=20261023p5f" defer></script>
+    <script src="/assets/js/hq-layers.js?v=20261023p5x" defer></script>
+    <script src="/assets/js/hq-p5.js?v=20261023p5x" defer></script>
     <?php if ($isAuth): ?>
     <script>
     window.MovaAiContext = {
@@ -378,7 +384,7 @@ HTML;
     </script>
     <script src="/assets/js/mova-markdown.js?v=20260930md1"></script>
     <?php if (\Mova\Hq\RouteRegistry::allowed('use_ai')): ?>
-    <script src="/assets/js/mova-ai-panel.js?v=20261023p5f" defer></script>
+    <script src="/assets/js/mova-ai-panel.js?v=20261023p5x" defer></script>
     <?php endif; ?>
     <script>
     (function () {
@@ -456,7 +462,10 @@ function hqLine2Html(?array $nav): string
         'structure' => ['label' => 'Structure', 'icon' => 'fa-solid fa-sitemap'],
         'tools' => ['label' => 'Tools', 'icon' => 'fa-solid fa-screwdriver-wrench'],
     ];
-    $navItems = $nav['nav'] ?? [];
+    // Unique per level (as the original hq-nav contexts): a route with its own children shows ONLY
+    // those children on Line 2, replacing its siblings. Going back up is the breadcrumb / Back button.
+    $sub = $nav['sub'] ?? [];
+    $navItems = $sub ? [] : ($nav['nav'] ?? []);
     $groupCount = [];
     foreach ($navItems as $item) {
         $g = (string) ($item['group'] ?? '');
@@ -503,9 +512,7 @@ function hqLine2Html(?array $nav): string
             . (!empty($item['prefix']) ? ' data-prefix="1"' : '')
             . ($active ? ' aria-current="page"' : '') . '>' . $icon($item['icon'] ?? '') . '<span>' . $h($item['label']) . '</span></a></li>';
     }
-    $sub = $nav['sub'] ?? [];
     if ($sub) {
-        $out .= '<li class="hq-nav-sep" aria-hidden="true"></li>';
         foreach ($sub as $s) {
             $cls = 'hq-nav-item is-sub' . (!empty($s['primary']) ? ' primary' : '');
             $data = '';
@@ -587,3 +594,10 @@ function isPluginActive(string $slug): bool
         return false;
     }
 }
+
+/* ---------- Human times (Africa/Lagos by default; storage stays UTC) ---------- */
+function hqTime($v, string $fallback = '—'): string { return \Mova\Core\Time::format($v, $fallback); }
+function hqDate($v, string $fallback = '—'): string { return \Mova\Core\Time::date($v, $fallback); }
+function hqTimeAgo($v, string $fallback = '—'): string { return \Mova\Core\Time::ago($v, $fallback); }
+/** Escaped <time> element; mode = abs|rel|both|date. Safe to echo directly. */
+function hqTimeTag($v, string $mode = 'both', string $fallback = '—'): string { return \Mova\Core\Time::tag($v, $mode, $fallback); }

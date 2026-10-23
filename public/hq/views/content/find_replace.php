@@ -103,7 +103,7 @@ $csrfToken = Csrf::token();
           </div>
           <p class="fr-log-meta-line">
             by <?= htmlspecialchars($actionDetail['display_name'] ?: ($actionDetail['username'] ?? 'unknown')) ?>
-            · <?= htmlspecialchars($actionDetail['created_at'] ?? '') ?>
+            · <?= hqTimeTag($actionDetail['created_at'] ?? null, 'both') ?>
             · <?= (int) ($actionDetail['match_count'] ?? 0) ?> occurrence(s)
             in <?= (int) ($actionDetail['content_count'] ?? 0) ?> content item(s)
           </p>

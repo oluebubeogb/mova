@@ -17,18 +17,10 @@ $bytes = static function (?int $n): string {
     return ($i ? number_format($f, $f < 10 ? 1 : 0) : (string) (int) $f) . ' ' . $u[$i];
 };
 $ago = static function (?string $ts): string {
-    $t = $ts ? strtotime($ts) : false;
-    if (!$t) {
-        return '';
-    }
-    $d = time() - $t;
-    if ($d < 60) return 'just now';
-    if ($d < 3600) return floor($d / 60) . ' min ago';
-    if ($d < 86400) return floor($d / 3600) . ' h ago';
-    if ($d < 86400 * 7) return floor($d / 86400) . ' d ago';
-    return date('M j', $t);
+    return $ts ? hqTimeAgo($ts, '') : '';
 };
-$hour = (int) date('G');
+$__now = new \DateTimeImmutable('now', \Mova\Core\Time::zone());
+$hour = (int) $__now->format('G');
 $greet = $hour < 5 ? 'Working late' : ($hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening'));
 $first = trim(explode(' ', (string) ($user['name'] ?? $user['username'] ?? ''))[0] ?? '');
 $total = count($checklist);
@@ -49,7 +41,7 @@ $jobTone = ['done' => 'ok', 'completed' => 'ok', 'running' => 'info', 'queued' =
 
   <header class="dash-hero">
     <div class="dash-hero-text">
-      <p class="dash-kicker"><span class="dash-dot" aria-hidden="true"></span> <?= $h(date('l, F j')) ?></p>
+      <p class="dash-kicker"><span class="dash-dot" aria-hidden="true"></span> <?= $h($__now->format('l, j F')) ?></p>
       <h1 id="dash-title" class="dash-title"><?= $h($greet) ?><?= $first !== '' ? ', ' . $h($first) : '' ?></h1>
       <p class="dash-sub">
         <?php if ($canWrite): ?>
@@ -129,7 +121,7 @@ $jobTone = ['done' => 'ok', 'completed' => 'ok', 'running' => 'info', 'queued' =
             <li>
               <a href="<?= $canWrite ? '/hq/content/' . (int) $r['id'] . '/edit' : '/' . $h($r['slug']) ?>">
                 <span class="dash-list-title"><?= $h($r['title'] !== '' ? $r['title'] : '(untitled)') ?></span>
-                <span class="dash-list-meta"><?= $h(ucfirst((string) $r['type'])) ?><?= $r['author'] ? ' · ' . $h($r['author']) : '' ?> · <?= $h($ago($r['updated_at'])) ?></span>
+                <span class="dash-list-meta"><?= $h(ucfirst((string) $r['type'])) ?><?= $r['author'] ? ' · ' . $h($r['author']) : '' ?> · <?= hqTimeTag($r['updated_at'], 'rel') ?></span>
               </a>
               <span class="dash-chip is-<?= $h($statusTone[$r['status']] ?? 'muted') ?>"><?= $h($r['status']) ?></span>
             </li>
@@ -174,7 +166,7 @@ $jobTone = ['done' => 'ok', 'completed' => 'ok', 'running' => 'info', 'queued' =
             <li>
               <span class="dash-list-main">
                 <span class="dash-list-title"><?= $h(mb_strimwidth((string) $j['prompt'], 0, 70, '…')) ?></span>
-                <span class="dash-list-meta"><?= $h(ucfirst((string) $j['kind'])) ?><?= !empty($j['created_at']) ? ' · ' . $h($ago((string) $j['created_at'])) : '' ?></span>
+                <span class="dash-list-meta"><?= $h(ucfirst((string) $j['kind'])) ?><?= !empty($j['created_at']) ? ' · ' . hqTimeTag((string) $j['created_at'], 'rel') : '' ?></span>
               </span>
               <span class="dash-chip is-<?= $h($jobTone[$st] ?? 'muted') ?>"><?php if ($st === 'running'): ?><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> <?php endif; ?><?= $h($st) ?></span>
             </li>
@@ -227,6 +219,41 @@ $jobTone = ['done' => 'ok', 'completed' => 'ok', 'running' => 'info', 'queued' =
           <li><span class="dash-swatch is-<?= $h($k) ?>" aria-hidden="true"></span><?= $h($label) ?> <strong><?= $h($bytes((int) ($storage[$k] ?? 0))) ?></strong></li>
         <?php endforeach; ?>
         <?php if (($storage['free'] ?? null) !== null): ?><li class="dash-muted">Free on disk <strong><?= $h($bytes((int) $storage['free'])) ?></strong></li><?php endif; ?>
+      </ul>
+    </article>
+    <?php endif; ?>
+
+    <?php
+    // Restored from the pre-P5 landing: one-click entry to every workspace the user may open.
+    $wsDesc = ['content' => 'Posts, pages, media, blogs and taxonomy', 'audience' => 'People, mail, sequences, feedback and insights',
+        'design' => 'Brand, style, layout, components and themes', 'extend' => 'Plugins, Site AI, integrations, API keys, webhooks',
+        'operations' => 'Health, security, backups, updates, AI usage', 'settings' => 'General site options and AI assist'];
+    $ws = [];
+    foreach (RouteRegistry::sections() as $key => $sec) {
+        if ($key === 'overview') continue;
+        $hub = RouteRegistry::match($sec['path']);
+        if ($hub && !RouteRegistry::allowed($hub['perm'] ?? null)) continue;
+        if ($key !== 'settings' && !RouteRegistry::sectionAllowed($key)) continue;
+        $ws[$key] = $sec;
+    }
+    if (RouteRegistry::allowed('manage_appearance')) {
+        $ws['templates'] = ['label' => 'Templates', 'icon' => 'fa-solid fa-table-cells-large', 'path' => '/hq/templates'];
+        $wsDesc['templates'] = 'Start a page from a ready-made template';
+    }
+    ?>
+    <?php if ($ws): ?>
+    <article class="dash-card dash-workspaces" aria-labelledby="dash-ws-h">
+      <div class="dash-card-title">
+        <h2 id="dash-ws-h"><i class="fa-solid fa-bolt" aria-hidden="true"></i> Jump into a workspace</h2>
+      </div>
+      <ul class="dash-ws-grid">
+        <?php foreach ($ws as $key => $sec): ?>
+          <li><a class="dash-ws" href="<?= $h($sec['path']) ?>">
+            <span class="dash-ws-ic" aria-hidden="true"><i class="<?= $h($sec['icon']) ?>"></i></span>
+            <span class="dash-ws-body"><strong><?= $h($sec['label']) ?></strong><small><?= $h($wsDesc[$key] ?? '') ?></small></span>
+            <i class="fa-solid fa-arrow-right dash-ws-go" aria-hidden="true"></i>
+          </a></li>
+        <?php endforeach; ?>
       </ul>
     </article>
     <?php endif; ?>

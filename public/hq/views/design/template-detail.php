@@ -13,7 +13,7 @@ $constraints = $meta['constraints'] ?? [];
 $slots = $meta['slots'] ?? [];
 ?>
 <link rel="stylesheet" href="/assets/css/hq-templates.css?v=20260929">
-<link rel="stylesheet" href="/assets/css/hq-section-picker.css?v=20261023p5f">
+<link rel="stylesheet" href="/assets/css/hq-section-picker.css?v=20261023p5x">
 <style>
 .hq-tpl-live { border: 1px solid var(--hq-border, #e2e8f0); border-radius: 14px; overflow: hidden; background: #fff; }
 .hq-tpl-live__bar { display: flex; gap: .5rem; align-items: center; justify-content: space-between; padding: .5rem .7rem; border-bottom: 1px solid var(--hq-border, #e2e8f0); background: var(--hq-bg, #f8fafc); }

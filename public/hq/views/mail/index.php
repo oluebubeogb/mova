@@ -26,7 +26,7 @@
                             <td><?= htmlspecialchars($s['email']) ?></td>
                             <td><?= htmlspecialchars($s['name'] ?? '') ?></td>
                             <td><span class="badge"><?= htmlspecialchars($s['status']) ?></span></td>
-                            <td><?= date('M j, Y', strtotime($s['subscribed_at'])) ?></td>
+                            <td><?= hqTimeTag($s['subscribed_at'], 'date') ?></td>
                             <td>
                                 <form method="post" action="/hq/mail/subscriber/delete" style="display:inline;" onsubmit="return confirm('Remove subscriber?');">
                                     <?= Csrf::field() ?>

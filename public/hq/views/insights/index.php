@@ -102,7 +102,7 @@
                         <?php foreach ($recent as $r): ?>
                             <tr>
                                 <td><?= htmlspecialchars($r['title'] ?: $r['path']) ?></td>
-                                <td style="white-space:nowrap;"><?= date('M j, H:i', strtotime($r['viewed_at'])) ?></td>
+                                <td style="white-space:nowrap;"><?= hqTimeTag($r['viewed_at'], 'abs') ?></td>
                             </tr>
                         <?php endforeach; ?>
                         </tbody>

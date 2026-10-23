@@ -292,6 +292,7 @@
             '<span class="mova-ai-job-status">' + escapeHtml(st) + '</span> · ' +
             escapeHtml(prog) +
             (j.provider ? ' · ' + escapeHtml(j.provider) : '') +
+            (j.created_at && window.MovaTime ? ' · ' + MovaTime.html(j.updated_at || j.created_at, 'rel') : '') +
             '</div></div>';
         });
         list.innerHTML = html;
@@ -1062,7 +1063,7 @@
           btn.className = 'mova-ai-session-item';
           btn.innerHTML =
             '<span class="mova-ai-session-title">' + escapeHtml(s.title || 'Chat') + '</span>' +
-            '<time>' + escapeHtml((s.updated_at || '').slice(0, 16).replace('T', ' ')) + '</time>';
+            (window.MovaTime ? MovaTime.html(s.updated_at, 'rel', '') : '<time>' + escapeHtml((s.updated_at || '').slice(0, 16).replace('T', ' ')) + '</time>');
           btn.addEventListener('click', function () {
             loadSession(s.id);
           });

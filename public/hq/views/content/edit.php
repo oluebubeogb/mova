@@ -8,7 +8,7 @@ $selectedCategories = $selectedCategories ?? [];
 $tagString = $tagString ?? '';
 $publishedAtLocal = '';
 if (!empty($content['published_at'])) {
-    $publishedAtLocal = date('Y-m-d\TH:i', strtotime($content['published_at']));
+    $publishedAtLocal = \Mova\Core\Time::toLocalInput($content['published_at']);
 }
 ?>
 
@@ -507,7 +507,7 @@ if (!empty($content['published_at'])) {
                     <?php foreach ($revisions as $rev): ?>
                         <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;padding:0.4rem 0;border-bottom:1px solid var(--hq-border);">
                             <div>
-                                <div><?= htmlspecialchars(date('Y-m-d H:i', strtotime($rev['created_at']))) ?></div>
+                                <div><?= hqTimeTag($rev['created_at'], 'both') ?></div>
                                 <div style="color:var(--hq-muted);"><?= htmlspecialchars($rev['author_name'] ?? 'Unknown') ?></div>
                             </div>
                             <button type="submit" form="restore-rev-<?= (int) $rev['id'] ?>" class="btn-ghost" style="font-size:0.75rem;"
@@ -1888,14 +1888,14 @@ if (!empty($content['published_at'])) {
 </script>
 
 <link rel="stylesheet" href="/assets/css/sections.css?v=p3">
-<link rel="stylesheet" href="/assets/css/hq-section-picker.css?v=20261023p5f">
+<link rel="stylesheet" href="/assets/css/hq-section-picker.css?v=20261023p5x">
 <style>
 <?= class_exists(\Mova\Theme\TemplateService::class) ? \Mova\Theme\TemplateService::scopedTokensCss('#editor') : '' ?>
 #editor .mx-page { outline: 1px dashed color-mix(in srgb, var(--hq-accent, #2563eb) 35%, transparent); outline-offset: 4px; }
 .btn-section-lib { width: auto !important; padding: 0 .65rem !important; gap: .35rem; display: inline-flex; align-items: center; font-weight: 600; font-size: .8rem; }
 .mx-insert-toast { position: fixed; left: 50%; bottom: 1.5rem; transform: translateX(-50%); z-index: 10070; background: #0f172a; color: #fff; padding: .7rem 1.1rem; border-radius: 12px; font-size: .88rem; box-shadow: 0 18px 40px -16px rgb(0 0 0 / .5); }
 </style>
-<script src="/assets/js/hq-section-picker.js?v=20261023p5f"></script>
+<script src="/assets/js/hq-section-picker.js?v=20261023p5x"></script>
 <script>
 (function () {
   var editor = document.getElementById('editor');

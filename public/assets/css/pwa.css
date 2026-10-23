@@ -1,0 +1,67 @@
+/* Mova PWA install banner — inherits the active theme's design tokens. */
+.mova-pwa-banner {
+  --pwa-surface: var(--color-surface, #ffffff);
+  --pwa-text: var(--color-text, #111827);
+  --pwa-muted: var(--color-muted, #6b7280);
+  --pwa-border: var(--color-border, rgba(17, 24, 39, .1));
+  --pwa-primary: var(--color-primary, #2563eb);
+  --pwa-on-primary: var(--color-on-primary, #ffffff);
+  --pwa-radius: var(--radius-card, var(--radius-lg, 18px));
+  position: fixed;
+  z-index: 2147483000;
+  left: max(20px, env(safe-area-inset-left));
+  bottom: max(20px, env(safe-area-inset-bottom));
+  width: min(420px, calc(100vw - 40px));
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  align-items: start;
+  padding: 16px 44px 16px 16px;
+  background: var(--pwa-surface);
+  color: var(--pwa-text);
+  border: 1px solid var(--pwa-border);
+  border-radius: var(--pwa-radius);
+  box-shadow: 0 24px 60px -18px rgba(15, 23, 42, .35), 0 2px 8px rgba(15, 23, 42, .08);
+  font-family: var(--font-sans, Inter, system-ui, -apple-system, "Segoe UI", sans-serif);
+  font-size: 15px;
+  line-height: 1.45;
+  opacity: 0;
+  transform: translateY(16px) scale(.98);
+  transition: opacity .28s ease, transform .32s cubic-bezier(.2, .8, .2, 1);
+  -webkit-font-smoothing: antialiased;
+}
+.mova-pwa-banner.is-visible { opacity: 1; transform: none; }
+.mova-pwa-icon { width: 48px; height: 48px; border-radius: 12px; display: block; box-shadow: 0 2px 6px rgba(0, 0, 0, .12); }
+.mova-pwa-body { min-width: 0; }
+.mova-pwa-banner .mova-pwa-title { margin: 1px 0 2px; font-weight: 700; font-size: 15.5px; letter-spacing: -.01em; color: var(--pwa-text); }
+.mova-pwa-banner .mova-pwa-msg { margin: 0; color: var(--pwa-muted); font-size: 14px; }
+.mova-pwa-msg strong { color: var(--pwa-text); font-weight: 600; }
+.mova-pwa-ico { display: inline-flex; vertical-align: -3px; color: var(--pwa-primary); }
+.mova-pwa-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.mova-pwa-btn {
+  appearance: none; border: 1px solid transparent; cursor: pointer;
+  font: 600 14px/1 var(--font-sans, inherit); padding: 10px 16px; min-height: 40px;
+  border-radius: var(--radius-button, 999px);
+  transition: background-color .15s ease, border-color .15s ease, filter .15s ease;
+}
+.mova-pwa-btn--primary { background: var(--pwa-primary); color: var(--pwa-on-primary); }
+.mova-pwa-btn--primary:hover { filter: brightness(1.06); }
+.mova-pwa-btn--ghost { background: transparent; color: var(--pwa-text); border-color: var(--pwa-border); }
+.mova-pwa-btn--ghost:hover { background: color-mix(in srgb, var(--pwa-text) 6%, transparent); }
+.mova-pwa-close {
+  position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; display: grid; place-items: center;
+  border: 0; border-radius: 999px; background: transparent; color: var(--pwa-muted); cursor: pointer;
+}
+.mova-pwa-close:hover { background: color-mix(in srgb, var(--pwa-text) 7%, transparent); color: var(--pwa-text); }
+.mova-pwa-btn:focus-visible, .mova-pwa-close:focus-visible { outline: 3px solid color-mix(in srgb, var(--pwa-primary) 55%, transparent); outline-offset: 2px; }
+@media (max-width: 560px) {
+  .mova-pwa-banner {
+    left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom)); width: auto;
+  }
+  .mova-pwa-actions .mova-pwa-btn { flex: 1 1 auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mova-pwa-banner { transition: none; transform: none; }
+}
+@media print { .mova-pwa-banner { display: none !important; } }

@@ -207,8 +207,8 @@ $usage = $usage ?? 0;
   }
 })();
 </script>
-<link rel="stylesheet" href="/assets/css/hq-section-picker.css?v=20261023p5f">
-<script src="/assets/js/hq-section-picker.js?v=20261023p5f"></script>
+<link rel="stylesheet" href="/assets/css/hq-section-picker.css?v=20261023p5x">
+<script src="/assets/js/hq-section-picker.js?v=20261023p5x"></script>
 <script>
 (function () {
   var ta = document.getElementById('asm-html');

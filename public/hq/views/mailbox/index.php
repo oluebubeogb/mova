@@ -245,7 +245,7 @@ if (!empty($_GET['new'])) {
           <?php endif; ?>
           <?php if (!empty($m['label'])): ?> <span class="badge"><?= htmlspecialchars($m['label']) ?></span><?php endif; ?>
         </span>
-        <span class="mailbox-date"><?= htmlspecialchars($m['date'] ?? '') ?></span>
+        <span class="mailbox-date"><?= hqTimeTag($m['date'] ?? null, 'abs', (string) ($m['date'] ?? '')) ?></span>
       </a>
     <?php endforeach; ?>
     <?php if (!$messages): ?><p class="empty">No messages.</p><?php endif; ?>
@@ -311,7 +311,7 @@ if (!empty($_GET['new'])) {
       <div style="font-size:0.85rem;color:var(--hq-muted);margin-bottom:1rem">
         <div>From: <?= htmlspecialchars($message['from']) ?></div>
         <div>To: <?= htmlspecialchars($message['to']) ?></div>
-        <div>Date: <?= htmlspecialchars($message['date']) ?></div>
+        <div>Date: <?= hqTimeTag($message['date'] ?? null, 'both', (string) ($message['date'] ?? '')) ?></div>
       </div>
       <?php if (!empty($message['attachments'])): ?>
         <ul><?php foreach ($message['attachments'] as $att): ?>

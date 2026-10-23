@@ -33,7 +33,7 @@ $router->post('/settings', function (Request $req) {
     }
 
     $keys = [
-        'site_name', 'site_description', 'comments_enabled',
+        'site_name', 'site_description', 'comments_enabled', 'site_timezone',
         'ai_api_key', 'ai_api_url', 'ai_model', 'ai_provider',
         'ai_img_api_key', 'ai_img_api_url', 'ai_img_model', 'ai_img_provider',
         'ai_tool_mode', 'ai_worker_mode',
@@ -68,6 +68,11 @@ $router->post('/settings', function (Request $req) {
             continue;
         }
         $v = trim((string) $req->post($key, ''));
+        if ($key === 'site_timezone') {
+            if (!\Mova\Core\Time::isValidZone($v)) {
+                $v = \Mova\Core\Time::DEFAULT_ZONE;
+            }
+        }
         if ($key === 'ai_tool_mode' && !in_array($v, ['auto', 'native', 'text'], true)) {
             $v = 'auto';
         }

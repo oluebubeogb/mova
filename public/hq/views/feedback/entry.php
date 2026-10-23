@@ -9,7 +9,7 @@ if (!$entry) { echo '<p>Not found</p>'; return; }
 <article style="max-width:40rem;margin-top:1rem;background:var(--hq-surface,#fff);border:1px solid var(--hq-border,#e5e7eb);border-radius:10px;padding:1.25rem;">
   <p class="text-muted" style="margin:0 0 0.5rem;font-size:0.85rem">
     <?= htmlspecialchars($entry['form_title'] ?? '') ?>
-    · <?= htmlspecialchars($entry['created_at'] ?? '') ?>
+    · <?= hqTimeTag($entry['created_at'] ?? null, 'both') ?>
     · <?= htmlspecialchars($entry['status'] ?? '') ?>
   </p>
   <?php if (!empty($entry['page_url'])): ?>

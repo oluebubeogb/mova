@@ -79,7 +79,7 @@ $buildUrl = static function (array $extra = []) use ($queryBase): string {
     <input type="hidden" name="bulk_action" id="bulk_action" value="">
 
     <div class="content-list-card">
-    <table class="content-list-table">
+    <table class="content-list-table<?= $isTrash ? ' is-trash' : '' ?>">
         <thead>
             <tr>
                 <?php if ($canEdit): ?><th class="col-check"><span class="sr-only">Select</span></th><?php endif; ?>
@@ -107,10 +107,11 @@ $buildUrl = static function (array $extra = []) use ($queryBase): string {
                             <span class="content-title-link"><?= htmlspecialchars($item['title']) ?></span>
                         <?php endif; ?>
                         <span class="cl-slug">/<?= htmlspecialchars($item['slug']) ?></span>
+                        <span class="cl-status-m badge badge-<?= htmlspecialchars($item['status']) ?>"><?= htmlspecialchars($item['status']) ?></span>
                     </td>
                     <td class="col-type"><span class="type-pill"><?= htmlspecialchars(ucfirst($item['type'])) ?></span></td>
                     <td class="col-status"><span class="badge badge-<?= htmlspecialchars($item['status']) ?>"><?= htmlspecialchars($item['status']) ?></span></td>
-                    <td class="col-updated"><?= date('M j, Y', strtotime($item['updated_at'])) ?></td>
+                    <td class="col-updated"><?= hqTimeTag($item['updated_at'], 'rel') ?></td>
                     <td class="col-actions">
                         <div class="cl-row-actions">
                         <?php if ($canEdit && !$isTrash): ?>

@@ -18,7 +18,7 @@ $orderedCats += $categories;
 $total = array_sum($categories);
 ?>
 <link rel="stylesheet" href="/assets/css/hq-templates.css?v=p3">
-<link rel="stylesheet" href="/assets/css/hq-section-picker.css?v=20261023p5f">
+<link rel="stylesheet" href="/assets/css/hq-section-picker.css?v=20261023p5x">
 
 <div class="hq-templates hq-lib" id="hq-lib">
   <header class="hq-lib__hero">
@@ -119,7 +119,7 @@ $total = array_sum($categories);
   </div>
 </div>
 
-<script src="/assets/js/hq-section-picker.js?v=20261023p5f"></script>
+<script src="/assets/js/hq-section-picker.js?v=20261023p5x"></script>
 <script>
 (function () {
   var grid = document.getElementById('hq-lib-grid');

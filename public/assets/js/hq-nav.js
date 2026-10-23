@@ -36,6 +36,9 @@
         $all('.hq-layer-panel', root).forEach(function (panel) {
             var on = panel.getAttribute('data-layer-panel') === id;
             panel.hidden = !on;
+            // Server-rendered panels may carry an inline display:none for the initial layer;
+            // clear it so a client-side layer switch never leaves a blank panel.
+            panel.style.display = on ? '' : 'none';
             panel.classList.toggle('is-active', on);
             if (on) found = true;
         });

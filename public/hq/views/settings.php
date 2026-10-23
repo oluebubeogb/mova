@@ -42,6 +42,14 @@
                       <input type="text" name="site_name" value="<?= htmlspecialchars($settings['site_name'] ?? '') ?>"></div>
                     <div class="form-group span-2"><label>Site description</label>
                       <textarea name="site_description" rows="2"><?= htmlspecialchars($settings['site_description'] ?? '') ?></textarea></div>
+                    <div class="form-group"><label for="set-tz">Timezone</label>
+                      <?php $tzCur = \Mova\Core\Time::zoneName(); ?>
+                      <select id="set-tz" name="site_timezone">
+                        <?php foreach (\DateTimeZone::listIdentifiers() as $tzId): ?>
+                          <option value="<?= htmlspecialchars($tzId) ?>"<?= $tzId === $tzCur ? ' selected' : '' ?>><?= htmlspecialchars(str_replace('_', ' ', $tzId)) ?><?= $tzId === 'Africa/Lagos' ? ' (WAT, default)' : '' ?></option>
+                        <?php endforeach; ?>
+                      </select>
+                      <p class="field-hint">Shown as e.g. <?= htmlspecialchars(\Mova\Core\Time::format(time())) ?> (<?= htmlspecialchars(\Mova\Core\Time::abbr()) ?>). Stored in UTC.</p></div>
                     <div class="form-group span-2">
                       <label class="checkbox-label">
                         <input type="checkbox" name="comments_enabled" value="1" <?= ($settings['comments_enabled'] ?? '0') === '1' ? 'checked' : '' ?>>

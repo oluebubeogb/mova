@@ -29,7 +29,7 @@ $statusColor = [
 <div class="panel" style="margin-bottom:1.25rem;">
     <h3 style="margin-top:0;">Overall: <span style="color:<?= $statusColor[$report['overall']] ?? 'inherit' ?>"><?= htmlspecialchars(strtoupper($report['overall'])) ?></span></h3>
     <p style="font-size:0.85rem;color:var(--hq-muted);margin:0;">
-        Mova <?= htmlspecialchars($report['version'] ?? '') ?> · <?= htmlspecialchars($report['time'] ?? '') ?>
+        Mova <?= htmlspecialchars($report['version'] ?? '') ?> · <?= hqTimeTag($report['time'] ?? null, 'both', '') ?>
     </p>
 </div>
 
@@ -57,7 +57,7 @@ $statusColor = [
                     <tbody>
                     <?php foreach ($recentAudit as $row): ?>
                         <tr>
-                            <td><?= htmlspecialchars(date('Y-m-d H:i', strtotime($row['created_at']))) ?></td>
+                            <td><?= hqTimeTag($row['created_at'], 'both') ?></td>
                             <td><code><?= htmlspecialchars($row['action']) ?></code></td>
                             <td><?= htmlspecialchars(($row['entity_type'] ?? '') . ' ' . ($row['entity_id'] ?? '')) ?></td>
                         </tr>
@@ -81,7 +81,7 @@ $statusColor = [
                                     <?= !empty($l['success']) ? 'OK' : 'FAIL' ?>
                                 </span>
                             </div>
-                            <div style="color:var(--hq-muted);"><?= htmlspecialchars(date('Y-m-d H:i', strtotime($l['created_at']))) ?>
+                            <div style="color:var(--hq-muted);"><?= hqTimeTag($l['created_at'], 'both') ?>
                                 · <?= htmlspecialchars($l['ip_address'] ?? '') ?></div>
                         </div>
                     <?php endforeach; ?>

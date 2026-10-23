@@ -219,6 +219,6 @@ if ($initialTag === '') {
 <link rel="stylesheet" href="/assets/vendor/codemirror/theme/material-darker.css?v=5.65.16">
 <script src="/assets/vendor/codemirror/codemirror.js?v=5.65.16"></script>
 <script src="/assets/vendor/codemirror/mode/css/css.js?v=5.65.16"></script>
-<script src="/assets/js/elements-editor.js?v=20261023p5f" defer></script>
+<script src="/assets/js/elements-editor.js?v=20261023p5x" defer></script>
 <script src="/assets/js/hq-layers.js" defer></script>
 <?php include __DIR__ . '/_design_styles.php'; ?>

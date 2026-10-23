@@ -54,6 +54,20 @@ if (!Schema::isInstalled()) {
     }
 }
 
+// PWA endpoints (/manifest.webmanifest, /sw.js, /pwa-offline, /pwa-icon-*) — served by PHP so they
+// work on shared hosting with no build step. /sw.js is always answered (a kill-switch worker
+// when the PWA is disabled) so a previously installed worker unregisters itself cleanly.
+if (\Mova\Site\Pwa::handles($path)) {
+    \Mova\Site\Pwa::serve($path);
+}
+// Signed-in visitors get personalised HTML: tell the PWA service worker never to cache it.
+try {
+    if (Auth::check()) {
+        header('X-Mova-Private: 1');
+    }
+} catch (\Throwable $e) {
+}
+
 $contentRepo = new ContentRepository();
 
 // Publish any due scheduled content (lightweight, on-request)

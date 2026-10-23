@@ -33,4 +33,10 @@
     Header always set Strict-Transport-Security "max-age=15552000; includeSubDomains" env=HTTPS
 </IfModule>
 
+# PWA: /manifest.webmanifest, /sw.js, /pwa-offline and /pwa-icon-* have no file on disk, so the
+# front controller above serves them (with the right Content-Type and no-cache for /sw.js).
+<IfModule mod_mime.c>
+    AddType application/manifest+json .webmanifest
+</IfModule>
+
 DirectoryIndex index.php index.html

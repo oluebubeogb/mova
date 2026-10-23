@@ -46,7 +46,7 @@
                     <tr>
                         <td class="backup-file"><code><?= htmlspecialchars($b['name']) ?></code></td>
                         <td class="backup-size"><?= number_format($b['size'] / 1024, 1) ?> KB</td>
-                        <td class="backup-date"><?= date('M j, Y H:i', $b['mtime']) ?></td>
+                        <td class="backup-date"><?= hqTimeTag((int) $b['mtime'], 'both') ?></td>
                         <td class="backup-actions">
                             <div class="backup-actions-inner">
                                 <a class="btn-ghost btn-sm" href="/hq/backups/download?file=<?= urlencode($b['name']) ?>">Download</a>

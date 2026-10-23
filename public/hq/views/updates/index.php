@@ -5,8 +5,8 @@ $current = htmlspecialchars($check['current'] ?? ($meta['version'] ?? '?'));
 $latest = htmlspecialchars($check['latest'] ?? '');
 $message = htmlspecialchars($check['message'] ?? '');
 $siteName = htmlspecialchars($meta['site']['name'] ?? 'Mova');
-$created = htmlspecialchars(substr((string)($meta['site']['created_at'] ?? ''), 0, 10));
-$updated = htmlspecialchars(substr((string)($meta['site']['updated_at'] ?? ''), 0, 10));
+$created = htmlspecialchars(hqDate($meta['site']['created_at'] ?? null, ''));
+$updated = htmlspecialchars(hqDate($meta['site']['updated_at'] ?? null, ''));
 ?>
 <section class="hq-landing">
   <header class="hq-landing-header">

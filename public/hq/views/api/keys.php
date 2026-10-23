@@ -108,8 +108,8 @@ $base = rtrim((string) \Mova\Core\Bootstrap::config('app_url', ''), '/') . RestA
             <td><code><?= htmlspecialchars($k['key_prefix']) ?>…</code></td>
             <td><?php foreach ($sc as $s): ?><span class="apk-chip"><?= htmlspecialchars((string) $s) ?></span><?php endforeach; ?></td>
             <td><span class="status-chip status-<?= $st === 'active' ? 'published' : 'trash' ?>"><?= htmlspecialchars($st) ?></span></td>
-            <td><?= $k['last_used_at'] ? htmlspecialchars(date('M j, Y H:i', strtotime($k['last_used_at']))) : '—' ?></td>
-            <td><?= !empty($k['expires_at']) ? htmlspecialchars(date('M j, Y', strtotime($k['expires_at']))) : 'Never' ?></td>
+            <td><?= $k['last_used_at'] ? hqTimeTag($k['last_used_at'], 'both') : 'Never' ?></td>
+            <td><?= !empty($k['expires_at']) ? hqTimeTag($k['expires_at'], 'abs') : 'Never' ?></td>
             <td style="white-space:nowrap;text-align:right;">
                 <?php if ($k['status'] === 'active'): ?>
                 <form method="post" action="/hq/api-keys" style="display:inline;" onsubmit="return confirm('Revoke this key? Apps using it stop working immediately.');">
