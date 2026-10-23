@@ -41,6 +41,8 @@ class DesignConfig
             'typography' => [
                 'font_sans' => "'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
                 'font_mono' => "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
+                // Display / heading face. Empty = same as body (font_sans).
+                'font_heading' => '',
                 'scale' => '1', // 0.9 compact, 1 normal, 1.1 large
             ],
             'spacing' => [
@@ -137,9 +139,18 @@ class DesignConfig
         );
     }
 
+    /** @var array<string,mixed> preview-only token overrides (theme gallery / wizard review) */
+    private static array $previewTokens = [];
+
+    public static function setPreviewTokens(array $tokens): void
+    {
+        self::$previewTokens = $tokens;
+    }
+
     public static function tokens(): array
     {
-        return self::get(self::TOKEN_KEY, self::defaultTokens());
+        $t = self::get(self::TOKEN_KEY, self::defaultTokens());
+        return self::$previewTokens ? self::mergeDeep($t, self::$previewTokens) : $t;
     }
 
     public static function layout(): array
@@ -232,6 +243,11 @@ class DesignConfig
         // Non-color design tokens
         $lines[] = '  --font-sans: ' . ($typo['font_sans'] ?? 'system-ui, sans-serif') . ';';
         $lines[] = '  --font-mono: ' . ($typo['font_mono'] ?? 'ui-monospace, monospace') . ';';
+        $fh = trim((string) ($typo['font_heading'] ?? ''));
+        // Empty = let the active theme suggest a display face (--theme-font-heading), else body font.
+        if ($fh !== '') {
+            $lines[] = '  --font-heading: ' . str_replace(['{', '}', ';', '<', '>'], '', $fh) . ';';
+        }
         $lines[] = '  --font-scale: ' . $scale . ';';
         $lines[] = '  --max-width: ' . self::cssVal($container) . ';';
         $lines[] = '  --radius: ' . self::cssVal($radius['md'] ?? '10px') . ';';
@@ -263,6 +279,7 @@ class DesignConfig
         $lines[] = '  --color-border: ' . $L['border'] . ';';
         $lines[] = '  --color-quote-border: ' . $L['primary'] . ';';
         $lines[] = '  --color-on-primary: ' . self::contrastOn($L['primary']) . ';';
+        $lines[] = '  --color-on-accent: ' . self::contrastOn($L['primary']) . ';';
         $lines[] = '}';
 
         $lines[] = 'html[data-theme="dark"] {';
@@ -279,6 +296,7 @@ class DesignConfig
         $lines[] = '  --color-border: ' . $D['border'] . ';';
         $lines[] = '  --color-quote-border: ' . $D['primary'] . ';';
         $lines[] = '  --color-on-primary: ' . self::contrastOn($D['primary']) . ';';
+        $lines[] = '  --color-on-accent: ' . self::contrastOn($D['primary']) . ';';
         $lines[] = '}';
 
         // User-defined custom colors (Style → custom swatches)
@@ -396,6 +414,10 @@ class DesignConfig
 
     public static function setting(string $key, $default = null)
     {
+        $ov = class_exists(SiteFrame::class, false) ? SiteFrame::overrides() : [];
+        if (array_key_exists($key, $ov)) {
+            return $ov[$key];
+        }
         if (!array_key_exists($key, self::$settingCache)) {
             try {
                 $row = Database::fetch("SELECT setting_value FROM settings WHERE setting_key = :k", ['k' => $key]);

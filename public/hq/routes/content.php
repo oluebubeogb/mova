@@ -21,7 +21,17 @@ $router->get('/content', function (Request $req) {
     $repo = new ContentRepository();
     $status = $req->query('status', '');
     $type = $req->query('type', '');
-    $filters = array_filter(['status' => $status, 'type' => $type]);
+    $q = trim((string) $req->query('q', ''));
+    if (mb_strlen($q) > 120) {
+        $q = mb_substr($q, 0, 120);
+    }
+    $filters = array_filter(['status' => $status, 'type' => $type, 'search' => $q]);
+    // Read-only roles only list what is public.
+    if (!Auth::canMutate()) {
+        $filters['status'] = 'published';
+        $status = 'published';
+    }
+    $canEdit = Auth::canMutate();
 
     $allowedPerPage = [10, 25, 50, 100];
     $perPage = (int) $req->query('per_page', Bootstrap::config('content.per_page', 25));
@@ -41,7 +51,7 @@ $router->get('/content', function (Request $req) {
     $types = $typeSvc->typesMap() ?: Bootstrap::config('content.types', []);
     $statuses = Bootstrap::config('content.statuses', []);
     return renderHq('content/list', compact(
-        'items', 'types', 'statuses', 'status', 'type',
+        'items', 'types', 'statuses', 'status', 'type', 'q', 'canEdit',
         'page', 'perPage', 'total', 'totalPages', 'allowedPerPage'
     ));
 });
@@ -49,6 +59,9 @@ $router->get('/content', function (Request $req) {
 // New content
 $router->get('/content/new', function () {
     requireAuth();
+    if ($deny = requireContentAccess(null)) {
+        return $deny;
+    }
     $typeSvc = new ContentTypeService();
     $types = $typeSvc->typesMap() ?: Bootstrap::config('content.types', []);
     $tax = new TaxonomyService();
@@ -89,6 +102,7 @@ $router->get('/content/new', function () {
 
 $router->post('/content/new', function (Request $req) {
     requireAuth();
+    if ($__deny = requireContentAccess(null)) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->status(403)->body('CSRF');
     }
@@ -182,6 +196,9 @@ $router->post('/content/new', function (Request $req) {
 // Edit content
 $router->get('/content/edit/{id}', function (Request $req, array $params) {
     requireAuth();
+    if ($deny = requireContentAccess((int) $params['id'])) {
+        return $deny;
+    }
     $repo = new ContentRepository();
     $content = $repo->find((int) $params['id']);
     if (!$content) {
@@ -219,6 +236,7 @@ $router->get('/content/edit/{id}', function (Request $req, array $params) {
 
 $router->post('/content/edit/{id}', function (Request $req, array $params) {
     requireAuth();
+    if ($__deny = requireContentAccess((int) ($params['id'] ?? 0))) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->status(403)->body('CSRF');
     }
@@ -328,6 +346,7 @@ $router->post('/content/edit/{id}', function (Request $req, array $params) {
 // Delete / trash
 $router->post('/content/trash/{id}', function (Request $req, array $params) {
     requireAuth();
+    if ($__deny = requireContentAccess((int) ($params['id'] ?? 0))) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->status(403)->body('CSRF');
     }
@@ -348,6 +367,7 @@ $router->post('/content/trash/{id}', function (Request $req, array $params) {
 // Permanent delete (from trash)
 $router->post('/content/delete/{id}', function (Request $req, array $params) {
     requireAuth();
+    if ($__deny = requirePerm('manage_content')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->status(403)->body('CSRF');
     }
@@ -364,6 +384,7 @@ $router->post('/content/delete/{id}', function (Request $req, array $params) {
 // Restore from trash
 $router->post('/content/restore/{id}', function (Request $req, array $params) {
     requireAuth();
+    if ($__deny = requireContentAccess((int) ($params['id'] ?? 0))) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->status(403)->body('CSRF');
     }
@@ -376,6 +397,7 @@ $router->post('/content/restore/{id}', function (Request $req, array $params) {
 // Bulk actions
 $router->post('/content/bulk', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('manage_content')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->status(403)->body('CSRF');
     }
@@ -428,6 +450,9 @@ $router->post('/content/bulk', function (Request $req) {
 // Upload Contents (Dev Editor bulk import) — only when plugin is active
 $router->get('/content/upload', function () {
     requireAuth();
+    if ($deny = requirePerm('manage_content')) {
+        return $deny;
+    }
     if (!isPluginActive('mova-dev-editor')) {
         return (new Response())->redirect('/hq/content-hub');
     }
@@ -445,6 +470,7 @@ $router->get('/content/upload', function () {
 
 $router->post('/content/upload', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('manage_content')) { return $__deny; }
     if (!isPluginActive('mova-dev-editor')) {
         return (new Response())->status(403)->body('Dev Editor plugin is not active');
     }
@@ -546,6 +572,9 @@ $router->post('/content/upload', function (Request $req) {
 // ── Find & Replace ──────────────────────────────────────────────
 $router->get('/content/find-replace', function (Request $req) {
     requireAuth();
+    if ($deny = requirePerm('manage_content')) {
+        return $deny;
+    }
     $svc = new \Mova\Content\FindReplaceService();
     $page = max(1, (int) $req->query('log_page', 1));
     $perPage = 20;
@@ -571,6 +600,7 @@ $router->get('/content/find-replace', function (Request $req) {
 
 $router->post('/content/find-replace/preview', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('manage_content')) { return $__deny; }
     if (!Csrf::validate($req->input('_csrf'))) {
         return (new Response())->json(['error' => 'Invalid CSRF token'], 403);
     }
@@ -603,6 +633,7 @@ $router->post('/content/find-replace/preview', function (Request $req) {
 
 $router->post('/content/find-replace/apply', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('manage_content')) { return $__deny; }
     if (!Csrf::validate($req->input('_csrf'))) {
         return (new Response())->json(['error' => 'Invalid CSRF token'], 403);
     }
@@ -636,6 +667,7 @@ $router->post('/content/find-replace/apply', function (Request $req) {
 
 $router->post('/content/find-replace/revert', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('manage_content')) { return $__deny; }
     if (!Csrf::validate($req->input('_csrf'))) {
         return (new Response())->json(['error' => 'Invalid CSRF token'], 403);
     }
@@ -653,6 +685,9 @@ $router->post('/content/find-replace/revert', function (Request $req) {
 
 $router->get('/content/find-replace/search-content', function (Request $req) {
     requireAuth();
+    if ($deny = requirePerm('manage_content')) {
+        return $deny;
+    }
     $q = trim((string) $req->query('q', ''));
     $repo = new ContentRepository();
     if ($q === '') {

@@ -22,6 +22,7 @@ $router->get('/mail', function () {
 
 $router->post('/mail/subscriber', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('manage_mail')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->status(403)->body('CSRF');
     }
@@ -38,6 +39,7 @@ $router->post('/mail/subscriber', function (Request $req) {
 
 $router->post('/mail/subscriber/delete', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('manage_mail')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->status(403)->body('CSRF');
     }
@@ -48,6 +50,7 @@ $router->post('/mail/subscriber/delete', function (Request $req) {
 
 $router->post('/mail/send', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('manage_mail')) { return $__deny; }
     if (!Auth::can('manage_mail') && !Auth::hasRole('owner', 'administrator')) {
         return (new Response())->status(403)->body('Forbidden');
     }

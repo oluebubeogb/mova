@@ -87,7 +87,7 @@ body.hq-vnext .hq-sidebar-backdrop {
 .hq-logo-mark {
     width: 28px;
     height: 28px;
-    background: var(--hq-accent);
+    background: var(--hq-accent-fill);
     color: #fff;
     border-radius: 8px;
     display: flex;
@@ -218,7 +218,7 @@ body.hq-vnext .hq-sidebar-backdrop {
 .hq-avatar {
     width: 28px;
     height: 28px;
-    background: var(--hq-accent);
+    background: var(--hq-accent-fill);
     color: #fff;
     border-radius: 50%;
     display: flex;
@@ -440,12 +440,12 @@ body.hq-vnext .media-card {
 }
 
 body.hq-vnext .btn-primary {
-    background: var(--hq-accent);
+    background: var(--hq-accent-fill);
     border-color: var(--hq-accent);
 }
 
 body.hq-vnext .btn-primary:hover {
-    background: var(--hq-accent-hover);
+    background: color-mix(in srgb, var(--hq-accent-fill, #5b5ce2) 86%, #000);
     border-color: var(--hq-accent-hover);
 }
 

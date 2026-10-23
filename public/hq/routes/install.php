@@ -99,18 +99,25 @@ $router->post('/install', function (Request $req) {
             'site_name'        => 'Mova',
             'site_description' => 'Content that moves.',
             'comments_enabled' => '0',
-            // Mova AI — self-hosted defaults (override in HQ → Settings → Mova AI)
-            'ai_api_url'       => 'https://movaai.collab.name.ng/v1',
-            'ai_api_key'       => 'mova-ai-key',
-            'ai_model'         => 'qwen2.5:7b',
-            'ai_provider'      => 'Mova AI',
+            // Mova AI: nothing seeded — AiConfig falls back to the Mova AI gateway
+            // (mova-ai / mova-img). Override in HQ → Settings → Mova AI.
+            'active_theme'     => (string) (\Mova\Core\Bootstrap::config('default_theme', 'presence') ?: 'presence'),
+            // Stable identifier sent to the AI gateway (X-Mova-Site) for per-site usage
+            'site_uuid'        => \Mova\AI\AiConfig::siteId(),
         ];
         foreach ($defaults as $k => $v) {
-            Database::insert('settings', [
-                'setting_key'   => $k,
-                'setting_value' => $v,
-                'updated_at'    => date('c'),
-            ]);
+            Database::query(
+                "INSERT OR IGNORE INTO settings (setting_key, setting_value, updated_at) VALUES (:k, :v, :t)",
+                ['k' => $k, 'v' => $v, 't' => date('c')]
+            );
+        }
+        // Make sure the primary site uses the default theme on a fresh install
+        try {
+            $activeTheme = (string) (Database::fetch("SELECT setting_value FROM settings WHERE setting_key = 'active_theme'")['setting_value'] ?? '');
+            if ($activeTheme !== '' && is_dir(\Mova\Core\Bootstrap::path('themes') . '/' . $activeTheme)) {
+                Database::query("UPDATE sites SET theme = :t WHERE is_primary = 1", ['t' => $activeTheme]);
+            }
+        } catch (\Throwable $e) {
         }
     }
 

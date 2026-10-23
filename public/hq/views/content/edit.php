@@ -13,7 +13,7 @@ if (!empty($content['published_at'])) {
 ?>
 
 <?php if (!empty($_GET['saved'])): ?>
-    <div class="alert alert-success">Content saved.</div>
+    <div class="alert alert-success" role="status">Content saved.</div>
 <?php endif; ?>
 <?php if (!empty($_GET['dev_error'])): ?>
     <div class="alert alert-error" style="background:#fef2f2;color:#991b1b;border:1px solid #fecaca;padding:0.75rem 1rem;border-radius:8px;margin-bottom:1rem;">
@@ -25,10 +25,36 @@ if (!empty($content['published_at'])) {
 <form method="post" action="<?= $action ?>" class="content-form" id="content-form" novalidate>
     <?= Csrf::field() ?>
 
+    <?php
+    $sbStatus = (string) ($content['status'] ?? 'draft');
+    $sbLabels = ['draft' => 'Draft', 'review' => 'In review', 'approved' => 'Approved', 'published' => 'Published', 'scheduled' => 'Scheduled', 'archived' => 'Archived'];
+    $sbLive = !$isNew && $sbStatus === 'published';
+    ?>
+    <div class="editor-savebar" id="editor-savebar" role="region" aria-label="Save and publish">
+        <div class="editor-savebar-left">
+            <a href="/hq/content" class="hq-icon-btn editor-savebar-back" data-tip="Back to all content" aria-label="Back to all content"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></a>
+            <h1 class="editor-savebar-title"><?= $isNew ? 'New content' : 'Edit content' ?></h1>
+            <span class="status-chip status-<?= htmlspecialchars($sbStatus) ?>" id="savebar-status"><?= htmlspecialchars($sbLabels[$sbStatus] ?? ucfirst($sbStatus)) ?></span>
+            <span class="editor-dirty" id="savebar-dirty" hidden><i class="fa-solid fa-circle" aria-hidden="true"></i> Unsaved changes</span>
+            <?php if (!empty($_GET['saved'])): ?><span class="editor-saved" id="savebar-saved"><i class="fa-solid fa-check" aria-hidden="true"></i> Saved</span><?php endif; ?>
+        </div>
+        <div class="editor-savebar-right">
+            <button type="button" class="btn btn-ghost btn-sm" data-editor-tool="ai-assist" data-tip="AI assist: titles, excerpt, SEO"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i><span class="hq-hide-sm">AI</span></button>
+            <button type="button" class="btn btn-ghost btn-sm" data-editor-tool="publish" data-tip="Status, slug, type, schedule, layout"><i class="fa-solid fa-sliders" aria-hidden="true"></i><span class="hq-hide-sm">Settings</span></button>
+            <?php if ($sbLive): ?>
+                <a class="btn btn-ghost btn-sm" href="/<?= htmlspecialchars($content['slug']) ?>" target="_blank" rel="noopener" data-tip="Open the live page"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i><span class="hq-hide-sm">View</span></a>
+                <button type="submit" class="btn btn-primary btn-sm" id="savebar-save" data-tip="Update the live page (Ctrl+S)"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Update</button>
+            <?php else: ?>
+                <button type="submit" class="btn btn-secondary btn-sm" id="savebar-save" data-tip="Save without publishing (Ctrl+S)"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> <span>Save draft</span></button>
+                <button type="button" class="btn btn-primary btn-sm" id="savebar-publish" data-tip="Publish now (Ctrl+Shift+P)"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Publish</button>
+            <?php endif; ?>
+        </div>
+    </div>
+
     <div class="form-layout sidebar-closed" id="content-form-layout">
         <div class="form-main">
             <div class="form-group">
-                <input type="text" name="title" class="input-title" placeholder="Title" required
+                <input type="text" name="title" class="input-title" placeholder="Title" aria-label="Title" required
                        value="<?= htmlspecialchars($content['title'] ?? '') ?>" autofocus>
             </div>
             <div class="form-group">
@@ -117,6 +143,7 @@ if (!empty($content['published_at'])) {
                             <button type="button" id="btn-pre" title="Code block"><i class="fa-solid fa-code"></i></button>
                             <button type="button" id="btn-embed" title="Embed (iframe / HTML)"><i class="fa-solid fa-window-maximize"></i></button>
                             <button type="button" id="btn-assembly" title="Insert Assembly"><i class="fa-solid fa-cubes"></i></button>
+                            <button type="button" id="btn-section" class="btn-section-lib" title="Insert a designed section (hero, pricing, FAQ…)"><i class="fa-solid fa-layer-group"></i> Sections</button>
                         </div>
 
                         <div class="toolbar-panel" data-panel="media">
@@ -185,26 +212,6 @@ if (!empty($content['published_at'])) {
             })();
             </script>
 
-            <div class="panel" id="ai-assist-panel" style="margin-top:1rem;">
-                <h3 style="margin-top:0;display:flex;align-items:center;justify-content:space-between;gap:0.5rem;">
-                    <span><i class="fa-solid fa-wand-magic-sparkles"></i> AI assist</span>
-                    <button type="button" class="btn-ghost" id="btn-analyze" style="font-size:0.8rem;">Run SEO analysis</button>
-                </h3>
-                <p style="font-size:0.8rem;color:var(--hq-muted);margin:0 0 0.75rem;">Suggestions only — nothing is published automatically.</p>
-                <div class="ai-actions" style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.75rem;">
-                    <button type="button" class="btn-ghost ai-btn" data-ai="title">Titles</button>
-                    <button type="button" class="btn-ghost ai-btn" data-ai="excerpt">Excerpt</button>
-                    <button type="button" class="btn-ghost ai-btn" data-ai="meta">Meta desc</button>
-                    <button type="button" class="btn-ghost ai-btn" data-ai="outline">Outline</button>
-                    <button type="button" class="btn-ghost ai-btn" data-ai="keywords">Keywords</button>
-                    <button type="button" class="btn-ghost ai-btn" data-ai="faq">FAQ</button>
-                    <button type="button" class="btn-ghost ai-btn" data-ai="summarize">Summarize</button>
-                    <button type="button" class="btn-ghost ai-btn" data-ai="improve">Improve</button>
-                    <button type="button" class="btn-ghost" id="btn-link-suggest">Internal links</button>
-                </div>
-                <div id="ai-output" style="display:none;background:var(--hq-input-bg);border:1px solid var(--hq-border);border-radius:8px;padding:0.85rem;font-size:0.875rem;white-space:pre-wrap;max-height:240px;overflow:auto;"></div>
-                <div id="analysis-output" style="margin-top:0.75rem;"></div>
-            </div>
         </div>
 
         <aside class="form-sidebar" id="content-form-sidebar" hidden>
@@ -255,7 +262,7 @@ if (!empty($content['published_at'])) {
                     <label>Type</label>
                     <select name="type">
                         <?php
-                        $currentType = $content['type'] ?? 'article';
+                        $currentType = $content['type'] ?? (string) ($_GET['type'] ?? 'article');
                         foreach ($types as $k => $label):
                         ?>
                             <option value="<?= $k ?>" <?= $currentType === $k ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
@@ -334,6 +341,32 @@ if (!empty($content['published_at'])) {
                     <button type="submit" form="trash-form" class="btn-danger btn-block" style="margin-top:0.5rem;" onclick="return confirm('Move to trash?');">Trash</button>
                 <?php endif; ?>
             </div>
+            </div>
+
+            <div class="panel collapsible" data-panel="ai-assist" id="ai-assist-panel">
+                <button type="button" class="panel-head" aria-expanded="false">
+                    <h3><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> AI assist</h3>
+                    <i class="fa-solid fa-chevron-down panel-chevron" aria-hidden="true"></i>
+                </button>
+                <div class="panel-body">
+                <div class="ai-assist-head">
+                    <span class="ai-assist-note" data-tip="AI only suggests. Nothing is saved or published until you click Save."><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Suggestions only</span>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-analyze">Run SEO analysis</button>
+                </div>
+                <div class="ai-actions">
+                    <button type="button" class="btn btn-ghost btn-sm ai-btn" data-ai="title">Titles</button>
+                    <button type="button" class="btn btn-ghost btn-sm ai-btn" data-ai="excerpt">Excerpt</button>
+                    <button type="button" class="btn btn-ghost btn-sm ai-btn" data-ai="meta">Meta desc</button>
+                    <button type="button" class="btn btn-ghost btn-sm ai-btn" data-ai="outline">Outline</button>
+                    <button type="button" class="btn btn-ghost btn-sm ai-btn" data-ai="keywords">Keywords</button>
+                    <button type="button" class="btn btn-ghost btn-sm ai-btn" data-ai="faq">FAQ</button>
+                    <button type="button" class="btn btn-ghost btn-sm ai-btn" data-ai="summarize">Summarize</button>
+                    <button type="button" class="btn btn-ghost btn-sm ai-btn" data-ai="improve">Improve</button>
+                    <button type="button" class="btn btn-ghost btn-sm" id="btn-link-suggest">Internal links</button>
+                </div>
+                <div id="ai-output" class="ai-output" style="display:none;"></div>
+                <div id="analysis-output" style="margin-top:0.75rem;"></div>
+                </div>
             </div>
 
             <div class="panel collapsible" data-panel="categories">
@@ -522,7 +555,8 @@ if (!empty($content['published_at'])) {
     'related-content': 'Related content',
     'seo': 'SEO',
     'custom-fields': 'Custom fields',
-    'revisions': 'Revisions'
+    'revisions': 'Revisions',
+    'ai-assist': 'AI assist'
   };
 
   function closeSidebar() {
@@ -542,16 +576,6 @@ if (!empty($content['published_at'])) {
   }
 
   function openSidebarTool(name) {
-    if (name === 'ai-assist') {
-      closeSidebar();
-      var ai = document.getElementById('ai-assist-panel');
-      if (ai) {
-        ai.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        document.body.dataset.activeTool = 'ai-assist';
-      }
-      return;
-    }
-
     if (!layout || !sidebar) return;
 
     layout.classList.remove('sidebar-closed');
@@ -622,11 +646,65 @@ if (!empty($content['published_at'])) {
     openSidebarTool(action);
   });
 
+  var form = document.getElementById('content-form');
+  var statusSel = document.getElementById('status-select');
+
+  function submitForm() {
+    if (!form) return;
+    dirty = false;
+    if (typeof form.requestSubmit === 'function') form.requestSubmit();
+    else form.submit();
+  }
+  function publishNow() {
+    if (statusSel) {
+      statusSel.value = 'published';
+      statusSel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    submitForm();
+  }
+
+  /* Sticky save bar (Phase 5): Save/Update always visible, Publish one click away. */
+  var dirty = false;
+  var dirtyEl = document.getElementById('savebar-dirty');
+  var savedEl = document.getElementById('savebar-saved');
+  var dirtyArmed = false;
+  // Editors/widgets fire synthetic input/change events while booting — only
+  // real user edits after load count as "unsaved".
+  window.addEventListener('load', function () { setTimeout(function () { dirtyArmed = true; }, 800); });
+  function markDirty(e) {
+    if (dirty || !dirtyArmed) return;
+    if (e && e.isTrusted === false) return;
+    dirty = true;
+    if (dirtyEl) dirtyEl.hidden = false;
+    if (savedEl) savedEl.hidden = true;
+  }
+  if (form) {
+    form.addEventListener('input', markDirty);
+    form.addEventListener('change', markDirty);
+    form.addEventListener('submit', function () { dirty = false; });
+  }
+  var ed = document.getElementById('editor');
+  if (ed) ed.addEventListener('input', markDirty);
+  window.addEventListener('beforeunload', function (e) {
+    if (!dirty) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
+  var pubBtn = document.getElementById('savebar-publish');
+  if (pubBtn) pubBtn.addEventListener('click', publishNow);
+  document.querySelectorAll('[data-editor-tool]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var t = b.getAttribute('data-editor-tool');
+      if (document.body.dataset.activeTool === t) closeSidebar(); else openSidebarTool(t);
+    });
+  });
+  window.MovaEditor = { openTool: openSidebarTool, closeTool: closeSidebar, save: submitForm, publish: publishNow };
+
   /**
    * Shortcuts:
-   * - Ctrl/Cmd+S → always save (submit form)
-   * - Ctrl/Cmd+P → if not published: open Publish sidebar + set status Published
-   *   so the user can edit sidebar fields then click Save. If already live: save.
+   * - Ctrl/Cmd+S → save (submit form)
+   * - Ctrl/Cmd+Shift+P → publish now. Ctrl/Cmd+P (no shift) keeps its old behaviour:
+   *   open the Publish settings with status set to Published, so fields can be reviewed first.
    */
   document.addEventListener('keydown', function (e) {
     if (!(e.ctrlKey || e.metaKey)) return;
@@ -635,14 +713,9 @@ if (!empty($content['published_at'])) {
     e.preventDefault();
     e.stopPropagation();
 
-    var form = document.querySelector('form[method="post"][action*="content"]')
-      || document.querySelector('#content-form-layout') && document.querySelector('#content-form-layout').closest('form')
-      || document.querySelector('form[method="post"]');
+    var isLive = (statusSel ? statusSel.value : 'draft') === 'published';
 
-    var statusSel = document.getElementById('status-select');
-    var currentStatus = statusSel ? statusSel.value : 'draft';
-    var isLive = currentStatus === 'published';
-
+    if (key === 'p' && e.shiftKey) { publishNow(); return; }
     if (key === 'p' && !isLive) {
       openSidebarTool('publish');
       if (statusSel) {
@@ -655,11 +728,7 @@ if (!empty($content['published_at'])) {
       }
       return;
     }
-
-    if (form) {
-      if (typeof form.requestSubmit === 'function') form.requestSubmit();
-      else form.submit();
-    }
+    submitForm();
   }, true);
 })();
 </script>
@@ -1813,6 +1882,76 @@ if (!empty($content['published_at'])) {
     q.addEventListener('input', function () {
       clearTimeout(t);
       t = setTimeout(function () { load(q.value); }, 200);
+    });
+  }
+})();
+</script>
+
+<link rel="stylesheet" href="/assets/css/sections.css?v=p3">
+<link rel="stylesheet" href="/assets/css/hq-section-picker.css?v=20261023p5f">
+<style>
+<?= class_exists(\Mova\Theme\TemplateService::class) ? \Mova\Theme\TemplateService::scopedTokensCss('#editor') : '' ?>
+#editor .mx-page { outline: 1px dashed color-mix(in srgb, var(--hq-accent, #2563eb) 35%, transparent); outline-offset: 4px; }
+.btn-section-lib { width: auto !important; padding: 0 .65rem !important; gap: .35rem; display: inline-flex; align-items: center; font-weight: 600; font-size: .8rem; }
+.mx-insert-toast { position: fixed; left: 50%; bottom: 1.5rem; transform: translateX(-50%); z-index: 10070; background: #0f172a; color: #fff; padding: .7rem 1.1rem; border-radius: 12px; font-size: .88rem; box-shadow: 0 18px 40px -16px rgb(0 0 0 / .5); }
+</style>
+<script src="/assets/js/hq-section-picker.js?v=20261023p5f"></script>
+<script>
+(function () {
+  var editor = document.getElementById('editor');
+  var bodyInput = document.getElementById('body-input');
+  if (!editor || !window.MovaSectionPicker) return;
+
+  function toast(msg) {
+    var t = document.createElement('div');
+    t.className = 'mx-insert-toast'; t.setAttribute('role', 'status'); t.textContent = msg;
+    document.body.appendChild(t); setTimeout(function () { t.remove(); }, 3200);
+  }
+  // Remember where the caret was before the picker steals focus.
+  var anchorBlock = null;
+  function topBlock() {
+    var sel = window.getSelection();
+    if (!sel || !sel.rangeCount || !editor.contains(sel.anchorNode)) return null;
+    var n = sel.anchorNode;
+    while (n && n.parentNode !== editor) n = n.parentNode;
+    return n && n.nodeType === 1 ? n : (n || null);
+  }
+  function insertSection(html) {
+    var wrap = document.createElement('div');
+    wrap.innerHTML = html.trim();
+    // Each section lives in its own .mx-page wrapper so it breaks out to full width on the site.
+    var node = wrap.firstElementChild && wrap.firstElementChild.classList.contains('mx-page') && wrap.children.length === 1
+      ? wrap.firstElementChild : (function () { var d = document.createElement('div'); d.className = 'mx-page'; while (wrap.firstChild) d.appendChild(wrap.firstChild); return d; })();
+    if (anchorBlock && anchorBlock.parentNode === editor) editor.insertBefore(node, anchorBlock.nextSibling);
+    else editor.appendChild(node);
+    // keep a writable paragraph after the section
+    if (!node.nextSibling) { var p = document.createElement('p'); p.innerHTML = '<br>'; editor.appendChild(p); }
+    if (bodyInput) bodyInput.value = editor.innerHTML;
+    try { editor.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+    node.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+  }
+  var btn = document.getElementById('btn-section');
+  if (btn) {
+    btn.addEventListener('mousedown', function () { anchorBlock = topBlock(); });
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      if (!anchorBlock) anchorBlock = topBlock();
+      MovaSectionPicker.open({
+        title: 'Insert a section',
+        onInsert: function (html, it) { insertSection(html); toast('“' + it.name + '” added — edit the text right on the page, then save.'); }
+      });
+    });
+  }
+  // Arrived from the Section library gallery: /hq/content/edit/ID?insert_section=hero-split
+  var want = new URLSearchParams(location.search).get('insert_section');
+  if (want && /^[a-z0-9-]+$/.test(want)) {
+    MovaSectionPicker.load(false).then(function (d) {
+      var it = (d.items || []).filter(function (x) { return x.id === want; })[0];
+      if (!it) return;
+      anchorBlock = null;
+      insertSection(it.html);
+      toast('“' + it.name + '” added at the end of the page — remember to save.');
+      try { var u = new URL(location.href); u.searchParams.delete('insert_section'); history.replaceState(null, '', u.toString()); } catch (e) {}
     });
   }
 })();

@@ -234,6 +234,15 @@ class AiChatService
         $finalActions = [];
         foreach ($actions as $action) {
             $type = (string) ($action['type'] ?? '');
+            if ($type === 'update_content' && $executor->needsConfirm($action)) {
+                // Replacing a body / editing a published page: ask first.
+                $action['confirm'] = true;
+                $action['preview'] = $executor->preview($action);
+                $action['label'] = 'Review & apply: ' . ($action['preview']['title'] ?? 'content change');
+                $finalActions[] = $action;
+                $reply .= ($reply !== '' ? "\n\n" : '') . 'I prepared the change but did **not** apply it yet — review and confirm below.';
+                continue;
+            }
             if ($type === 'create_content' || $type === 'update_content') {
                 $exec = $executor->execute($action, $userId);
                 if (!empty($exec['ok']) && !empty($exec['result']['path'])) {
@@ -266,10 +275,11 @@ class AiChatService
                 }
                 continue;
             }
-            if ($type === 'update_design_tokens') {
-                // Require explicit Apply in the UI
+            if ($type === 'update_design_tokens' || $type === 'switch_theme') {
+                // Design / theme changes are never auto-run: the UI shows a confirm dialog with a preview.
                 $action['confirm'] = true;
-                $action['label'] = $action['label'] ?? 'Apply color changes';
+                $action['preview'] = $executor->preview($action);
+                $action['label'] = $action['label'] ?? ($type === 'switch_theme' ? 'Switch theme' : 'Apply color changes');
                 $finalActions[] = $action;
                 continue;
             }
@@ -547,7 +557,7 @@ class AiChatService
             . "{$paletteHelp} {$contentHelp} {$qualityHelp} {$modesHelp} {$codingHelp} "
             . "When the user should open a screen, include navigate actions.\n\n"
             . $templateHelp
-            . HqMap::asPromptBlock(35) . "\n\n"
+            . HqMap::asPromptBlock(60) . "\n\n"
             . "Current page: route={$route} area={$area} layer={$layer} entityId={$entityId}"
             . ($templateId ? " templateId={$templateId}" : '') . "\n"
             . "Top map matches for this message:\n" . ($matchLines ? implode("\n", $matchLines) : "(none)") . "\n\n"
@@ -557,6 +567,7 @@ class AiChatService
             . '{"type":"create_content","label":"Create draft","payload":{"title":"…","type":"page","body":"<article>…</article>","excerpt":"…","meta":{"seo_title":"…","meta_description":"…"}}}, '
             . '{"type":"update_content","label":"Update draft","payload":{"id":' . max($entityId, 0) . ',"mode":"append|replace","body":"…","excerpt":"…","meta":{"seo_title":"…","meta_description":"…"}}}, '
             . '{"type":"update_design_tokens","label":"Apply colors","payload":{"colors":{"primary":"#2563eb","accent":"#7c3aed"}}}, '
+            . '{"type":"switch_theme","label":"Switch theme","payload":{"theme":"theme-slug"}}, '
             . '{"type":"insert_code","label":"Insert into body","payload":{"target":"body","mode":"append","language":"html","code":"…"}} '
             . "]}\n"
             . "Use 0–4 actions. navigate paths must start with /hq. Only use palette keys listed above. "
@@ -600,6 +611,13 @@ class AiChatService
             } else {
                 $maxTokens = ($longRunning || $isCoding) ? 5000 : 2400;
                 $timeout = ($longRunning || $isCoding) ? 300 : 90;
+            }
+            // Native tool calling when the gateway forwards OpenAI tools (short, non-coding turns).
+            if (!$longRunning && !$isCoding && !$templateId && AiCapabilities::useNativeTools()) {
+                $native = $this->callWithTools($messages, $entityId);
+                if ($native !== null) {
+                    return $native;
+                }
             }
             // Long / coding jobs: async submit+poll so proxy timeouts cannot kill a 1–5 min RunPod delay.
             if ($longRunning || $isCoding) {
@@ -645,6 +663,99 @@ class AiChatService
             $fallback['error'] = $e->getMessage();
             return $fallback;
         }
+    }
+
+    /**
+     * OpenAI tool specs mirroring the JSON text-protocol action types.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public static function toolSpecs(int $entityId = 0): array
+    {
+        $fn = static fn (string $name, string $desc, array $props, array $req) => [
+            'type' => 'function',
+            'function' => ['name' => $name, 'description' => $desc, 'parameters' => ['type' => 'object', 'properties' => $props, 'required' => $req]],
+        ];
+        $hex = ['type' => 'string', 'description' => 'Hex colour like #2563eb'];
+        $colors = [];
+        foreach (['primary', 'secondary', 'accent', 'background', 'surface', 'text', 'muted', 'border'] as $k) {
+            $colors[$k] = $hex;
+        }
+        $meta = ['type' => 'object', 'properties' => ['seo_title' => ['type' => 'string'], 'meta_description' => ['type' => 'string']]];
+        $themes = [];
+        try {
+            $themes = array_column((new \Mova\Theme\ThemeManager())->all(), 'slug');
+        } catch (\Throwable $e) {
+        }
+        return [
+            $fn('navigate', 'Suggest an HQ screen to open. Path must start with /hq and come from the HQ map.', ['label' => ['type' => 'string'], 'path' => ['type' => 'string']], ['path']),
+            $fn('create_content', 'Create a NEW draft page or post (never published). Body must be complete semantic HTML.', [
+                'title' => ['type' => 'string'], 'type' => ['type' => 'string', 'enum' => ['page', 'post']],
+                'body' => ['type' => 'string'], 'excerpt' => ['type' => 'string'], 'meta' => $meta,
+            ], ['title', 'body']),
+            $fn('update_content', 'Append to or replace the body of the content the user is editing' . ($entityId > 0 ? " (id {$entityId})" : '') . '. Replacing needs user confirmation.', [
+                'id' => ['type' => 'integer'], 'mode' => ['type' => 'string', 'enum' => ['append', 'replace']],
+                'title' => ['type' => 'string'], 'body' => ['type' => 'string'], 'excerpt' => ['type' => 'string'], 'meta' => $meta,
+            ], ['id', 'body']),
+            $fn('update_design_tokens', 'Propose new site colours. The user must confirm before anything changes.', [
+                'colors' => ['type' => 'object', 'properties' => $colors], 'colors_dark' => ['type' => 'object', 'properties' => $colors],
+            ], ['colors']),
+            $fn('switch_theme', 'Propose switching the active site theme. The user must confirm.', ['theme' => ['type' => 'string', 'enum' => $themes ?: ['default']]], ['theme']),
+        ];
+    }
+
+    /**
+     * One native tool-calling round. Returns null to fall back to the JSON text protocol.
+     *
+     * @param list<array<string,mixed>> $messages
+     * @return array{reply:string,actions:list<array>,provider:string}|null
+     */
+    private function callWithTools(array $messages, int $entityId): ?array
+    {
+        $sys = (string) ($messages[0]['content'] ?? '');
+        $cut = strpos($sys, 'Respond with ONLY valid JSON');
+        if ($cut !== false) {
+            $sys = substr($sys, 0, $cut);
+        }
+        $messages[0] = ['role' => 'system', 'content' => $sys
+            . "TOOLS: act by calling the provided tools (navigate, create_content, update_content, update_design_tokens, switch_theme). "
+            . "Reply to the user in short markdown. Do not output JSON in the reply."];
+        try {
+            $res = $this->assist->chatTools($messages, self::toolSpecs($entityId), 2400, 120);
+        } catch (\Throwable $e) {
+            if (preg_match('/HTTP 4\d\d|tool|unsupported|not support/i', $e->getMessage())) {
+                AiCapabilities::markToolsFailed();
+            }
+            return null;
+        }
+        $actions = [];
+        foreach ($res['tool_calls'] as $tc) {
+            $args = $tc['arguments'];
+            switch ($tc['name']) {
+                case 'navigate':
+                    if (str_starts_with((string) ($args['path'] ?? ''), '/hq')) {
+                        $actions[] = ['type' => 'navigate', 'label' => (string) ($args['label'] ?? 'Open'), 'path' => (string) $args['path']];
+                    }
+                    break;
+                case 'create_content':
+                case 'update_content':
+                case 'update_design_tokens':
+                case 'switch_theme':
+                    if ($tc['name'] === 'update_content' && empty($args['id']) && $entityId > 0) {
+                        $args['id'] = $entityId;
+                    }
+                    $actions[] = ['type' => $tc['name'], 'label' => '', 'payload' => $args, 'via' => 'tool'];
+                    break;
+            }
+        }
+        // Same validation/normalisation as the JSON text protocol.
+        $parsed = $this->parseJsonReply((string) json_encode(['reply' => $res['content'] !== '' ? $res['content'] : ' ', 'actions' => $actions], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $reply = trim(self::stripLeakedJson((string) ($parsed['reply'] ?? '')));
+        $actions = (array) ($parsed['actions'] ?? []);
+        if ($reply === '' && $actions === []) {
+            return null;
+        }
+        return ['reply' => $reply, 'actions' => $actions, 'provider' => $this->assist->providerLabel() . ' · tools'];
     }
 
     /**
@@ -763,6 +874,23 @@ class AiChatService
                         'payload' => $payload,
                         'confirm' => true,
                     ];
+                }
+            } elseif ($type === 'switch_theme') {
+                $payload = is_array($a['payload'] ?? null) ? $a['payload'] : [];
+                $slug = preg_replace('/[^a-z0-9_\-]/i', '', (string) ($payload['theme'] ?? '')) ?? '';
+                try {
+                    $tm = new \Mova\Theme\ThemeManager();
+                    // Only offer installed themes, and never "switch" to the one already active.
+                    if (!in_array($slug, array_column($tm->all(), 'slug'), true)) {
+                        $slug = '';
+                    } elseif ($slug === $tm->activeSlug()) {
+                        $reply = rtrim($reply) . "\n\n“{$slug}” is already the active theme — nothing to switch.";
+                        $slug = '';
+                    }
+                } catch (\Throwable $e) {
+                }
+                if ($slug !== '') {
+                    $actions[] = ['type' => 'switch_theme', 'label' => $label !== '' ? $label : 'Switch theme to ' . $slug, 'payload' => ['theme' => $slug], 'confirm' => true];
                 }
             }
         }

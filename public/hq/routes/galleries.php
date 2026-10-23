@@ -53,6 +53,7 @@ $router->get('/galleries/edit/{id}', function (Request $req, array $params) {
 
 $router->post('/galleries/save', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('manage_media', 'manage_content')) { return $__deny; }
     if (!Csrf::validate($req->input('_csrf'))) {
         return (new Response())->status(403)->body('Invalid CSRF token');
     }
@@ -111,6 +112,7 @@ $router->post('/galleries/save', function (Request $req) {
 
 $router->post('/galleries/presets/{id}', function (Request $req, array $params) {
     requireAuth();
+    if ($__deny = requirePerm('manage_media', 'manage_content')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->header('Content-Type', 'application/json')->status(403)
             ->body(json_encode(['success' => false, 'error' => 'Forbidden']));
@@ -158,6 +160,7 @@ $router->post('/galleries/presets/{id}', function (Request $req, array $params) 
 
 $router->post('/galleries/delete/{id}', function (Request $req, array $params) {
     requireAuth();
+    if ($__deny = requirePerm('manage_media', 'manage_content')) { return $__deny; }
     if (!Csrf::validate($req->input('_csrf'))) {
         return (new Response())->status(403)->body('Invalid CSRF token');
     }

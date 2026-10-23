@@ -1,6 +1,42 @@
 {
   "name": "Lengthy",
-  "version": "1.0.0",
-  "description": "Minimal, fast theme for long reading — blue text links, weight-based hierarchy, striped tables, almost no overhead",
-  "author": "Mova"
+  "version": "2.0.0",
+  "description": "An editorial long-read theme with a Fraunces display serif, warm paper tone, hairline rules and drop caps. Built for writers and magazines.",
+  "author": "Mova",
+  "tags": [
+    "editorial",
+    "serif",
+    "blog",
+    "magazine",
+    "reading"
+  ],
+  "palette": {
+    "primary": "#b4532a",
+    "accent": "#1f6f5c",
+    "background": "#fbf8f3",
+    "surface": "#ffffff",
+    "text": "#1c1917"
+  },
+  "fonts": {
+    "heading": "Fraunces",
+    "body": "Inter"
+  },
+  "best_for": [
+    "Blog",
+    "Magazine",
+    "Newsletter",
+    "Personal"
+  ],
+  "supports": [
+    "dark-mode",
+    "mobile-menu",
+    "sections",
+    "reduced-motion",
+    "header-scroll-state"
+  ],
+  "screenshots": {
+    "desktop": "/assets/themes/lengthy/desktop.png",
+    "mobile": "/assets/themes/lengthy/mobile.png",
+    "card": "/assets/themes/lengthy/card.png"
+  }
 }

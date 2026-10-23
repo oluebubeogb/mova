@@ -1,0 +1,36 @@
+{
+    "name": "CTA card",
+    "category": "cta",
+    "tags": [
+        "cta",
+        "card",
+        "soft"
+    ],
+    "description": "Contained call-to-action card with soft art.",
+    "preview": "/assets/templates/previews/cta-card.png",
+    "type": "cta",
+    "slots": [
+        "eyebrow",
+        "title",
+        "lead",
+        "items",
+        "buttons",
+        "images"
+    ],
+    "constraints": [
+        "Keep the root <section class=\"mx mx-…\"> and inner <div class=\"mx-in\"> wrappers.",
+        "Colours, fonts and radius come from theme CSS variables — do not hard-code colours.",
+        "Keep data-reveal attributes; motion is disabled automatically for reduced-motion users.",
+        "Use inline SVG/gradient art or uploaded images only — no external image hosts."
+    ],
+    "spec": {
+        "type": "cta",
+        "variant": "card",
+        "title": "Let us build something great together",
+        "lead": "Tell us about your project and we will get back to you within a day.",
+        "primary": {
+            "label": "Start a project",
+            "href": "/contact"
+        }
+    }
+}

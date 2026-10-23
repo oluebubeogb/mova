@@ -2,6 +2,10 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
+    # Pass the Authorization header through to PHP (needed for REST API Bearer keys on CGI/FastCGI hosts)
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
     # Force HTTPS (comment these 3 lines out if SSL is not active yet)
     RewriteCond %{HTTPS} !=on
     RewriteCond %{HTTP:X-Forwarded-Proto} !=https

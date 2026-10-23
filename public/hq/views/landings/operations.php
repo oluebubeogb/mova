@@ -15,7 +15,7 @@
   <header class="hq-landing-header">
     <p class="hq-landing-kicker"><i class="fa-solid fa-server"></i> Operations</p>
     <h1 class="hq-landing-title">Operations workspace</h1>
-    <p class="hq-landing-desc">Keep the platform healthy and secure — environment checks, authentication, and backup & restore.</p>
+    <p class="hq-landing-desc">Keep the platform healthy and secure — environment checks, authentication, backup & restore and AI usage.</p>
   </header>
 
   <div class="hq-landing-grid">
@@ -58,6 +58,17 @@
         <div class="hq-landing-card-body">
           <strong>Updates</strong>
           <span>Core version check and public identity</span>
+        </div>
+      </div>
+      <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
+    </a>
+
+    <a class="hq-landing-card" href="/hq/ai-usage">
+      <div class="hq-landing-card-inner">
+        <div class="hq-landing-icon"><i class="fa-solid fa-chart-column"></i></div>
+        <div class="hq-landing-card-body">
+          <strong>AI usage</strong>
+          <span>Requests and tokens by day and feature</span>
         </div>
       </div>
       <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>

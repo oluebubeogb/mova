@@ -96,6 +96,21 @@ They are already ignored via `.gitignore`.
 
 ---
 
+## Mova AI (gateway, background worker, usage)
+
+Mova talks to the **Mova AI gateway** (`https://movaai.collab.name.ng/v1`, models `mova-ai` / `mova-img`) out of the box. Provider secrets live on the gateway only. To use your own gateway or an OpenAI-compatible provider, open **HQ → Settings → AI assist**, fill in URL / key / model and press **Test connection**. The key is shown masked; a blank key field keeps the saved key. Precedence: HQ Settings → env (`MOVA_AI_API_URL`, `MOVA_AI_API_KEY`, `MOVA_AI_MODEL`, `MOVA_AI_IMG_MODEL`) → `config/config.php` `ai` block → defaults. Older installs whose `config.php` still pins the RunPod endpoint without a key are routed to the gateway automatically.
+
+**Background AI jobs** (HQ assistant jobs, Quick setup copy, images) run in the first available of:
+
+1. **Docker**: `supervisord.conf` already runs `php bin/ai-worker.php --daemon`.
+2. **Cron** (VPS / shared hosting): `* * * * * php /path/to/mova/bin/ai-worker.php >/dev/null 2>&1`
+3. **Loopback poke**: a signed request to `/hq/ai/worker/poke`. Needs no setup.
+4. **Browser poll / shutdown function**: the last resort while an HQ page is open.
+
+The worker writes a heartbeat. The web side treats it as alive for 45 s after the last beat, and immediately treats it as stopped on a clean exit. To check it, run `php bin/ai-worker.php --status`. The mode can be forced with the `ai_worker_mode` setting (`auto|worker|poke|request`). No daemons or extra PHP extensions are required. ext-curl is used when present, and PHP streams otherwise.
+
+**Usage**: every request sends `X-Mova-Site`, `X-Mova-Site-Host` and `X-Mova-Feature`. With gateway ≥ 1.4.0, **HQ → AI usage** shows the gateway's own per-site totals next to the local log.
+
 ## Multi-site
 
 Mova includes multi-site support:
@@ -107,6 +122,57 @@ Mova includes multi-site support:
 Content is currently shared in one database. Full isolation per site is planned for a future release.
 
 ---
+
+## REST API (v1)
+
+Mova ships a stateless JSON API under `/api/v1`. Create a key in **HQ → Extend → API keys** (the full key is shown **once**; HQ only stores a hash and shows a masked prefix afterwards) and pick the scopes it needs.
+
+**Authentication.** Send the key as a Bearer token. `X-Api-Key: <key>` is accepted as a fallback for hosts that strip `Authorization`. No cookies or sessions are used, so CSRF does not apply. Every request is validated through `ApiKeyService::authenticate()`.
+
+```bash
+export MOVA_URL="https://example.com"
+export MOVA_KEY="YOUR_API_KEY"   # placeholder, never commit a real key
+
+curl -H "Authorization: Bearer $MOVA_KEY" "$MOVA_URL/api/v1"
+```
+
+**Scopes.** Each route checks one scope. Legacy keys keep working: `read` = every `:read` scope, `write` = every `:write` scope, `*` / `admin` = all.
+
+| Scope | Allows |
+|---|---|
+| `site:read` | `GET /api/v1`, `GET /api/v1/site` |
+| `content:read` | `GET /api/v1/content`, `GET /api/v1/content/{id}`, `GET /api/v1/search?q=` |
+| `content:write` | `POST /api/v1/content`, `PATCH`/`PUT /api/v1/content/{id}`, `DELETE /api/v1/content/{id}` (moves to trash) |
+| `media:read` | `GET /api/v1/media`, `GET /api/v1/media/{id}` |
+| `taxonomy:read` | `GET /api/v1/categories`, `GET /api/v1/tags` |
+
+List endpoints accept `page`, `per_page` (max 100), and for content `type`, `status` and `search`. Responses are `{"data": ..., "meta": {...}}`.
+
+```bash
+# List published pages
+curl -H "Authorization: Bearer $MOVA_KEY" "$MOVA_URL/api/v1/content?type=page&per_page=10"
+
+# Create a draft (needs content:write)
+curl -X POST -H "Authorization: Bearer $MOVA_KEY" -H "Content-Type: application/json" \
+     -d '{"title":"Hello","body":"<p>Hi</p>","status":"draft"}' "$MOVA_URL/api/v1/content"
+
+# Update / trash
+curl -X PATCH  -H "Authorization: Bearer $MOVA_KEY" -H "Content-Type: application/json" -d '{"title":"Hello again"}' "$MOVA_URL/api/v1/content/42"
+curl -X DELETE -H "Authorization: Bearer $MOVA_KEY" "$MOVA_URL/api/v1/content/42"
+```
+
+Hosts that block `PATCH`/`DELETE` can send `POST` with `X-HTTP-Method-Override: PATCH` (or `PUT` / `DELETE`).
+
+**Errors** are JSON `{"error": {"code": ..., "message": ...}}`:
+
+| Status | Code | When |
+|---|---|---|
+| 401 | `missing_api_key` | No key sent |
+| 401 | `invalid_api_key` | Unknown, revoked or expired key |
+| 403 | `insufficient_scope` | Key lacks the route's scope (`X-Mova-Required-Scope` names it) |
+| 404 | `not_found` | Unknown endpoint or id |
+| 405 | `method_not_allowed` | Wrong method (`Allow` header lists the right ones) |
+| 429 | `rate_limited` | More than 120 requests per 60 s per key (`Retry-After`) |
 
 ## Development
 

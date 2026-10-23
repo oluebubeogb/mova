@@ -1,109 +1,728 @@
 {
-  "id": "org-modern",
-  "pack": "organization",
-  "label": "Modern organization",
-  "description": "Open, card-based.",
-  "version": "1.0.0",
-  "tokens": [
-    "site_name",
-    "tagline",
-    "about",
-    "contact",
-    "year"
-  ],
-  "pages": [
-    {
-      "slug": "home",
-      "title": "Home",
-      "file": "pages/home.html",
-      "role": "front"
+    "id": "org-modern",
+    "pack": "organization",
+    "style": "modern",
+    "label": "Modern impact",
+    "description": "Vivid gradient hero, impact numbers and donation tiers that convert.",
+    "version": "2.0.0",
+    "schema": 2,
+    "tokens": [
+        "site_name",
+        "tagline",
+        "about",
+        "city_or_area",
+        "email",
+        "phone",
+        "address",
+        "year"
+    ],
+    "palette": {
+        "primary": "#be185d",
+        "accent": "#7c3aed",
+        "secondary": "#f97316"
     },
-    {
-      "slug": "about",
-      "title": "About us",
-      "file": "pages/about.html",
-      "role": "about"
+    "demo": {
+        "site_name": "Harbour Community Trust",
+        "tagline": "Together we build stronger communities",
+        "city": "Bristol",
+        "email": "hello@harbourtrust.example",
+        "phone": "+44 117 000 0000",
+        "address": "8 Quay Street, Bristol"
     },
-    {
-      "slug": "programs",
-      "title": "Programs",
-      "file": "pages/programs.html",
-      "role": "programs"
-    },
-    {
-      "slug": "team",
-      "title": "Team",
-      "file": "pages/team.html",
-      "role": "team"
-    },
-    {
-      "slug": "contact",
-      "title": "Contact",
-      "file": "pages/contact.html",
-      "role": "contact"
-    }
-  ],
-  "css": [
-    "assets/kit.css"
-  ],
-  "js": [
-    "assets/kit.js"
-  ],
-  "nav": [
-    {
-      "label": "Home",
-      "url": "/"
-    },
-    {
-      "label": "About us",
-      "url": "/about"
-    },
-    {
-      "label": "Programs",
-      "url": "/programs"
-    },
-    {
-      "label": "Team",
-      "url": "/team"
-    },
-    {
-      "label": "Contact",
-      "url": "/contact"
-    }
-  ],
-  "footer_columns": [
-    {
-      "title": "Explore",
-      "links": [
+    "preview": "preview.png",
+    "preview_mobile": "preview-mobile.png",
+    "nav": [
         {
-          "label": "About us",
-          "url": "/about"
+            "label": "Home",
+            "url": "/"
         },
         {
-          "label": "Programs",
-          "url": "/programs"
-        }
-      ]
-    },
-    {
-      "title": "Contact",
-      "text": "{{contact}}",
-      "links": [
+            "label": "About",
+            "url": "/about"
+        },
         {
-          "label": "Contact",
-          "url": "/contact"
-        }
-      ]
-    },
-    {
-      "title": "Connect",
-      "links": [
+            "label": "Programmes",
+            "url": "/programs"
+        },
         {
-          "label": "Home",
-          "url": "/"
+            "label": "Get involved",
+            "url": "/get-involved"
+        },
+        {
+            "label": "Contact",
+            "url": "/contact"
         }
-      ]
-    }
-  ],
-  "preview": "preview.svg"
+    ],
+    "nav_cta": {
+        "label": "Get involved",
+        "url": "/get-involved"
+    },
+    "footer_columns": [
+        {
+            "title": "{{site_name}}",
+            "text": "{{tagline}}."
+        },
+        {
+            "title": "Explore",
+            "links": [
+                {
+                    "label": "About",
+                    "url": "/about"
+                },
+                {
+                    "label": "Programmes",
+                    "url": "/programs"
+                },
+                {
+                    "label": "Get involved",
+                    "url": "/get-involved"
+                }
+            ]
+        },
+        {
+            "title": "Contact",
+            "links": [
+                {
+                    "label": "{{email}}",
+                    "url": "{{email_href}}"
+                },
+                {
+                    "label": "{{phone}}",
+                    "url": "{{phone_href}}"
+                },
+                {
+                    "label": "Contact us",
+                    "url": "/contact"
+                }
+            ]
+        }
+    ],
+    "pages": [
+        {
+            "slug": "home",
+            "title": "Home",
+            "role": "front",
+            "description": "{{site_name}} — {{tagline}}. Programmes, impact and ways to get involved.",
+            "sections": [
+                {
+                    "type": "hero",
+                    "variant": "gradient",
+                    "eyebrow": "{{site_name}}",
+                    "title": "Real change starts <em>with community</em>",
+                    "lead": "{{tagline}}. {{about}}",
+                    "primary": {
+                        "label": "Donate today",
+                        "href": "/get-involved"
+                    },
+                    "secondary": {
+                        "label": "See our impact",
+                        "href": "/programs"
+                    },
+                    "stats": [
+                        {
+                            "value": "12k+",
+                            "label": "People reached"
+                        },
+                        {
+                            "value": "350",
+                            "label": "Volunteers"
+                        },
+                        {
+                            "value": "92p",
+                            "label": "Of every £1 to programmes"
+                        }
+                    ]
+                },
+                {
+                    "type": "logos",
+                    "title": "Working alongside",
+                    "items": [
+                        {
+                            "name": "City Council"
+                        },
+                        {
+                            "name": "Community Trust"
+                        },
+                        {
+                            "name": "Rotary Club"
+                        },
+                        {
+                            "name": "Health Board"
+                        },
+                        {
+                            "name": "Food Network"
+                        },
+                        {
+                            "name": "Youth Alliance"
+                        }
+                    ]
+                },
+                {
+                    "type": "features",
+                    "variant": "bento",
+                    "columns": 3,
+                    "eyebrow": "What we do",
+                    "title": "Programmes that make a difference",
+                    "lead": "Practical, people-centred work across {{city_or_area}} — designed with the communities we serve.",
+                    "items": [
+                        {
+                            "icon": "book",
+                            "title": "Education & skills",
+                            "text": "Tutoring, mentoring and training that open doors to opportunity.",
+                            "href": "/programs"
+                        },
+                        {
+                            "icon": "heart",
+                            "title": "Health & wellbeing",
+                            "text": "Outreach, support groups and access to care when it matters most.",
+                            "href": "/programs"
+                        },
+                        {
+                            "icon": "home",
+                            "title": "Family support",
+                            "text": "Food, advice and a friendly face for families facing hard times.",
+                            "href": "/programs"
+                        },
+                        {
+                            "icon": "leaf",
+                            "title": "Greener neighbourhoods",
+                            "text": "Community gardens, clean-ups and climate action led by residents.",
+                            "href": "/programs"
+                        },
+                        {
+                            "icon": "users",
+                            "title": "Youth leadership",
+                            "text": "Young people leading projects, finding their voice and their future.",
+                            "href": "/programs"
+                        }
+                    ]
+                },
+                {
+                    "type": "stats",
+                    "variant": "band",
+                    "eyebrow": "Our impact",
+                    "title": "Last year, together we…",
+                    "items": [
+                        {
+                            "value": "12,400",
+                            "label": "People supported",
+                            "text": "Across all programmes."
+                        },
+                        {
+                            "value": "38,000",
+                            "label": "Meals shared",
+                            "text": "Through our community kitchen."
+                        },
+                        {
+                            "value": "350",
+                            "label": "Volunteers",
+                            "text": "Giving 20,000+ hours."
+                        },
+                        {
+                            "value": "92%",
+                            "label": "To programmes",
+                            "text": "Of every pound raised."
+                        }
+                    ]
+                },
+                {
+                    "type": "split",
+                    "eyebrow": "Who we are",
+                    "title": "Rooted in {{city_or_area}}",
+                    "paragraphs": [
+                        "{{about}}",
+                        "We listen first, act together and measure what matters — so every contribution creates real, lasting change."
+                    ],
+                    "points": [
+                        "Independent and community-led",
+                        "Audited accounts published every year",
+                        "Safeguarding-first in everything we do"
+                    ],
+                    "primary": {
+                        "label": "Our story",
+                        "href": "/about"
+                    },
+                    "art": "people",
+                    "tone": "soft"
+                },
+                {
+                    "type": "testimonials",
+                    "variant": "grid",
+                    "eyebrow": "Stories",
+                    "title": "Voices from our community",
+                    "items": [
+                        {
+                            "quote": "{{site_name}} was there when my family needed it most. Now I volunteer every week to give something back.",
+                            "name": "Grace O.",
+                            "role": "Volunteer & former client"
+                        },
+                        {
+                            "quote": "The mentoring programme changed my son’s direction completely. He is now at college and thriving.",
+                            "name": "David K.",
+                            "role": "Parent"
+                        },
+                        {
+                            "quote": "A brilliant, trusted partner. Their reach into the community is unmatched.",
+                            "name": "Aisha M.",
+                            "role": "Partner organisation"
+                        }
+                    ]
+                },
+                {
+                    "type": "news",
+                    "variant": "cards",
+                    "eyebrow": "Latest",
+                    "title": "News from the field",
+                    "more": {
+                        "label": "All updates",
+                        "href": "/about"
+                    },
+                    "items": [
+                        {
+                            "tag": "Impact",
+                            "date": "This month",
+                            "title": "Community kitchen serves its 100,000th meal",
+                            "text": "A milestone made possible by volunteers and donors.",
+                            "href": "/programs",
+                            "art": "community"
+                        },
+                        {
+                            "tag": "Event",
+                            "date": "Coming soon",
+                            "title": "Annual charity fun run",
+                            "text": "Run, walk or cheer — every step funds local programmes.",
+                            "href": "/get-involved",
+                            "art": "sport"
+                        },
+                        {
+                            "tag": "Partnership",
+                            "date": "Last month",
+                            "title": "New youth centre partnership",
+                            "text": "Expanding after-school support to two more neighbourhoods.",
+                            "href": "/programs",
+                            "art": "city"
+                        }
+                    ]
+                },
+                {
+                    "type": "cta",
+                    "variant": "band",
+                    "title": "Your support changes lives",
+                    "lead": "Give, volunteer or partner with us — every action helps our community thrive.",
+                    "primary": {
+                        "label": "Get involved",
+                        "href": "/get-involved"
+                    },
+                    "secondary": {
+                        "label": "Talk to us",
+                        "href": "/contact"
+                    }
+                }
+            ]
+        },
+        {
+            "slug": "about",
+            "title": "About",
+            "role": "about",
+            "description": "Mission, story and people behind {{site_name}}.",
+            "sections": [
+                {
+                    "type": "pagehead",
+                    "variant": "brand",
+                    "crumb": "About",
+                    "eyebrow": "Our story",
+                    "title": "About {{site_name}}",
+                    "lead": "{{tagline}}. {{about}}"
+                },
+                {
+                    "type": "split",
+                    "eyebrow": "Mission",
+                    "title": "Building a fairer, kinder community",
+                    "paragraphs": [
+                        "We exist to make sure everyone in {{city_or_area}} has the support, skills and connections they need to thrive.",
+                        "Our work is shaped by the people we serve, delivered by local staff and volunteers, and funded by a generous community of supporters."
+                    ],
+                    "points": [
+                        "Dignity",
+                        "Inclusion",
+                        "Collaboration",
+                        "Accountability"
+                    ],
+                    "art": "community"
+                },
+                {
+                    "type": "timeline",
+                    "variant": "timeline",
+                    "eyebrow": "Journey",
+                    "title": "How we got here",
+                    "items": [
+                        {
+                            "meta": "The start",
+                            "title": "Neighbours helping neighbours",
+                            "text": "A small group of volunteers began with a weekly food table."
+                        },
+                        {
+                            "meta": "Growing",
+                            "title": "Registered as a charity",
+                            "text": "Formal governance, our first staff and new programmes."
+                        },
+                        {
+                            "meta": "Today",
+                            "title": "Thousands supported",
+                            "text": "Five programmes, hundreds of volunteers and trusted partners."
+                        },
+                        {
+                            "meta": "{{year}}",
+                            "title": "The next chapter",
+                            "text": "A new community hub and expanded youth work."
+                        }
+                    ]
+                },
+                {
+                    "type": "team",
+                    "eyebrow": "Our people",
+                    "title": "Staff & trustees",
+                    "items": [
+                        {
+                            "name": "Chiamaka Eze",
+                            "role": "Executive Director",
+                            "bio": "Fifteen years in community development."
+                        },
+                        {
+                            "name": "Peter Lindqvist",
+                            "role": "Chair of Trustees",
+                            "bio": "Governance, finance and strategy."
+                        },
+                        {
+                            "name": "Yasmin Haddad",
+                            "role": "Programmes Lead",
+                            "bio": "Designs services with the community."
+                        },
+                        {
+                            "name": "Kwame Mensah",
+                            "role": "Volunteer Coordinator",
+                            "bio": "Welcomes and supports every volunteer."
+                        }
+                    ]
+                },
+                {
+                    "type": "cta",
+                    "variant": "card",
+                    "title": "Join us",
+                    "lead": "Be part of what happens next.",
+                    "primary": {
+                        "label": "Get involved",
+                        "href": "/get-involved"
+                    }
+                }
+            ]
+        },
+        {
+            "slug": "programs",
+            "title": "Programmes",
+            "role": "generic",
+            "description": "Programmes and services offered by {{site_name}}.",
+            "sections": [
+                {
+                    "type": "pagehead",
+                    "variant": "soft",
+                    "crumb": "Programmes",
+                    "eyebrow": "Our work",
+                    "title": "Programmes & services",
+                    "lead": "Free, practical support designed with — and for — our community."
+                },
+                {
+                    "type": "features",
+                    "variant": "cards",
+                    "columns": 3,
+                    "eyebrow": "",
+                    "title": "How we help",
+                    "lead": "",
+                    "items": [
+                        {
+                            "icon": "book",
+                            "title": "Education & skills",
+                            "text": "Tutoring, mentoring and training that open doors to opportunity.",
+                            "href": "/programs"
+                        },
+                        {
+                            "icon": "heart",
+                            "title": "Health & wellbeing",
+                            "text": "Outreach, support groups and access to care when it matters most.",
+                            "href": "/programs"
+                        },
+                        {
+                            "icon": "home",
+                            "title": "Family support",
+                            "text": "Food, advice and a friendly face for families facing hard times.",
+                            "href": "/programs"
+                        },
+                        {
+                            "icon": "leaf",
+                            "title": "Greener neighbourhoods",
+                            "text": "Community gardens, clean-ups and climate action led by residents.",
+                            "href": "/programs"
+                        },
+                        {
+                            "icon": "users",
+                            "title": "Youth leadership",
+                            "text": "Young people leading projects, finding their voice and their future.",
+                            "href": "/programs"
+                        }
+                    ]
+                },
+                {
+                    "type": "timeline",
+                    "variant": "steps",
+                    "eyebrow": "Getting support",
+                    "title": "How to access our services",
+                    "items": [
+                        {
+                            "title": "Reach out",
+                            "text": "Call, email or drop in — no referral needed."
+                        },
+                        {
+                            "title": "Talk it through",
+                            "text": "A friendly conversation about what you need."
+                        },
+                        {
+                            "title": "Get connected",
+                            "text": "We link you with the right programme or partner."
+                        }
+                    ]
+                },
+                {
+                    "type": "stats",
+                    "variant": "band",
+                    "eyebrow": "Our impact",
+                    "title": "Last year, together we…",
+                    "items": [
+                        {
+                            "value": "12,400",
+                            "label": "People supported",
+                            "text": "Across all programmes."
+                        },
+                        {
+                            "value": "38,000",
+                            "label": "Meals shared",
+                            "text": "Through our community kitchen."
+                        },
+                        {
+                            "value": "350",
+                            "label": "Volunteers",
+                            "text": "Giving 20,000+ hours."
+                        },
+                        {
+                            "value": "92%",
+                            "label": "To programmes",
+                            "text": "Of every pound raised."
+                        }
+                    ]
+                },
+                {
+                    "type": "gallery",
+                    "eyebrow": "In pictures",
+                    "title": "Our community in action",
+                    "items": [
+                        {
+                            "caption": "Community kitchen"
+                        },
+                        {
+                            "caption": "Youth club"
+                        },
+                        {
+                            "caption": "Garden day"
+                        },
+                        {
+                            "caption": "Advice drop-in"
+                        },
+                        {
+                            "caption": "Fun run"
+                        },
+                        {
+                            "caption": "Volunteer training"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "slug": "get-involved",
+            "title": "Get involved",
+            "role": "generic",
+            "description": "Donate, volunteer or partner with {{site_name}}.",
+            "sections": [
+                {
+                    "type": "pagehead",
+                    "variant": "brand",
+                    "crumb": "Get involved",
+                    "eyebrow": "Make a difference",
+                    "title": "Get involved",
+                    "lead": "Donate, volunteer, fundraise or partner with us — there is a way for everyone to help.",
+                    "primary": {
+                        "label": "Contact us",
+                        "href": "/contact"
+                    }
+                },
+                {
+                    "type": "pricing",
+                    "variant": "cards",
+                    "eyebrow": "Give",
+                    "title": "Choose your impact",
+                    "lead": "Regular gifts help us plan ahead and reach more people.",
+                    "plans": [
+                        {
+                            "name": "Supporter",
+                            "text": "Provides a week of meals for a family.",
+                            "price": "£10",
+                            "per": "/month",
+                            "features": [
+                                "Quarterly impact updates",
+                                "Supporter newsletter"
+                            ],
+                            "cta": {
+                                "label": "Give monthly",
+                                "href": "/contact"
+                            }
+                        },
+                        {
+                            "name": "Champion",
+                            "text": "Funds a term of mentoring for a young person.",
+                            "price": "£25",
+                            "per": "/month",
+                            "featured": true,
+                            "badge": "Most impact",
+                            "features": [
+                                "Everything in Supporter",
+                                "Invitations to project visits",
+                                "Annual impact report"
+                            ],
+                            "cta": {
+                                "label": "Become a champion",
+                                "href": "/contact"
+                            }
+                        },
+                        {
+                            "name": "Partner",
+                            "text": "For businesses and foundations.",
+                            "price": "Let’s talk",
+                            "per": "",
+                            "features": [
+                                "Employee volunteering",
+                                "Co-branded projects",
+                                "Impact reporting"
+                            ],
+                            "cta": {
+                                "label": "Partner with us",
+                                "href": "/contact"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "type": "features",
+                    "variant": "minimal",
+                    "columns": 3,
+                    "eyebrow": "Volunteer",
+                    "title": "Give your time",
+                    "items": [
+                        {
+                            "icon": "utensils",
+                            "title": "Community kitchen",
+                            "text": "Cook, serve and chat — weekday lunchtimes."
+                        },
+                        {
+                            "icon": "book",
+                            "title": "Mentoring",
+                            "text": "Support a young person for one hour a week."
+                        },
+                        {
+                            "icon": "calendar",
+                            "title": "Events",
+                            "text": "Help run fundraisers and community days."
+                        }
+                    ]
+                },
+                {
+                    "type": "faq",
+                    "title": "Common questions",
+                    "items": [
+                        {
+                            "q": "Do I need experience to volunteer?",
+                            "a": "No — we provide training and support. Enthusiasm is all you need."
+                        },
+                        {
+                            "q": "How is my donation used?",
+                            "a": "92% of every pound goes directly to programmes. We publish audited accounts every year."
+                        },
+                        {
+                            "q": "Can my company get involved?",
+                            "a": "Yes — we offer team volunteering days and partnership packages."
+                        }
+                    ]
+                },
+                {
+                    "type": "newsletter",
+                    "title": "Stay connected",
+                    "lead": "Monthly stories and ways to help — straight to your inbox.",
+                    "button": "Subscribe"
+                }
+            ]
+        },
+        {
+            "slug": "contact",
+            "title": "Contact",
+            "role": "contact",
+            "description": "Contact {{site_name}}.",
+            "sections": [
+                {
+                    "type": "pagehead",
+                    "variant": "soft",
+                    "crumb": "Contact",
+                    "eyebrow": "Say hello",
+                    "title": "Contact {{site_name}}",
+                    "lead": "Need support, want to help or have a question? We are here for you."
+                },
+                {
+                    "type": "contact",
+                    "title": "Reach our team",
+                    "address": "{{address}}",
+                    "items": [
+                        {
+                            "icon": "phone",
+                            "label": "Call us",
+                            "value": "{{phone}}",
+                            "href": "{{phone_href}}"
+                        },
+                        {
+                            "icon": "mail",
+                            "label": "Email",
+                            "value": "{{email}}",
+                            "href": "{{email_href}}"
+                        },
+                        {
+                            "icon": "pin",
+                            "label": "Visit",
+                            "value": "{{address}}"
+                        },
+                        {
+                            "icon": "clock",
+                            "label": "Open",
+                            "value": "Mon–Fri, 9:00–17:00"
+                        }
+                    ]
+                },
+                {
+                    "type": "cta",
+                    "variant": "card",
+                    "title": "Want to support our work?",
+                    "lead": "Find the best way for you to get involved.",
+                    "primary": {
+                        "label": "Get involved",
+                        "href": "/get-involved"
+                    }
+                }
+            ]
+        }
+    ]
 }

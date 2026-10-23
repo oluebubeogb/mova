@@ -414,7 +414,7 @@ return [
         'csrf_token_name'   => '_mova_csrf',
         'session_name'      => 'mova_session',
         'session_lifetime'  => 7200, // 2 hours
-        'password_algo'     => PASSWORD_ARGON2ID,
+        'password_algo'     => defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_BCRYPT,
         'login_max_attempts'=> 5,
         'login_lockout'     => 900, // 15 minutes
         'cookie_secure'     => true,

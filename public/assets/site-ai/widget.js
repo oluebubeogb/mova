@@ -18,14 +18,16 @@
   var bgLight = root.getAttribute('data-bg-light');
   var bgDark = root.getAttribute('data-bg-dark');
 
-  // Ensure Font Awesome is available for icons (CDN; same kit HQ uses)
+  // Ensure Font Awesome is available for icons (bundled copy; same kit HQ uses)
   (function ensureFA() {
     if (document.querySelector('link[href*="font-awesome"], link[href*="fontawesome"]')) return;
     var link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css';
-    link.crossOrigin = 'anonymous';
-    link.referrerPolicy = 'no-referrer';
+    // Bundled locally (no third-party CDN); resolve against the widget script's origin.
+    var base = '';
+    var me = document.currentScript || document.querySelector('script[src*="site-ai/widget.js"]');
+    if (me && me.src) { try { base = new URL(me.src, location.href).origin; } catch (e) { base = ''; } }
+    link.href = base + '/assets/vendor/fontawesome/css/all.min.css?v=6.5.2';
     document.head.appendChild(link);
   })();
 
@@ -194,6 +196,52 @@
   }
 
   fab.addEventListener('click', function () { setOpen(true); });
+
+  // Mobile: never sit on top of the page's own form fields.
+  //  - hide the bubble while the visitor is typing in a field outside the panel (keyboard open)
+  //  - keep a bottom spacer + scroll-padding so the last field / submit button can scroll clear of it
+  (function guardFormFields() {
+    var mq = window.matchMedia ? window.matchMedia('(max-width: 720px)') : null;
+    var spacer = document.createElement('div');
+    spacer.className = 'msa-spacer';
+    spacer.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(spacer);
+    document.documentElement.classList.add('msa-has-fab');
+    var hideTimer = null;
+    function isField(t) {
+      if (!t || panel.contains(t)) return false;
+      if (t.isContentEditable) return true;
+      var tag = (t.tagName || '').toLowerCase();
+      if (tag === 'textarea' || tag === 'select') return true;
+      if (tag !== 'input') return false;
+      var ty = (t.type || 'text').toLowerCase();
+      return ['button', 'submit', 'reset', 'checkbox', 'radio', 'range', 'color', 'file', 'image', 'hidden'].indexOf(ty) === -1;
+    }
+    function small() { return !mq || mq.matches; }
+    document.addEventListener('focusin', function (e) {
+      if (!small() || !isField(e.target)) return;
+      clearTimeout(hideTimer);
+      document.documentElement.classList.add('msa-typing');
+    });
+    document.addEventListener('focusout', function (e) {
+      if (!isField(e.target)) return;
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(function () {
+        if (!isField(document.activeElement)) document.documentElement.classList.remove('msa-typing');
+      }, 150);
+    });
+    // On-screen keyboard shrinks the visual viewport a lot → treat as typing.
+    if (window.visualViewport) {
+      var base = window.visualViewport.height;
+      window.visualViewport.addEventListener('resize', function () {
+        if (!small() || state.open) return;
+        var vv = window.visualViewport.height;
+        if (vv > base) base = vv;
+        document.documentElement.classList.toggle('msa-kbd', vv < base * 0.75);
+      });
+    }
+  })();
+
   panel.querySelector('[data-close]').addEventListener('click', function () { setOpen(false); });
 
   function formatElapsed(sec) {

@@ -62,6 +62,7 @@ $router->get('/blogs/edit/{id}', function (Request $req, array $params) {
 
 $router->post('/blogs/save', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('manage_content')) { return $__deny; }
     if (!Csrf::validate($req->input('_csrf') ?: $req->input('_mova_csrf'))) {
         return (new Response())->status(403)->body('Invalid CSRF token');
     }
@@ -130,6 +131,7 @@ $router->post('/blogs/save', function (Request $req) {
 
 $router->post('/blogs/delete/{id}', function (Request $req, array $params) {
     requireAuth();
+    if ($__deny = requirePerm('manage_content')) { return $__deny; }
     if (!Csrf::validate($req->input('_csrf') ?: $req->input('_mova_csrf'))) {
         return (new Response())->status(403)->body('Invalid CSRF token');
     }

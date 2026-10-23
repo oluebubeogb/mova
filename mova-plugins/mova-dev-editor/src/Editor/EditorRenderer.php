@@ -34,7 +34,11 @@ class EditorRenderer
         $js = $this->storage->js($content);
         $useSiteChrome = $this->storage->useSiteChrome($content);
         $body = (string) ($content['body'] ?? '');
-        $monaco = $this->config['monaco_cdn'] ?? 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs';
+        $monaco = (string) ($this->config['monaco_cdn'] ?? '/assets/vendor/monaco/vs');
+        // Older installs stored the jsDelivr URL; the CSP no longer allows it, so use the bundled copy.
+        if ($monaco === '' || preg_match('#^https?://#i', $monaco)) {
+            $monaco = '/assets/vendor/monaco/vs';
+        }
         $assetBase = '/mova-plugins/mova-dev-editor/assets';
 
         // Prefer plugin-served assets via a simple public path convention;

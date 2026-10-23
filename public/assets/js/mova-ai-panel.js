@@ -143,6 +143,33 @@
     setOpen(!state.open);
   }
 
+  // Mobile: hide the floating AI button while a form field is focused so it never covers inputs.
+  (function guardFab() {
+    var mq = window.matchMedia ? window.matchMedia('(max-width: 720px)') : null;
+    var t = null;
+    function isField(n) {
+      if (!n || (el('mova-ai-panel') && el('mova-ai-panel').contains(n))) return false;
+      if (n.isContentEditable) return true;
+      var tag = (n.tagName || '').toLowerCase();
+      if (tag === 'textarea' || tag === 'select') return true;
+      if (tag !== 'input') return false;
+      return ['button', 'submit', 'reset', 'checkbox', 'radio', 'range', 'color', 'file', 'image', 'hidden'].indexOf((n.type || 'text').toLowerCase()) === -1;
+    }
+    document.addEventListener('focusin', function (e) {
+      if (mq && !mq.matches) return;
+      if (!isField(e.target)) return;
+      clearTimeout(t);
+      document.body.classList.add('mova-ai-typing');
+    });
+    document.addEventListener('focusout', function (e) {
+      if (!isField(e.target)) return;
+      clearTimeout(t);
+      t = setTimeout(function () {
+        if (!isField(document.activeElement)) document.body.classList.remove('mova-ai-typing');
+      }, 150);
+    });
+  })();
+
   function showSessionsView(show) {
     if (show) showJobsView(false);
     state.view = show ? 'sessions' : 'chat';
@@ -747,13 +774,12 @@
     }
   }
 
-  function applyDesignAction(action, btn) {
-    if (!action || !action.payload) return;
-    if (btn) btn.disabled = true;
+  function postAction(action, extra) {
     var body = new URLSearchParams();
     body.set('_mova_csrf', csrfToken());
     body.set('action_json', JSON.stringify(action));
-    fetch('/hq/ai/action', {
+    Object.keys(extra || {}).forEach(function (k) { body.set(k, extra[k]); });
+    return fetch('/hq/ai/action', {
       method: 'POST',
       credentials: 'same-origin',
       headers: {
@@ -761,32 +787,97 @@
         'X-CSRF-TOKEN': csrfToken()
       },
       body: body.toString()
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (data.ok) {
+    }).then(function (r) {
+      return r.json().catch(function () { return { ok: false, error: 'HTTP ' + r.status }; });
+    });
+  }
+
+  /**
+   * Design, theme and structural changes never run silently: show what will change
+   * (from → to, swatches, warning) and only then POST with confirmed=1.
+   */
+  function confirmAndApply(action, btn) {
+    if (!action || !action.type) return;
+    var clean = { type: action.type, label: action.label || '', payload: action.payload || {} };
+    if (btn) btn.disabled = true;
+    var getPreview = action.preview
+      ? Promise.resolve({ preview: action.preview })
+      : postAction(clean, { preview: '1' });
+    getPreview
+      .then(function (d) { openConfirm(clean, (d && d.preview) || { title: clean.label || 'Apply change', lines: [] }, btn); })
+      .catch(function () { openConfirm(clean, { title: clean.label || 'Apply change', lines: [] }, btn); });
+  }
+
+  function openConfirm(action, preview, btn) {
+    var old = document.getElementById('mova-ai-confirm');
+    if (old) old.remove();
+    var wrap = document.createElement('div');
+    wrap.id = 'mova-ai-confirm';
+    wrap.className = 'mova-ai-confirm';
+    wrap.setAttribute('role', 'dialog');
+    wrap.setAttribute('aria-modal', 'true');
+    var rows = (preview.lines || []).map(function (l) {
+      var sw = function (c) {
+        return l.swatch && /^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? '<span class="mova-ai-swatch" style="background:' + c + '"></span>' : '';
+      };
+      var from = l.from !== undefined && l.from !== '' ? sw(l.from) + '<code>' + escapeHtml(String(l.from)) + '</code>' : '';
+      var to = sw(l.to) + '<code>' + escapeHtml(String(l.to === undefined ? '' : l.to)) + '</code>';
+      return '<tr><th>' + escapeHtml(l.label || '') + '</th><td>' + from + '</td><td class="mova-ai-arrow">' + (from ? '→' : '') + '</td><td>' + to + '</td></tr>';
+    }).join('');
+    wrap.innerHTML =
+      '<div class="mova-ai-confirm-card">' +
+        '<div class="mova-ai-confirm-head"><i class="fa-solid fa-shield-halved"></i> Confirm change</div>' +
+        '<h4>' + escapeHtml(preview.title || action.label || 'Apply change') + '</h4>' +
+        (rows ? '<table class="mova-ai-confirm-table"><tbody>' + rows + '</tbody></table>' : '') +
+        (preview.warning ? '<p class="mova-ai-confirm-warn"><i class="fa-solid fa-triangle-exclamation"></i> ' + escapeHtml(preview.warning) + '</p>' : '') +
+        '<div class="mova-ai-confirm-btns">' +
+          '<button type="button" class="hq-btn hq-btn--ghost" data-cancel>Cancel</button>' +
+          '<button type="button" class="hq-btn hq-btn--primary" data-ok><i class="fa-solid fa-check"></i> Apply</button>' +
+        '</div>' +
+      '</div>';
+    (el('mova-ai-panel') || document.body).appendChild(wrap);
+    var okBtn = wrap.querySelector('[data-ok]');
+    function close() { wrap.remove(); if (btn) btn.disabled = false; }
+    wrap.querySelector('[data-cancel]').addEventListener('click', function () {
+      close();
+      appendMessage('assistant', 'Okay — nothing was changed.', null, null);
+    });
+    wrap.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+    okBtn.focus();
+    okBtn.addEventListener('click', function () {
+      okBtn.disabled = true;
+      okBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Applying…';
+      postAction(action, { confirmed: '1' })
+        .then(function (data) {
+          wrap.remove();
+          if (!data.ok) {
+            appendMessage('assistant', data.error || 'Could not apply the change.', null, null);
+            return;
+          }
           var result = data.result || {};
           if (result.css_vars) applyCssVars(result.css_vars);
-          var onStyle = (window.location.pathname || '').indexOf('/hq/style') === 0;
-          appendMessage(
-            'assistant',
-            onStyle
-              ? 'Colors applied live — no reload needed.'
-              : 'Colors applied without a full reload. Open Style only if you want the form fields.',
-            onStyle ? null : [{ type: 'navigate', label: 'Open Style (optional)', path: result.path || '/hq/style' }],
-            null
-          );
-        } else {
-          appendMessage('assistant', data.error || 'Could not apply design changes.', null, null);
-        }
-      })
-      .catch(function () {
-        appendMessage('assistant', 'Network error applying design changes.', null, null);
-      })
-      .finally(function () {
-        if (btn) btn.disabled = false;
-      });
+          if (action.type === 'update_design_tokens') {
+            var onStyle = (window.location.pathname || '').indexOf('/hq/style') === 0;
+            appendMessage('assistant', 'Colors applied live — no reload needed.',
+              onStyle ? null : [{ type: 'navigate', label: 'Open Style (optional)', path: result.path || '/hq/style' }], null);
+          } else if (action.type === 'switch_theme') {
+            appendMessage('assistant', 'Theme switched to “' + (result.theme || (action.payload || {}).theme || '') + '”.',
+              [{ type: 'navigate', label: 'Open Themes', path: result.path || '/hq/themes' }, { type: 'navigate', label: 'View site', path: '/' }], null);
+          } else {
+            appendMessage('assistant', result.message || 'Change applied. A revision was saved.',
+              result.path ? [{ type: 'navigate', label: 'Open', path: result.path }] : null, null);
+          }
+        })
+        .catch(function () {
+          wrap.remove();
+          appendMessage('assistant', 'Network error applying the change.', null, null);
+        })
+        .finally(function () { if (btn) btn.disabled = false; });
+    });
   }
+
+  // Back-compat name used elsewhere in the panel.
+  function applyDesignAction(action, btn) { confirmAndApply(action, btn); }
 
   function copyText(text, btn) {
     var done = function () {
@@ -878,14 +969,16 @@
             '<i class="fa-solid fa-arrow-up-right-from-square"></i> ' +
             escapeHtml(a.label || 'Open');
           act.appendChild(link);
-        } else if (a.type === 'update_design_tokens') {
+        } else if (a.type === 'update_design_tokens' || a.type === 'switch_theme' || (a.confirm && a.type === 'update_content')) {
           var btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'mova-ai-apply';
-          btn.innerHTML =
-            '<i class="fa-solid fa-palette"></i> ' + escapeHtml(a.label || 'Apply colors');
+          var icon = a.type === 'update_design_tokens' ? 'fa-palette' : (a.type === 'switch_theme' ? 'fa-swatchbook' : 'fa-pen-to-square');
+          var dflt = a.type === 'update_design_tokens' ? 'Apply colors' : (a.type === 'switch_theme' ? 'Switch theme' : 'Review & apply');
+          btn.innerHTML = '<i class="fa-solid ' + icon + '"></i> ' + escapeHtml(a.label || dflt) +
+            ' <span class="mova-ai-review-tag">review</span>';
           btn.addEventListener('click', function () {
-            applyDesignAction(a, btn);
+            confirmAndApply(a, btn);
           });
           act.appendChild(btn);
         } else if (a.type === 'insert_code' && a.payload && a.payload.code) {
@@ -1310,7 +1403,7 @@
     var box = el('mova-ai-guide-templates');
     var catBox = el('mova-ai-guide-categories');
     if (!box) return;
-    box.innerHTML = '<p class="mova-ai-jobs-loading">Loading templates…</p>';
+    box.innerHTML = '<p class="mova-ai-jobs-loading">Loading sections…</p>';
     var done = function (list) {
       guideCache = list || [];
       var cats = {};
@@ -1333,11 +1426,11 @@
       }
       var filtered = !category ? guideCache : guideCache.filter(function (t) { return t.category === category; });
       if (!filtered.length) {
-        box.innerHTML = '<p class="mova-ai-jobs-empty">No templates in this category.</p>';
+        box.innerHTML = '<p class="mova-ai-jobs-empty">No sections in this category.</p>';
         return;
       }
       box.innerHTML = filtered.map(function (t) {
-        var img = t.preview ? '<img src="' + escapeHtml(t.preview) + '" alt="">' : '<span style="width:56px;height:34px;background:#e2e8f0;border-radius:4px;display:inline-block"></span>';
+        var img = t.preview ? '<img src="' + escapeHtml(t.thumb || t.preview) + '" alt="" loading="lazy">' : '<span style="width:56px;height:34px;background:#e2e8f0;border-radius:4px;display:inline-block"></span>';
         return '<button type="button" class="mova-ai-guide-tpl" data-tpl-id="' + escapeHtml(t.id) + '">' +
           img +
           '<span class="mova-ai-guide-tpl-copy"><strong>' + escapeHtml(t.name) + '</strong><span>' + escapeHtml(t.description || t.id) + '</span></span></button>';
@@ -1359,7 +1452,7 @@
       .then(function (r) { return r.json(); })
       .then(function (data) { done((data && data.templates) || []); })
       .catch(function () {
-        box.innerHTML = '<p class="mova-ai-jobs-empty">Could not load templates.</p>';
+        box.innerHTML = '<p class="mova-ai-jobs-empty">Could not load sections.</p>';
       });
   }
 
@@ -1430,7 +1523,7 @@
           opts.push(b.getAttribute('data-guide-opt'));
         });
         var msg = 'template:' + state.templateId + '\n\n';
-        msg += brief || 'Adapt this template for my site. Keep structure and classes.';
+        msg += brief || 'Adapt this section for my site. Keep structure and classes.';
         if (opts.indexOf('keep_colors') !== -1) msg += '\nUse existing site color variables.';
         if (opts.indexOf('featured_middle') !== -1) msg += '\nKeep the middle plan featured.';
         var ta = el('mova-ai-input');

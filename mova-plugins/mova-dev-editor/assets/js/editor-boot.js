@@ -186,7 +186,7 @@
       initEditors();
       return;
     }
-    const cdn = cfg.monacoCdn || 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs';
+    const cdn = cfg.monacoCdn || '/assets/vendor/monaco/vs';
     window.MonacoEnvironment = {
       getWorkerUrl: function () {
         return URL.createObjectURL(new Blob([

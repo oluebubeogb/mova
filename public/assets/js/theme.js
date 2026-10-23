@@ -47,9 +47,12 @@
     function apply(theme) {
         root.setAttribute('data-theme', theme);
         // Sync meta theme-color for mobile chrome
-        var meta = document.querySelector('meta[name="theme-color"]');
+        // Only metas that opt in (HQ) — public themes keep their brand colour.
+        var meta = document.querySelector('meta[name="theme-color"][data-theme-sync]');
         if (meta) {
-            meta.setAttribute('content', theme === 'dark' ? '#0b0d12' : '#f8f9fb');
+            meta.setAttribute('content', theme === 'dark'
+                ? (meta.getAttribute('data-dark') || '#0F1115')
+                : (meta.getAttribute('data-light') || '#F5F5F7'));
         }
     }
 

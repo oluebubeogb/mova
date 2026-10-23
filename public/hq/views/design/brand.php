@@ -130,7 +130,7 @@
                             </option>
                         <?php endforeach; ?>
                     </select>
-                    <p class="field-hint">Themes live in <code>/mova-themes</code>.</p>
+                    <p class="field-hint"><a href="/hq/themes">Browse themes with live desktop &amp; mobile previews →</a> · Themes live in <code>/mova-themes</code>.</p>
                 </div>
             </div>
         </div>

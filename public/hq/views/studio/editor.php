@@ -19,12 +19,12 @@ $csrfToken = Csrf::token();
      data-content-id="<?= $id ?>"
      data-csrf="<?= htmlspecialchars($csrfToken) ?>"
      data-save-url="/hq/studio/<?= $id ?>/save"
-     data-monaco-cdn="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs">
+     data-monaco-cdn="/assets/vendor/monaco/vs">
 
   <!-- Global toolbar -->
   <div class="studio-toolbar" role="toolbar" aria-label="Studio actions">
     <div class="studio-toolbar-left">
-      <a href="/hq/studio" class="studio-back" title="Back to Studio list"><i class="fa-solid fa-arrow-left"></i></a>
+      <a href="/hq/studio" class="studio-back" title="Back to Studio list" aria-label="Back to Studio list"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></a>
       <input type="text" id="studio-title" class="studio-title-input" value="<?= htmlspecialchars($title) ?>" placeholder="Title" aria-label="Content title">
       <span class="studio-dirty" id="studio-dirty" hidden title="Unsaved changes">●</span>
       <span class="studio-error-badge" id="studio-error-badge" hidden>0 errors</span>
@@ -165,6 +165,11 @@ $__studioCssVars = (string) ($siteCssVars ?? '');
 ?>
 <script type="application/json" id="studio-var-map"><?= $__studioVarMapJson ?></script>
 <style type="text/css" id="studio-site-css-vars"><?= $__studioCssVars ?></style>
+<script type="application/json" id="studio-preview-assets"><?= json_encode([
+    'styles' => array_values($previewStyles ?? []),
+    'bodyClass' => (string) ($previewBodyClass ?? ''),
+], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?: '{}' ?></script>
+<script type="application/json" id="studio-preview-theme-css"><?= json_encode((string) ($previewThemeCss ?? ''), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) ?: '""' ?></script>
 
 
 <!-- Col2: Elements-style style panel -->
@@ -235,5 +240,5 @@ $__studioCssVars = (string) ($siteCssVars ?? '');
   </div>
 </template>
 
-<link rel="stylesheet" href="/assets/css/studio.css?v=20260922fullwidth2">
-<script src="/assets/js/studio.js?v=20260921vars" defer></script>
+<link rel="stylesheet" href="/assets/css/studio.css?v=20261023p5f">
+<script src="/assets/js/studio.js?v=20261023p5g" defer></script>

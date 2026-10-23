@@ -7,9 +7,23 @@ $totalPages = $totalPages ?? 1;
 $allowedPerPage = $allowedPerPage ?? [10, 25, 50, 100];
 $isTrash = ($status ?? '') === 'trash';
 
+$canEdit = $canEdit ?? true;
+$q = (string) ($q ?? '');
+$types = is_array($types ?? null) ? $types : [];
+$statusList = [];
+foreach ((is_array($statuses ?? null) ? $statuses : []) as $k => $v) {
+    $slug = is_string($k) ? $k : (string) $v;
+    $statusList[$slug] = is_string($v) ? ucfirst($v) : ucfirst($slug);
+}
+if (!$statusList) {
+    $statusList = ['published' => 'Published', 'draft' => 'Draft', 'scheduled' => 'Scheduled'];
+}
+$statusList['trash'] = 'Trash';
+
 $queryBase = array_filter([
     'status' => $status ?? null,
     'type' => $type ?? null,
+    'q' => $q !== '' ? $q : null,
     'per_page' => $perPage,
 ]);
 $buildUrl = static function (array $extra = []) use ($queryBase): string {
@@ -17,10 +31,47 @@ $buildUrl = static function (array $extra = []) use ($queryBase): string {
     return '/hq/content?' . http_build_query(array_filter($q, static fn($v) => $v !== null && $v !== ''));
 };
 ?>
-<!-- Status filters + New content are on Line 2 dynamic nav -->
+<header class="hq-page-head">
+    <div>
+        <h1><?= $isTrash ? 'Trash' : 'All content' ?></h1>
+        <p class="hq-page-sub"><?= (int) $total ?> item<?= $total === 1 ? '' : 's' ?><?= $q !== '' ? ' matching “' . htmlspecialchars($q) . '”' : '' ?><?= !$canEdit ? ' · read-only view of published content' : '' ?></p>
+    </div>
+    <?php if ($canEdit): ?>
+    <div class="hq-page-actions">
+        <a class="btn btn-secondary btn-sm" href="/hq/content/upload" data-tip="Import pages from HTML or Markdown files"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i> Import</a>
+        <a class="btn btn-primary" href="/hq/content/new"><i class="fa-solid fa-plus" aria-hidden="true"></i> New content</a>
+    </div>
+    <?php endif; ?>
+</header>
+
+<form method="get" action="/hq/content" class="cl-filters" role="search" aria-label="Filter content">
+    <div class="cl-search">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <input type="search" name="q" value="<?= htmlspecialchars($q) ?>" placeholder="Search titles and text…" aria-label="Search content">
+    </div>
+    <?php if ($types): ?>
+    <select name="type" aria-label="Filter by type" onchange="this.form.submit()">
+        <option value="">All types</option>
+        <?php foreach ($types as $slug => $name): ?>
+            <option value="<?= htmlspecialchars((string) $slug) ?>" <?= ($type ?? '') === (string) $slug ? 'selected' : '' ?>><?= htmlspecialchars((string) $name) ?></option>
+        <?php endforeach; ?>
+    </select>
+    <?php endif; ?>
+    <input type="hidden" name="per_page" value="<?= (int) $perPage ?>">
+    <?php if ($canEdit && !empty($status)): ?><input type="hidden" name="status" value="<?= htmlspecialchars($status) ?>"><?php endif; ?>
+    <button type="submit" class="btn btn-secondary btn-sm">Search</button>
+    <?php if ($q !== '' || !empty($type) || ($canEdit && !empty($status))): ?>
+        <a class="btn btn-ghost btn-sm" href="/hq/content">Clear</a>
+    <?php endif; ?>
+</form>
 
 <?php if (empty($items)): ?>
-    <p class="empty">No content found.</p>
+    <div class="hq-empty-state">
+        <div class="hq-empty-icon"><i class="fa-regular fa-file-lines" aria-hidden="true"></i></div>
+        <h2><?= $q !== '' ? 'Nothing matches that search' : ($isTrash ? 'Trash is empty' : 'No content yet') ?></h2>
+        <p><?= $q !== '' ? 'Try a different word or clear the filters.' : ($canEdit && !$isTrash ? 'Create your first page — you can start from a blank page or a section.' : '') ?></p>
+        <?php if ($canEdit && !$isTrash && $q === ''): ?><a class="btn btn-primary" href="/hq/content/new"><i class="fa-solid fa-plus" aria-hidden="true"></i> New content</a><?php endif; ?>
+    </div>
 <?php else: ?>
 <form method="post" action="/hq/content/bulk" id="content-bulk-form">
     <?= Csrf::field() ?>
@@ -31,7 +82,7 @@ $buildUrl = static function (array $extra = []) use ($queryBase): string {
     <table class="content-list-table">
         <thead>
             <tr>
-                <th class="col-check"><span class="sr-only">Select</span></th>
+                <?php if ($canEdit): ?><th class="col-check"><span class="sr-only">Select</span></th><?php endif; ?>
                 <th class="col-title">Title</th>
                 <th class="col-type">Type</th>
                 <th class="col-status">Status</th>
@@ -42,19 +93,37 @@ $buildUrl = static function (array $extra = []) use ($queryBase): string {
         <tbody>
             <?php foreach ($items as $item): ?>
                 <tr class="content-row">
+                    <?php if ($canEdit): ?>
                     <td class="col-check">
                         <input type="checkbox" name="ids[]" value="<?= (int)$item['id'] ?>" class="content-row-check" aria-label="Select <?= htmlspecialchars($item['title']) ?>">
                     </td>
+                    <?php endif; ?>
                     <td class="col-title">
-                        <a class="content-title-link" href="/hq/content/edit/<?= (int)$item['id'] ?>"><?= htmlspecialchars($item['title']) ?></a>
+                        <?php if ($canEdit && !$isTrash): ?>
+                            <a class="content-title-link" href="/hq/content/edit/<?= (int)$item['id'] ?>"><?= htmlspecialchars($item['title']) ?></a>
+                        <?php elseif ($item['status'] === 'published'): ?>
+                            <a class="content-title-link" href="/<?= htmlspecialchars($item['slug']) ?>" target="_blank" rel="noopener"><?= htmlspecialchars($item['title']) ?></a>
+                        <?php else: ?>
+                            <span class="content-title-link"><?= htmlspecialchars($item['title']) ?></span>
+                        <?php endif; ?>
+                        <span class="cl-slug">/<?= htmlspecialchars($item['slug']) ?></span>
                     </td>
                     <td class="col-type"><span class="type-pill"><?= htmlspecialchars(ucfirst($item['type'])) ?></span></td>
                     <td class="col-status"><span class="badge badge-<?= htmlspecialchars($item['status']) ?>"><?= htmlspecialchars($item['status']) ?></span></td>
                     <td class="col-updated"><?= date('M j, Y', strtotime($item['updated_at'])) ?></td>
                     <td class="col-actions">
-                        <?php if ($item['status'] === 'published'): ?>
-                            <a class="row-action" href="/<?= htmlspecialchars($item['slug']) ?>" target="_blank" title="View">↗</a>
+                        <div class="cl-row-actions">
+                        <?php if ($canEdit && !$isTrash): ?>
+                            <a class="row-action" href="/hq/content/edit/<?= (int)$item['id'] ?>" data-tip="Edit" aria-label="Edit <?= htmlspecialchars($item['title']) ?>"><i class="fa-solid fa-pen" aria-hidden="true"></i></a>
+                            <a class="row-action cl-act-studio" href="/hq/studio/edit/<?= (int)$item['id'] ?>" data-tip="Open in Studio" aria-label="Open <?= htmlspecialchars($item['title']) ?> in Studio"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i></a>
                         <?php endif; ?>
+                        <?php if ($item['status'] === 'published'): ?>
+                            <a class="row-action" href="/<?= htmlspecialchars($item['slug']) ?>" target="_blank" rel="noopener" data-tip="View live" aria-label="View <?= htmlspecialchars($item['title']) ?> on the site"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+                        <?php endif; ?>
+                        <?php if ($canEdit && !$isTrash): ?>
+                            <button type="submit" form="trash-<?= (int)$item['id'] ?>" class="row-action danger" data-tip="Move to trash" aria-label="Move <?= htmlspecialchars($item['title']) ?> to trash"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>
+                        <?php endif; ?>
+                        </div>
                         <?php if ($isTrash): ?>
                             <button type="submit" form="restore-<?= (int)$item['id'] ?>" class="row-action">Restore</button>
                             <button type="submit" form="delete-<?= (int)$item['id'] ?>" class="row-action danger"
@@ -69,7 +138,12 @@ $buildUrl = static function (array $extra = []) use ($queryBase): string {
 </form>
 
 <?php foreach ($items as $item): ?>
-    <?php if ($isTrash): ?>
+    <?php if ($canEdit && !$isTrash): ?>
+        <form id="trash-<?= (int)$item['id'] ?>" method="post" action="/hq/content/trash/<?= (int)$item['id'] ?>" style="display:none;">
+            <?= Csrf::field() ?>
+        </form>
+    <?php endif; ?>
+    <?php if ($isTrash && $canEdit): ?>
         <form id="restore-<?= (int)$item['id'] ?>" method="post" action="/hq/content/restore/<?= (int)$item['id'] ?>" style="display:none;">
             <?= Csrf::field() ?>
         </form>
@@ -101,6 +175,7 @@ $buildUrl = static function (array $extra = []) use ($queryBase): string {
             <form method="get" action="/hq/content" class="goto-page-form">
                 <?php if (!empty($status)): ?><input type="hidden" name="status" value="<?= htmlspecialchars($status) ?>"><?php endif; ?>
                 <?php if (!empty($type)): ?><input type="hidden" name="type" value="<?= htmlspecialchars($type) ?>"><?php endif; ?>
+                <?php if ($q !== ''): ?><input type="hidden" name="q" value="<?= htmlspecialchars($q) ?>"><?php endif; ?>
                 <input type="hidden" name="per_page" value="<?= (int)$perPage ?>">
                 <label for="goto_page">Go to</label>
                 <input type="number" id="goto_page" name="page" min="1" max="<?= (int)$totalPages ?>" value="<?= (int)$page ?>">
@@ -110,7 +185,7 @@ $buildUrl = static function (array $extra = []) use ($queryBase): string {
     </div>
 
     <div class="toolbar bulk-toolbar content-list-toolbar">
-        <div class="bulk-actions">
+        <?php if ($canEdit): ?><div class="bulk-actions">
             <label class="select-all-label">
                 <input type="checkbox" id="select-all-content" title="Select all on this page" form="content-bulk-form">
                 <span>Select all</span>
@@ -124,7 +199,7 @@ $buildUrl = static function (array $extra = []) use ($queryBase): string {
                 <button type="button" class="btn-ghost btn-sm" data-bulk="draft">Move to draft</button>
                 <button type="button" class="btn-ghost btn-sm" data-bulk="trash">Move to trash</button>
             <?php endif; ?>
-        </div>
+        </div><?php endif; ?>
         <div class="per-page-control">
             <label for="per_page_select">Show</label>
             <select id="per_page_select" onchange="window.location.href=this.value">

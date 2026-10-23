@@ -4,7 +4,7 @@
  *
  * Seeds live in resources/templates/ (shipped with the product).
  * DB table design_templates can override body/css/meta per id.
- * Shared CSS is always available at /assets/css/templates.css
+ * Shared CSS is always available at /assets/css/sections.css (+ /assets/js/sections.js for reveal/accordion)
  */
 
 namespace Mova\Theme;
@@ -46,11 +46,77 @@ class TemplateService
                 'category' => (string) ($meta['category'] ?? ($entry['category'] ?? 'general')),
                 'description' => (string) ($meta['description'] ?? ''),
                 'preview' => (string) ($meta['preview'] ?? ''),
+                'thumb' => self::thumbFor((string) ($meta['preview'] ?? '')),
+                'tags' => array_values(array_map('strval', is_array($meta['tags'] ?? null) ? $meta['tags'] : [])),
+                'order' => (int) ($entry['order'] ?? 999),
                 'path' => (string) ($entry['path'] ?? ''),
                 'source' => $resolved['source'],
             ];
         }
+        usort($items, static fn ($a, $b) => $a['order'] <=> $b['order']);
         return $items;
+    }
+
+    /** Category id => human label (manifest order). @return array<string,string> */
+    public static function categoryLabels(): array
+    {
+        $labels = self::manifest()['categories'] ?? [];
+        return is_array($labels) ? array_map('strval', $labels) : [];
+    }
+
+    /**
+     * Lightweight card thumbnail (bin/make-section-thumbs.php) for a preview PNG, or ''.
+     * Keeps library cards from painting blank while full-size previews lazy-load.
+     */
+    public static function thumbFor(string $preview): string
+    {
+        if ($preview === '' || !str_starts_with($preview, '/assets/templates/previews/')) {
+            return '';
+        }
+        $id = pathinfo((string) parse_url($preview, PHP_URL_PATH), PATHINFO_FILENAME);
+        $dir = dirname(__DIR__, 2) . '/public/assets/templates/previews/thumbs/';
+        foreach (['jpg', 'png'] as $ext) {
+            $f = $dir . $id . '.' . $ext;
+            if (is_file($f)) {
+                return '/assets/templates/previews/thumbs/' . rawurlencode($id) . '.' . $ext . '?v=' . filemtime($f);
+            }
+        }
+        return '';
+    }
+
+    /**
+     * Ready-to-insert HTML for a template (body + optional scoped <style>).
+     */
+    public static function html(string $id): string
+    {
+        $tpl = self::get($id);
+        if ($tpl === null) {
+            return '';
+        }
+        $html = trim($tpl['body']);
+        if (trim($tpl['styles']) !== '') {
+            $html = '<style>' . trim($tpl['styles']) . "</style>\n" . $html;
+        }
+        return $html;
+    }
+
+    /**
+     * Compact library payload for pickers (editor, Assembly, wizard).
+     * @return list<array<string,mixed>>
+     */
+    public static function library(bool $withHtml = true): array
+    {
+        $out = [];
+        foreach (self::listAll() as $t) {
+            $row = $t;
+            unset($row['path'], $row['order']);
+            $row['live'] = '/_preview/section/' . rawurlencode($t['id']);
+            if ($withHtml) {
+                $row['html'] = self::html($t['id']);
+            }
+            $out[] = $row;
+        }
+        return $out;
     }
 
     /**
@@ -97,13 +163,15 @@ class TemplateService
             . "Name: {$name}\n"
             . "Slots you may change: {$slotLines}\n"
             . "Constraints:\n{$constraintLines}"
-            . "Shared CSS is already loaded on the site as /assets/css/templates.css — "
-            . "prefer keeping class names so shared styles apply. Only emit extra ```css if a small delta is required.\n"
+            . "Shared CSS is already loaded on every site page as /assets/css/sections.css (classes mx-*, colours from theme CSS variables "
+            . "--color-primary, --color-brand-accent, --color-surface, --color-text…) plus /assets/js/sections.js for scroll-reveal "
+            . "(data-reveal, auto-disabled for prefers-reduced-motion) and the FAQ accordion. Keep class names so shared styles apply; "
+            . "never hard-code colours or link external images. Only emit extra ```css if a small delta is required.\n"
             . "Return adapted ```html (body fragment) using the same root classes.\n\n"
             . "=== TEMPLATE HTML ===\n"
             . $tpl['body'] . "\n"
             . "=== TEMPLATE EXTRA CSS (optional delta base) ===\n"
-            . ($tpl['styles'] !== '' ? $tpl['styles'] : "(none — shared templates.css covers base)")
+            . ($tpl['styles'] !== '' ? $tpl['styles'] : "(none — shared sections.css covers base)")
             . "\n=== END TEMPLATE ===\n";
     }
 
@@ -137,9 +205,47 @@ class TemplateService
         return null;
     }
 
+    /**
+     * Site palette scoped to an HQ element so sections render in brand colours inside
+     * the visual editor / previews without leaking into HQ chrome.
+     */
+    public static function scopedTokensCss(string $selector): string
+    {
+        $c = [];
+        $font = '';
+        try {
+            $t = DesignConfig::tokens();
+            $c = is_array($t['colors'] ?? null) ? $t['colors'] : [];
+            $font = (string) ($t['typography']['font_heading'] ?? '');
+        } catch (\Throwable $e) {
+        }
+        $hex = static function ($v, string $d): string {
+            $v = trim((string) $v);
+            return preg_match('/^#[0-9a-f]{3,8}$/i', $v) ? $v : $d;
+        };
+        $map = [
+            '--color-primary' => $hex($c['primary'] ?? '', '#2563eb'),
+            '--color-brand-accent' => $hex($c['accent'] ?? '', '#7c3aed'),
+            '--color-bg' => $hex($c['background'] ?? '', '#f8f9fb'),
+            '--color-surface' => $hex($c['surface'] ?? '', '#ffffff'),
+            '--color-text' => $hex($c['text'] ?? '', '#111827'),
+            '--color-muted' => $hex($c['muted'] ?? '', '#6b7280'),
+            '--color-border' => $hex($c['border'] ?? '', '#e5e7eb'),
+            '--color-on-primary' => DesignConfig::contrastOn($hex($c['primary'] ?? '', '#2563eb')),
+        ];
+        $css = $selector . '{';
+        foreach ($map as $k => $v) {
+            $css .= $k . ':' . $v . ';';
+        }
+        if ($font !== '' && preg_match('/^[a-z0-9 \-]+$/i', $font)) {
+            $css .= "--font-heading:'" . $font . "',system-ui,sans-serif;";
+        }
+        return $css . '}' . $selector . ' .mx-page{background:var(--color-bg);color:var(--color-text);border-radius:12px;overflow:hidden;margin:1rem 0;width:auto;margin-left:0}';
+    }
+
     public static function sharedCssUrl(): string
     {
-        return '/assets/css/templates.css';
+        return '/assets/css/sections.css';
     }
 
     /** @return array<string,mixed> */

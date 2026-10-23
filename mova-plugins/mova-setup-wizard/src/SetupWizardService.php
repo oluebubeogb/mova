@@ -267,6 +267,17 @@ final class SetupWizardService
         if ($kitId !== '' && class_exists(KitRepository::class)) {
             $kit = KitRepository::load($kitId);
         }
+        if (is_array($kit) && (int) ($kit['schema'] ?? 1) >= 2) {
+            $colors = (array) ($input['palette']['colors'] ?? []);
+            $draft = WizardDraft::merge(WizardDraft::defaults(), [
+                'pack' => $packId, 'kit' => $kitId,
+                'site_name' => (string) ($input['site_name'] ?? ''), 'tagline' => (string) ($input['tagline'] ?? ''),
+                'about' => (string) ($input['about'] ?? ($input['seed_text'] ?? '')),
+                'primary' => (string) ($colors['primary'] ?? ''), 'accent' => (string) ($colors['accent'] ?? ''),
+                'status' => (string) ($input['status'] ?? 'published'),
+            ]);
+            return self::publishDraft($draft);
+        }
         $pack = self::getPack($packId);
         // Prefer kit pages/nav/footer when a kit is selected
         if (is_array($kit) && !empty($kit['pages_resolved'])) {
@@ -318,15 +329,21 @@ final class SetupWizardService
         $layout['footer'] = array_merge($layout['footer'] ?? [], ['style' => 'columns']);
         DesignConfig::saveLayout($layout);
 
+        $aboutHtml = $about !== ''
+            ? nl2br(htmlspecialchars($about, ENT_QUOTES, 'UTF-8'))
+            : 'Tell visitors who you are and what you stand for.';
+        $contactHtml = $contact !== ''
+            ? nl2br(htmlspecialchars($contact, ENT_QUOTES, 'UTF-8'))
+            : 'Address, phone, and email go here.';
+        // Kits use {{about}} / {{contact}}; built-in packs use the *_seed variants.
+        // Support both so no raw token ever reaches the public site.
         $vars = [
             '{{site_name}}' => htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8'),
             '{{tagline}}' => htmlspecialchars($tagline !== '' ? $tagline : 'Content that moves.', ENT_QUOTES, 'UTF-8'),
-            '{{about_seed}}' => $about !== ''
-                ? nl2br(htmlspecialchars($about, ENT_QUOTES, 'UTF-8'))
-                : 'Tell visitors who you are and what you stand for.',
-            '{{contact_seed}}' => $contact !== ''
-                ? nl2br(htmlspecialchars($contact, ENT_QUOTES, 'UTF-8'))
-                : 'Address, phone, and email go here.',
+            '{{about_seed}}' => $aboutHtml,
+            '{{about}}' => $aboutHtml,
+            '{{contact_seed}}' => $contactHtml,
+            '{{contact}}' => $contactHtml,
             '{{year}}' => date('Y'),
         ];
 
@@ -337,15 +354,15 @@ final class SetupWizardService
 
         foreach ($pack['pages'] as $page) {
             $slug = (string) $page['slug'];
-            $title = (string) $page['title'];
+            $title = html_entity_decode(strip_tags(self::replaceTokens((string) $page['title'], $vars)), ENT_QUOTES, 'UTF-8');
             $role = (string) ($page['role'] ?? 'generic');
-            $body = str_replace(array_keys($vars), array_values($vars), (string) $page['body']);
+            $body = self::replaceTokens((string) $page['body'], $vars);
 
             // Phase 2: optional AI expansion for about/contact roles
             if ($useAi && in_array($role, ['about', 'contact', 'team', 'programs'], true)) {
                 $aiBody = self::expandWithAi($role, $siteName, $tagline, $about, $contact, $seedText);
                 if ($aiBody !== null && $aiBody !== '') {
-                    $body = $aiBody;
+                    $body = self::replaceTokens($aiBody, $vars);
                     $aiExpanded++;
                 }
             }
@@ -421,7 +438,7 @@ final class SetupWizardService
         if (!empty($pack['nav']) && is_array($pack['nav'])) {
             $navLines = [];
             foreach ($pack['nav'] as $item) {
-                $navLines[] = ($item['label'] ?? 'Page') . '|' . ($item['url'] ?? '/');
+                $navLines[] = strip_tags(self::replaceTokens((string) ($item['label'] ?? 'Page'), $vars)) . '|' . ($item['url'] ?? '/');
             }
         }
         DesignConfig::saveSetting('nav_links', implode("\n", $navLines));
@@ -432,7 +449,7 @@ final class SetupWizardService
             $entry = [
                 'title' => (string) ($col['title'] ?? ''),
                 'text' => isset($col['text'])
-                    ? str_replace(array_keys($vars), array_values($vars), (string) $col['text'])
+                    ? self::replaceTokens((string) $col['text'], $vars)
                     : '',
                 'links' => [],
             ];
@@ -454,7 +471,7 @@ final class SetupWizardService
                     }
                 } elseif (is_array($link)) {
                     $entry['links'][] = [
-                        'label' => (string) ($link['label'] ?? ''),
+                        'label' => self::replaceTokens((string) ($link['label'] ?? ''), $vars),
                         'url' => (string) ($link['url'] ?? '#'),
                     ];
                 }
@@ -483,6 +500,15 @@ final class SetupWizardService
                 : ' AI expansion used local copy where the gateway was unavailable.';
             if ($knowledgeSeeded) {
                 $msg .= ' Site AI knowledge seeded.';
+            }
+        }
+
+        // Site name, nav, palette, homepage and footer all changed: drop cached public pages.
+        if (class_exists(\Mova\Cache\PageCache::class)) {
+            try {
+                \Mova\Cache\PageCache::flush();
+            } catch (\Throwable $e) {
+                // cache dir not writable — pages refresh when the TTL expires
             }
         }
 
@@ -761,6 +787,18 @@ final class SetupWizardService
         return self::rgbToHex((int) round($rr * 255), (int) round($gg * 255), (int) round($bb * 255));
     }
 
+    /**
+     * Replace known {{tokens}}, then strip any unknown leftover {{token}} so raw
+     * placeholders never leak to the public site.
+     *
+     * @param array<string,string> $vars
+     */
+    public static function replaceTokens(string $text, array $vars): string
+    {
+        $text = str_replace(array_keys($vars), array_values($vars), $text);
+        return (string) preg_replace('/\{\{\s*[a-z0-9_]+\s*\}\}/i', '', $text);
+    }
+
     /** @return list<array{title:string,text:string,links:list<array{label:string,url:string}>}> */
     public static function getFooterColumns(): array
     {
@@ -772,4 +810,410 @@ final class SetupWizardService
             return [];
         }
     }
+
+    // ───────────────────── Quick setup v2 (kits of section specs) ─────────────────────
+
+    public static function lightColors(string $p, string $a, string $s): array
+    {
+        return [
+            'primary' => $p, 'accent' => $a, 'secondary' => $s,
+            'background' => self::mixToward('#f8f9fb', $p, 0.018),
+            'surface' => '#ffffff',
+            'text' => self::mixToward('#0f172a', $p, 0.06),
+            'muted' => self::mixToward('#5b6474', $p, 0.06),
+            'border' => self::mixToward('#e5e7eb', $p, 0.05),
+        ];
+    }
+
+    public static function darkColors(string $p, string $a, string $s): array
+    {
+        return [
+            'primary' => self::lighten($p, 0.28), 'accent' => self::lighten($a, 0.22), 'secondary' => self::lighten($s, 0.25),
+            'background' => self::mixToward('#0a0c12', $p, 0.05),
+            'surface' => self::mixToward('#121621', $p, 0.06),
+            'text' => '#f2f4f8',
+            'muted' => '#9aa3b2',
+            'border' => self::mixToward('#232a38', $p, 0.06),
+        ];
+    }
+
+    /** Smart presets from the three brand colours (shown as swatches in the Brand step). */
+    public static function presetPalettes(): array
+    {
+        return [
+            ['id' => 'ocean', 'label' => 'Ocean', 'primary' => '#2563eb', 'accent' => '#06b6d4', 'secondary' => '#7c3aed'],
+            ['id' => 'royal', 'label' => 'Royal', 'primary' => '#4f46e5', 'accent' => '#ec4899', 'secondary' => '#f59e0b'],
+            ['id' => 'forest', 'label' => 'Forest', 'primary' => '#166534', 'accent' => '#ca8a04', 'secondary' => '#0f766e'],
+            ['id' => 'navy', 'label' => 'Navy & gold', 'primary' => '#1e3a8a', 'accent' => '#b45309', 'secondary' => '#0f766e'],
+            ['id' => 'berry', 'label' => 'Berry', 'primary' => '#be185d', 'accent' => '#7c3aed', 'secondary' => '#f97316'],
+            ['id' => 'sunset', 'label' => 'Sunset', 'primary' => '#c2410c', 'accent' => '#db2777', 'secondary' => '#f59e0b'],
+            ['id' => 'teal', 'label' => 'Teal', 'primary' => '#0f766e', 'accent' => '#f59e0b', 'secondary' => '#1e3a8a'],
+            ['id' => 'mono', 'label' => 'Graphite', 'primary' => '#0f172a', 'accent' => '#10b981', 'secondary' => '#6366f1'],
+        ];
+    }
+
+    /**
+     * AI copy job, one page per call (poll-driven, so it works on shared hosting and
+     * Docker without workers or long requests). Returns the updated draft.
+     */
+    /** Set by bin/ai-worker.php: use the gateway job API (no HTTP request timeouts in the CLI). */
+    public static bool $preferAsync = false;
+
+    /**
+     * Advance one page of a running AI-copy job for $uid (lock, step, merge with autosaves, save).
+     * Shared by the browser poll route and the background worker.
+     */
+    public static function advance(int $uid): array
+    {
+        $d = WizardDraft::load($uid);
+        $job = (array) ($d['ai'] ?? []);
+        if (($job['status'] ?? '') !== 'running') {
+            return $d;
+        }
+        // One step at a time (two tabs, the worker, or a retry while the gateway is still answering).
+        if (!empty($job['lock']) && time() - (int) $job['lock'] < 150) {
+            $d['_busy'] = true;
+            return $d;
+        }
+        $d['ai']['lock'] = time();
+        WizardDraft::save($uid, $d);
+        $after = self::aiCopyStep($d);
+        // Re-read so autosaves that happened while the AI was answering are not lost.
+        $fresh = WizardDraft::load($uid);
+        if (($fresh['ai']['status'] ?? '') === 'running' && (int) ($fresh['ai']['started'] ?? 0) === (int) ($after['ai']['started'] ?? 0)) {
+            $fresh['copy'] = (array) ($after['copy'] ?? []);
+            $fresh['ai'] = (array) ($after['ai'] ?? []);
+        }
+        unset($fresh['ai']['lock']);
+        return WizardDraft::save($uid, $fresh);
+    }
+
+    /** @return list<int> user ids with a running AI-copy job */
+    public static function runningUsers(): array
+    {
+        $rows = \Mova\Core\Database::fetchAll(
+            "SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'setup_wizard_draft_%'"
+        );
+        $out = [];
+        foreach ($rows as $r) {
+            $d = json_decode((string) $r['setting_value'], true);
+            if (is_array($d) && (($d['ai']['status'] ?? '') === 'running')) {
+                $out[] = (int) substr((string) $r['setting_key'], strlen('setup_wizard_draft_'));
+            }
+        }
+        return array_values(array_filter($out));
+    }
+
+    public static function aiCopyStep(array $d): array
+    {
+        $kit = KitRepository::load((string) ($d['kit'] ?? ''));
+        $job = (array) ($d['ai'] ?? []);
+        if (!$kit || ($job['status'] ?? '') !== 'running') {
+            return $d;
+        }
+        $slugs = array_column($kit['pages'] ?? [], 'slug');
+        $done = (array) ($job['done'] ?? []);
+        $next = null;
+        foreach ($slugs as $sl) {
+            if (!in_array($sl, $done, true)) {
+                $next = $sl;
+                break;
+            }
+        }
+        if ($next === null) {
+            $job['status'] = 'done';
+            $d['ai'] = $job;
+            return $d;
+        }
+        $page = KitRenderer::page($kit, $next);
+        $vars = WizardDraft::vars($d);
+        $filled = KitRenderer::fill($page['sections'] ?? [], $vars);
+        $copy = null;
+        try {
+            $copy = self::aiRewriteSections($filled, $d, (string) ($page['title'] ?? $next));
+        } catch (\Throwable $e) {
+            $job['errors'] = (int) ($job['errors'] ?? 0) + 1;
+            $job['last_error'] = 'AI unavailable — kept the default copy for ' . ($page['title'] ?? $next) . '.';
+        }
+        if (is_array($copy)) {
+            $d['copy'][$next] = $copy;
+        }
+        $done[] = $next;
+        $job['done'] = $done;
+        $job['total'] = count($slugs);
+        $job['current'] = $page['title'] ?? $next;
+        if (count($done) >= count($slugs)) {
+            $job['status'] = 'done';
+        }
+        $d['ai'] = $job;
+        return $d;
+    }
+
+    /**
+     * Pull a list of section objects out of a model reply. Accepts a JSON array, an object wrapping
+     * one ({"sections": [...]}), or — as smaller models often emit — several top-level objects
+     * written one after another without the surrounding array. Markdown fences are ignored.
+     *
+     * @return list<array<string,mixed>>|null
+     */
+    public static function parseSectionsJson(string $raw): ?array
+    {
+        $raw = trim((string) preg_replace('/^\s*```(?:json)?\s*$|^\s*```\s*$/mi', '', trim($raw)));
+        $isList = static fn ($v): bool => is_array($v) && $v !== [] && array_is_list($v) && is_array($v[0]);
+        $whole = json_decode($raw, true);
+        if ($isList($whole)) {
+            return $whole;
+        }
+        if (is_array($whole)) {
+            foreach (['sections', 'data', 'items', 'page'] as $k) {
+                if (isset($whole[$k]) && $isList($whole[$k])) {
+                    return $whole[$k];
+                }
+            }
+            if (isset($whole['type'])) {
+                return [$whole];
+            }
+        }
+        $start = strpos($raw, '[');
+        $end = strrpos($raw, ']');
+        if ($start !== false && $end !== false && $end > $start) {
+            $arr = json_decode(substr($raw, $start, $end - $start + 1), true);
+            if ($isList($arr)) {
+                return $arr;
+            }
+        }
+        // Stream of top-level objects: scan balanced braces outside strings.
+        $out = [];
+        $depth = 0;
+        $inStr = false;
+        $esc = false;
+        $from = -1;
+        $len = strlen($raw);
+        for ($i = 0; $i < $len; $i++) {
+            $c = $raw[$i];
+            if ($inStr) {
+                if ($esc) {
+                    $esc = false;
+                } elseif ($c === '\\') {
+                    $esc = true;
+                } elseif ($c === '"') {
+                    $inStr = false;
+                }
+                continue;
+            }
+            if ($c === '"') {
+                $inStr = true;
+            } elseif ($c === '{') {
+                if ($depth === 0) {
+                    $from = $i;
+                }
+                $depth++;
+            } elseif ($c === '}' && $depth > 0) {
+                $depth--;
+                if ($depth === 0 && $from >= 0) {
+                    $obj = json_decode(substr($raw, $from, $i - $from + 1), true);
+                    if (is_array($obj)) {
+                        $out[] = $obj;
+                    }
+                    $from = -1;
+                }
+            }
+        }
+        return $out !== [] ? $out : null;
+    }
+
+    /** Ask the gateway to rewrite the copy fields of filled specs; returns merged specs or null. */
+    private static function aiRewriteSections(array $filled, array $d, string $pageTitle): ?array
+    {
+        if (!class_exists(\Mova\AI\AiAssistService::class)) {
+            return null;
+        }
+        $assist = new \Mova\AI\AiAssistService();
+        if (!$assist->isConfigured()) {
+            return null;
+        }
+        $facts = trim(implode("\n", array_filter([
+            'Name: ' . ($d['site_name'] ?? ''),
+            !empty($d['tagline']) ? 'Tagline: ' . $d['tagline'] : '',
+            !empty($d['about']) ? 'About: ' . $d['about'] : '',
+            !empty($d['city']) ? 'Location: ' . $d['city'] : '',
+            'Site type: ' . ($d['pack'] ?? 'business'),
+        ])));
+        $system = 'You are a senior website copywriter. You receive a JSON array of page sections. '
+            . 'Return the SAME JSON structure (same keys, same array lengths, same order) with only human-readable text values rewritten '
+            . 'to fit the organisation described. Never change keys like type, variant, href, icon, art, anchor, tone, columns, featured, value of prices. '
+            . 'Never invent phone numbers, emails, addresses, prices, statistics, awards or named people — keep those values exactly as given. '
+            . 'Keep each text roughly the same length. Warm, confident, plain English. Reply with JSON only, no markdown.';
+        $user = "Organisation facts:\n" . $facts . "\n\nPage: " . $pageTitle . "\nSections JSON:\n" . json_encode($filled, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $msgs = [
+            ['role' => 'system', 'content' => $system],
+            ['role' => 'user', 'content' => $user],
+        ];
+        $assist = $assist->forFeature('wizard.copy');
+        if (self::$preferAsync) {
+            try {
+                $raw = $assist->chatRawAsync($msgs, 3500, 300, 0.6);
+            } catch (\Throwable $e) {
+                $raw = $assist->chatRaw($msgs, 3500, 120, 0.6);
+            }
+        } else {
+            $raw = $assist->chatRaw($msgs, 3500, 120, 0.6);
+        }
+        $ai = self::parseSectionsJson((string) $raw);
+        if (!is_array($ai) || count($ai) !== count($filled)) {
+            return null;
+        }
+        // Protect numbers/people: stats values, prices and names stay as authored.
+        $merged = KitRenderer::mergeCopy($filled, $ai);
+        foreach ($merged as $i => $sec) {
+            foreach (['items', 'plans', 'stats'] as $k) {
+                foreach ((array) ($sec[$k] ?? []) as $j => $it) {
+                    if (!is_array($it)) {
+                        continue;
+                    }
+                    foreach (['value', 'name', 'price', 'price_b', 'href', 'day', 'month', 'time', 'date'] as $keep) {
+                        if (isset($filled[$i][$k][$j][$keep])) {
+                            $merged[$i][$k][$j][$keep] = $filled[$i][$k][$j][$keep];
+                        }
+                    }
+                }
+            }
+        }
+        return $merged;
+    }
+
+    /**
+     * Publish the Quick setup draft: settings, design tokens, theme, pages, nav, footer, home.
+     * @return array{ok:bool,pages:list<array>,message:string,home_url:string}
+     */
+    public static function publishDraft(array $d): array
+    {
+        $kit = KitRepository::load((string) ($d['kit'] ?? ''));
+        if (!$kit || empty($kit['pages'])) {
+            return ['ok' => false, 'error' => 'Please choose a kit first.', 'pages' => []];
+        }
+        $pack = KitRepository::normalizePack((string) ($kit['pack'] ?? ($d['pack'] ?? 'generic')));
+        $d['pack'] = $pack;
+        $vars = WizardDraft::vars($d);
+        $status = (($d['status'] ?? 'published') === 'draft') ? 'draft' : 'published';
+
+        // Brand & settings
+        DesignConfig::saveSetting('site_name', $vars['site_name']);
+        DesignConfig::saveSetting('site_description', $vars['tagline']);
+        if (!empty($d['logo_url'])) {
+            DesignConfig::saveSetting('logo_url', (string) $d['logo_url']);
+        }
+        $tok = WizardDraft::tokens($d, $kit);
+        $tokens = DesignConfig::tokens();
+        $tokens['colors'] = array_merge($tokens['colors'] ?? [], $tok['colors']);
+        $tokens['colors_dark'] = array_merge($tokens['colors_dark'] ?? [], $tok['colors_dark']);
+        $tokens['typography'] = array_merge($tokens['typography'] ?? [], $tok['typography']);
+        DesignConfig::saveTokens($tokens);
+        DesignConfig::saveSetting('brand_color', $tok['colors']['primary']);
+        $layout = DesignConfig::layout();
+        $layout['footer'] = array_merge($layout['footer'] ?? [], ['style' => 'columns']);
+        DesignConfig::saveLayout($layout);
+        if (!empty($d['theme'])) {
+            try {
+                (new \Mova\Theme\ThemeManager())->setActive((string) $d['theme']);
+            } catch (\Throwable $e) {
+            }
+        }
+
+        $repo = new ContentRepository();
+        $authorId = Auth::id();
+        $created = [];
+        $slugMap = [];
+        $kitSlugs = [];
+        foreach ($kit['pages'] as $page) {
+            $slug = (string) $page['slug'];
+            $kitSlugs[] = $slug;
+            $copy = isset($d['copy'][$slug]) && is_array($d['copy'][$slug]) ? $d['copy'][$slug] : null;
+            $body = KitRenderer::render($kit, $page, $vars, $copy);
+            $title = KitRenderer::fill((string) ($page['title'] ?? ucfirst($slug)), $vars);
+            $meta = [
+                'created_by' => self::META_TAG, 'wizard_pack' => $pack, 'wizard_role' => (string) ($page['role'] ?? 'generic'),
+                'wizard_kit' => (string) $kit['id'], 'page_layout' => 'canvas',
+                'meta_description' => KitRenderer::fill((string) ($page['description'] ?? ''), $vars),
+                // v1 kits used dev-mode raw CSS/JS; clear it so sections.css + theme apply.
+                'editor_mode' => '', 'raw_css' => '', 'raw_js' => '', 'use_site_chrome' => '', 'hide_article_chrome' => '',
+            ];
+            $existing = $repo->findBySlugAnyStatus($slug);
+            if ($existing && (($existing['meta']['created_by'] ?? '') === self::META_TAG || ($existing['status'] ?? '') === 'draft')) {
+                $repo->update((int) $existing['id'], ['title' => $title, 'body' => $body, 'status' => $status, 'type' => 'page',
+                    'author_id' => $authorId ?? $existing['author_id'] ?? null, 'meta' => array_merge($existing['meta'] ?? [], $meta)]);
+                $id = (int) $existing['id'];
+                $finalSlug = $slug;
+            } elseif ($existing) {
+                $finalSlug = $slug . '-site';
+                $alt = $repo->findBySlugAnyStatus($finalSlug);
+                if ($alt) {
+                    $repo->update((int) $alt['id'], ['title' => $title, 'body' => $body, 'status' => $status, 'type' => 'page', 'meta' => array_merge($alt['meta'] ?? [], $meta)]);
+                    $id = (int) $alt['id'];
+                } else {
+                    $id = $repo->create(['title' => $title, 'slug' => $finalSlug, 'body' => $body, 'status' => $status, 'type' => 'page', 'author_id' => $authorId, 'meta' => $meta]);
+                }
+            } else {
+                $finalSlug = $slug;
+                $id = $repo->create(['title' => $title, 'slug' => $slug, 'body' => $body, 'status' => $status, 'type' => 'page', 'author_id' => $authorId, 'meta' => $meta]);
+            }
+            $slugMap['/' . $slug] = '/' . $finalSlug;
+            $created[] = ['id' => (int) $id, 'slug' => $finalSlug, 'title' => $title, 'role' => (string) ($page['role'] ?? 'generic'),
+                'url' => ($page['role'] ?? '') === 'front' ? '/' : '/' . $finalSlug];
+        }
+        // Retire wizard pages from a previously chosen kit (kept as drafts, never deleted).
+        try {
+            $rows = Database::fetchAll("SELECT c.id, c.slug FROM content c JOIN content_meta m ON m.content_id = c.id WHERE m.meta_key = 'created_by' AND m.meta_value = :t AND c.status = 'published'", ['t' => self::META_TAG]);
+            $keep = array_map(static fn ($u) => ltrim($u, '/'), array_values($slugMap));
+            foreach ($rows as $r) {
+                if (!in_array((string) $r['slug'], $keep, true)) {
+                    $repo->update((int) $r['id'], ['status' => 'draft']);
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+
+        // Rewrite links if any slug had to change (existing user pages are never overwritten)
+        $settings = KitRenderer::siteSettings($kit, $vars);
+        $fix = static function (string $s) use ($slugMap): string {
+            foreach ($slugMap as $from => $to) {
+                if ($from !== $to) {
+                    $s = preg_replace('~(\||"url":")' . preg_quote($from, '~') . '(?=["\n]|$)~', '$1' . $to, $s) ?? $s;
+                }
+            }
+            return $s;
+        };
+        DesignConfig::saveSetting('nav_links', $fix($settings['nav_links']));
+        DesignConfig::saveSetting(self::FOOTER_COLUMNS_KEY, $fix($settings['footer_columns']));
+        DesignConfig::saveSetting('nav_cta', $fix($settings['nav_cta']));
+        DesignConfig::saveSetting('header_assembly_slug', '');
+        DesignConfig::saveSetting('footer_assembly_slug', '');
+        if ($slugMap && array_filter($slugMap, static fn ($v, $k) => $v !== $k, ARRAY_FILTER_USE_BOTH)) {
+            foreach ($created as $c) {
+                $content = $repo->find($c['id']);
+                if ($content) {
+                    $repo->update($c['id'], ['body' => $fix(str_replace('href="', 'href="|', (string) $content['body']))]);
+                    $content = $repo->find($c['id']);
+                    $repo->update($c['id'], ['body' => str_replace('href="|', 'href="', (string) $content['body'])]);
+                }
+            }
+        }
+        foreach ($created as $c) {
+            if ($c['role'] === 'front') {
+                DesignConfig::saveSetting('homepage_content_id', (string) $c['id']);
+                break;
+            }
+        }
+        if (!empty($d['use_ai']) && !empty($d['about'])) {
+            self::seedKnowledgeBank($vars['site_name'], (string) $d['about'], (string) $d['about'], trim(($d['address'] ?? '') . "\n" . ($d['phone'] ?? '') . "\n" . ($d['email'] ?? '')));
+        }
+        if (class_exists(\Mova\Cache\PageCache::class)) {
+            try {
+                \Mova\Cache\PageCache::flush();
+            } catch (\Throwable $e) {
+            }
+        }
+        return ['ok' => true, 'pages' => $created, 'home_url' => '/', 'message' => count($created) . ' pages ' . ($status === 'published' ? 'published' : 'saved as drafts') . '.'];
+    }
 }
+

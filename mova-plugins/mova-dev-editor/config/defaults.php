@@ -13,5 +13,5 @@ return [
     'max_html_bytes' => 512000,
     'max_css_bytes'  => 128000,
     'max_js_bytes'   => 128000,
-    'monaco_cdn' => 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs',
+    'monaco_cdn' => '/assets/vendor/monaco/vs',
 ];

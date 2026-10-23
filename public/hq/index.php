@@ -60,6 +60,8 @@ $routeFiles = [
     'webhooks',
     'ai',
     'site_ai',
+    'ai_usage',
+    'search',
     'setup_wizard',
     'health',
     'sites',
@@ -121,5 +123,33 @@ $fakeRequest = new class($hqPath, $request) extends Request {
     }
 };
 
-$response = $router->dispatch($fakeRequest);
+// Phase 5 — defence-in-depth role gate in front of every HQ route handler.
+// 1) Read-only roles (viewer) can never mutate: any non-GET request is refused here, before
+//    the handler runs, except the handful of endpoints that must work signed-out.
+// 2) A signed-in user opening a registry page their role cannot use gets a 403 (handlers keep
+//    their own checks; this only catches anything a handler forgot).
+$gateResponse = (static function (string $hqPath, string $method): ?\Mova\Core\Response {
+    if (!\Mova\Auth\Auth::check()) {
+        return null; // handlers redirect to login themselves
+    }
+    $method = strtoupper($method);
+    $openPosts = ['/login', '/logout', '/install', '/ai/worker/poke'];
+    if (!in_array($method, ['GET', 'HEAD', 'OPTIONS'], true)
+        && !in_array(rtrim($hqPath, '/') ?: '/', $openPosts, true)
+        && !\Mova\Auth\Auth::canMutate()) {
+        return hqForbidden('Your role is read-only.');
+    }
+    if ($method === 'GET' || $method === 'HEAD') {
+        try {
+            $route = \Mova\Hq\RouteRegistry::match('/hq' . ($hqPath === '/' ? '' : $hqPath));
+            if ($route && !\Mova\Hq\RouteRegistry::allowed($route['perm'] ?? null)) {
+                return hqForbidden();
+            }
+        } catch (\Throwable $e) {
+        }
+    }
+    return null;
+})($hqPath, $request->method());
+
+$response = $gateResponse ?? $router->dispatch($fakeRequest);
 $response->send();

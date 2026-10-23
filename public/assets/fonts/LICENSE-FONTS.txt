@@ -1,0 +1,9 @@
+Bundled fonts (woff2, latin subset, variable weight) — obtained from Fontsource.
+
+- Inter            © The Inter Project Authors  — SIL Open Font License 1.1
+- Fraunces         © The Fraunces Project Authors — SIL Open Font License 1.1
+- Plus Jakarta Sans © The Plus Jakarta Sans Project Authors — SIL Open Font License 1.1
+- Space Grotesk    © The Space Grotesk Project Authors — SIL Open Font License 1.1
+
+Full licence text: https://openfontlicense.org/open-font-license-official-text/
+These fonts may be used, bundled and redistributed with Mova under the OFL.

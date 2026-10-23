@@ -349,21 +349,59 @@
 <div class="media-page" id="media-page">
 <div class="media-page-main" id="media-page-main">
 
-<div class="toolbar">
-    <h2 style="margin:0;font-size:1rem;">Media library</h2>
-    <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
+<?php
+$q = (string) ($q ?? '');
+$filter = (string) ($filter ?? '');
+$noAltCount = (int) ($noAltCount ?? 0);
+$allCount = (int) ($allCount ?? ($total ?? 0));
+$mQs = static function (array $over = []) use ($q, $filter): string {
+    $p = array_filter(['q' => $q, 'filter' => $filter] + [], static fn($v) => $v !== '');
+    $p = array_merge($p, $over);
+    $p = array_filter($p, static fn($v) => $v !== '' && $v !== null);
+    return $p ? '?' . http_build_query($p) : '';
+};
+$filters = ['' => ['All', $allCount, 'fa-solid fa-layer-group'], 'images' => ['Images', null, 'fa-regular fa-image'], 'video' => ['Video & audio', null, 'fa-solid fa-film'], 'docs' => ['Documents', null, 'fa-regular fa-file-lines'], 'noalt' => ['Missing alt', $noAltCount, 'fa-solid fa-triangle-exclamation']];
+?>
+<header class="hq-page-head media-head">
+    <div>
+        <h1>Media</h1>
+        <p class="hq-page-sub"><?= (int) $allCount ?> file<?= $allCount === 1 ? '' : 's' ?><?php if ($noAltCount > 0): ?> · <a href="/hq/media?filter=noalt" class="media-noalt-link"><?= $noAltCount ?> image<?= $noAltCount === 1 ? '' : 's' ?> missing alt text</a><?php endif; ?></p>
+    </div>
+    <div class="hq-page-actions">
         <form id="upload-form" enctype="multipart/form-data" style="display:inline;">
             <?= Csrf::field() ?>
-            <label class="btn-primary" style="cursor:pointer;margin:0;">
-                Upload
+            <label class="btn btn-primary" style="cursor:pointer;margin:0;" data-tip="Images, MP3/WAV, MP4/WebM, MPD or PDF — or drop files anywhere on this page">
+                <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i> Upload
                 <input type="file" name="file" id="file-input" accept="image/*,audio/mpeg,audio/mp3,audio/wav,.mp3,.wav,video/mp4,video/webm,.mp4,.webm,.mpd,application/dash+xml,application/pdf,.pdf" multiple hidden>
             </label>
         </form>
-        <button type="button" class="btn-ghost" id="btn-generate-image" title="Generate image with AI">
-            <i class="fa-solid fa-wand-magic-sparkles"></i> Generate image
+        <button type="button" class="btn btn-secondary" id="btn-generate-image" data-tip="Generate an image with Mova AI">
+            <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Generate image
         </button>
     </div>
+</header>
+
+<div class="media-tools">
+    <form class="media-search" method="get" action="/hq/media" role="search">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <label for="media-q" class="hq-sr-only">Search media</label>
+        <input type="search" id="media-q" name="q" value="<?= htmlspecialchars($q) ?>" placeholder="Search by file name or alt text…" autocomplete="off">
+        <?php if ($filter !== ''): ?><input type="hidden" name="filter" value="<?= htmlspecialchars($filter) ?>"><?php endif; ?>
+    </form>
+    <nav class="media-filters" aria-label="Filter media">
+        <?php foreach ($filters as $key => [$label, $count, $icon]): ?>
+            <a class="cl-pill<?= $filter === $key ? ' is-active' : '' ?><?= $key === 'noalt' && $noAltCount > 0 ? ' is-warn' : '' ?>" href="/hq/media<?= $mQs(['filter' => $key, 'page' => null]) ?>"<?= $filter === $key ? ' aria-current="true"' : '' ?>>
+                <i class="<?= $icon ?>" aria-hidden="true"></i> <?= htmlspecialchars($label) ?><?php if ($count !== null): ?> <span class="cl-pill-n"><?= (int) $count ?></span><?php endif; ?>
+            </a>
+        <?php endforeach; ?>
+    </nav>
 </div>
+
+<label class="media-dropzone" id="media-dropzone" for="file-input">
+    <span class="media-dropzone-icon" aria-hidden="true"><i class="fa-solid fa-cloud-arrow-up"></i></span>
+    <span><strong>Drop files to upload</strong> or <u>browse</u></span>
+    <small>Images are optimised automatically · max upload size set by your host</small>
+</label>
 
 <div id="upload-status"></div>
 <div id="upload-queue" style="margin:0.75rem 0;display:flex;flex-direction:column;gap:0.4rem;"></div>
@@ -402,7 +440,11 @@
 </div>
 
 <?php if (empty($items)): ?>
-    <p class="empty">No media yet. Upload an image, audio (MP3), video, or MPD to get started.</p>
+    <?php if ($q !== '' || $filter !== ''): ?>
+    <div class="hq-empty-state"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><p><?= $filter === 'noalt' && $q === '' ? 'Every image has alt text. Nice work!' : 'No media matches this search.' ?></p><a class="btn btn-secondary btn-sm" href="/hq/media">Clear filters</a></div>
+    <?php else: ?>
+    <p class="empty">No media yet. Drop an image, audio (MP3), video, or MPD above to get started.</p>
+    <?php endif; ?>
 <?php else: ?>
     <div class="media-grid" id="media-grid">
         <?php
@@ -461,6 +503,9 @@
                  data-excluded="<?= $excluded ? '1' : '0' ?>"
                  data-urls="<?= htmlspecialchars(json_encode($byWidth, JSON_UNESCAPED_SLASHES)) ?>">
                 <div class="media-thumb media-open-preview" role="button" tabindex="0" title="Preview">
+                    <?php if (str_starts_with((string) ($item['mime_type'] ?? ''), 'image/') && trim((string) ($item['alt_text'] ?? '')) === ''): ?>
+                        <span class="media-noalt" data-tip="No alt text — screen readers and search engines can’t describe this image. Click to add it."><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> No alt</span>
+                    <?php endif; ?>
                     <?php if ($isVideo): ?>
                         <?php if ($posterPath): ?>
                             <img src="<?= htmlspecialchars($posterPath) ?>" alt="<?= htmlspecialchars($item['alt_text'] ?? '') ?>" loading="lazy" decoding="async" class="mova-img media-poster" onload="this.classList.add('is-loaded')">
@@ -501,17 +546,17 @@
     <nav class="pagination" style="display:flex;flex-wrap:wrap;gap:0.4rem;align-items:center;margin-top:1.25rem;font-size:0.9rem;" aria-label="Media pagination">
         <span style="color:var(--hq-muted);margin-right:0.5rem;"><?= (int) $total ?> items · page <?= $page ?> / <?= $totalPages ?></span>
         <?php if ($page > 1): ?>
-            <a class="btn-ghost btn-sm" href="/hq/media?page=<?= $page - 1 ?>">← Prev</a>
+            <a class="btn-ghost btn-sm" href="/hq/media<?= $mQs(['page' => $page - 1]) ?>">← Prev</a>
         <?php endif; ?>
         <?php
         $start = max(1, $page - 2);
         $end = min($totalPages, $page + 2);
         for ($p = $start; $p <= $end; $p++):
         ?>
-            <a class="btn-ghost btn-sm<?= $p === $page ? ' is-active' : '' ?>" href="/hq/media?page=<?= $p ?>"<?= $p === $page ? ' aria-current="page"' : '' ?>><?= $p ?></a>
+            <a class="btn-ghost btn-sm<?= $p === $page ? ' is-active' : '' ?>" href="/hq/media<?= $mQs(['page' => $p]) ?>"<?= $p === $page ? ' aria-current="page"' : '' ?>><?= $p ?></a>
         <?php endfor; ?>
         <?php if ($page < $totalPages): ?>
-            <a class="btn-ghost btn-sm" href="/hq/media?page=<?= $page + 1 ?>">Next →</a>
+            <a class="btn-ghost btn-sm" href="/hq/media<?= $mQs(['page' => $page + 1]) ?>">Next →</a>
         <?php endif; ?>
     </nav>
     <?php endif; ?>
@@ -634,10 +679,30 @@
         });
     }
 
-    document.getElementById('file-input').addEventListener('change', async function() {
+    document.getElementById('file-input').addEventListener('change', function () {
         var files = Array.prototype.slice.call(this.files || []);
         this.value = ''; // allow re-selecting same files
-        if (!files.length) return;
+        mediaHandleFiles(files);
+    });
+
+    // Drag & drop: the dropzone and the whole page accept files.
+    (function () {
+        var dz = document.getElementById('media-dropzone');
+        var depth = 0;
+        function hasFiles(e) { return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') !== -1; }
+        document.addEventListener('dragenter', function (e) { if (!hasFiles(e)) return; depth++; document.body.classList.add('media-dragging'); });
+        document.addEventListener('dragleave', function (e) { if (!hasFiles(e)) return; depth = Math.max(0, depth - 1); if (!depth) document.body.classList.remove('media-dragging'); });
+        document.addEventListener('dragover', function (e) { if (hasFiles(e)) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } });
+        document.addEventListener('drop', function (e) {
+            if (!hasFiles(e)) return;
+            e.preventDefault(); depth = 0; document.body.classList.remove('media-dragging');
+            var files = Array.prototype.slice.call(e.dataTransfer.files || []);
+            if (files.length) { if (dz) dz.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); mediaHandleFiles(files); }
+        });
+    })();
+
+    async function mediaHandleFiles(files) {
+        if (!files || !files.length) return;
 
         var status = document.getElementById('upload-status');
         var queue = document.getElementById('upload-queue');
@@ -675,7 +740,7 @@
         } else {
             status.innerHTML = '<div class="alert alert-error">All uploads failed. See details above.</div>';
         }
-    });
+    }
 
     function movaAvailableWidths(maxW) {
         var breakpoints = [320, 480, 768, 1200];
@@ -906,7 +971,11 @@
                                 var nm = card.querySelector('.media-name');
                                 if (nm) { nm.textContent = value; nm.title = value; }
                             }
-                            if (field === 'alt_text') card.setAttribute('data-alt', value);
+                            if (field === 'alt_text') {
+                                card.setAttribute('data-alt', value);
+                                var nb = card.querySelector('.media-noalt');
+                                if (nb && String(value).trim() !== '') { nb.style.transition = 'opacity .25s, transform .25s'; nb.style.opacity = '0'; nb.style.transform = 'scale(.8)'; setTimeout(function () { nb.remove(); }, 260); }
+                            }
                             if (field === 'description') card.setAttribute('data-description', value);
                         }
                         setTimeout(function () { if (hint) hint.textContent = ''; }, 1500);
@@ -1343,6 +1412,18 @@
                 });
             });
         }
+    })();
+
+    // Deep link from HQ search: /hq/media?focus=ID opens that item
+    (function () {
+        var focusId = new URLSearchParams(window.location.search).get('focus');
+        if (!focusId) return;
+        var card = document.querySelector('.media-card[data-id="' + String(focusId).replace(/[^0-9]/g, '') + '"]');
+        if (!card) return;
+        card.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        card.classList.add('hq-flash');
+        setTimeout(function () { card.classList.remove('hq-flash'); }, 2400);
+        try { openSidebar(card); } catch (e) { /* ignore */ }
     })();
 
 })();

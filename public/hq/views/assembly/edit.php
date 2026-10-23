@@ -93,6 +93,7 @@ $usage = $usage ?? 0;
       <button type="submit" class="btn-ghost" onclick="document.getElementById('asm-action').value='duplicate'">Duplicate</button>
       <button type="submit" class="btn-ghost" onclick="document.getElementById('asm-action').value='archive'">Archive</button>
     <?php endif; ?>
+    <button type="button" class="btn-ghost" id="asm-insert-section" title="Insert a designed section from the library"><i class="fa-solid fa-layer-group" aria-hidden="true"></i> Insert section</button>
     <a class="btn-ghost" href="/hq/assembly" style="text-decoration:none;">← Library</a>
   </div>
 
@@ -179,7 +180,11 @@ $usage = $usage ?? 0;
         if (!frame || !data.ok) return;
         var doc = frame.contentDocument || frame.contentWindow.document;
         doc.open();
-        doc.write('<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:1rem;font-family:system-ui,sans-serif;max-width:100%;overflow-x:auto;} img,table,svg,video,iframe{max-width:100%;height:auto;}</style></head><body>' + (data.html || '') + '</body></html>');
+        var hasMx = /class="mx[ "-]/.test(data.html || '');
+        doc.write('<!DOCTYPE html><html class="mx-static"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+          '<link rel="stylesheet" href="/assets/fonts/fonts.css"><link rel="stylesheet" href="/assets/css/sections.css">' +
+          '<style>' + (data.tokens || '') + 'body{margin:' + (hasMx ? '0' : '1rem') + ';font-family:var(--font-sans,Inter,system-ui,sans-serif);background:var(--color-bg,#fff);color:var(--color-text,#111);max-width:100%;overflow-x:hidden;} img,table,video,iframe{max-width:100%;height:auto;}</style></head><body>' +
+          (data.html || '') + '<script src="/assets/js/sections.js"><\/script></body></html>');
         doc.close();
       })
       .catch(function () {});
@@ -198,6 +203,38 @@ $usage = $usage ?? 0;
         copyBtn.textContent = 'Copied';
         setTimeout(function () { copyBtn.textContent = 'Copy'; }, 1200);
       });
+    });
+  }
+})();
+</script>
+<link rel="stylesheet" href="/assets/css/hq-section-picker.css?v=20261023p5f">
+<script src="/assets/js/hq-section-picker.js?v=20261023p5f"></script>
+<script>
+(function () {
+  var ta = document.getElementById('asm-html');
+  var btn = document.getElementById('asm-insert-section');
+  if (!ta || !window.MovaSectionPicker) return;
+  function put(html) {
+    var start = ta.selectionStart != null ? ta.selectionStart : ta.value.length;
+    if (document.activeElement !== ta && start === 0 && ta.value.trim() !== '') start = ta.value.length;
+    var before = ta.value.slice(0, start), after = ta.value.slice(start);
+    var glue = before && !/\n$/.test(before) ? '\n' : '';
+    ta.value = before + glue + html + (after && !/^\n/.test(after) ? '\n' : '') + after;
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    var r = document.getElementById('asm-refresh-preview'); if (r) r.click();
+  }
+  function nameIfEmpty(it) {
+    var n = document.querySelector('.asm-name-input');
+    if (n && !n.value.trim()) n.value = it.name;
+  }
+  if (btn) btn.addEventListener('click', function () {
+    MovaSectionPicker.open({ title: 'Insert a section into this Assembly', onInsert: function (html, it) { put(html); nameIfEmpty(it); } });
+  });
+  var want = new URLSearchParams(location.search).get('section');
+  if (want && /^[a-z0-9-]+$/.test(want) && ta.value.trim() === '') {
+    MovaSectionPicker.load(false).then(function (d) {
+      var it = (d.items || []).filter(function (x) { return x.id === want; })[0];
+      if (it) { put(it.html); nameIfEmpty(it); }
     });
   }
 })();

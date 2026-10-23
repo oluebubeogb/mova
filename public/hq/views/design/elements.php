@@ -59,7 +59,7 @@ if ($initialTag === '') {
                                 <i class="fa-solid fa-magnifying-glass"></i>
                                 <input type="search" id="el-tag-search" placeholder="Search tags…" autocomplete="off">
                             </div>
-                            <ul class="el-tag-list" id="el-tag-list" role="listbox"></ul>
+                            <ul class="el-tag-list" id="el-tag-list" aria-label="HTML tags"></ul>
                             <p class="el-col-hint">Max 15 shown. Empty search lists top tags.</p>
                         </div>
                     </section>
@@ -74,24 +74,24 @@ if ($initialTag === '') {
                             <span class="el-col-title"><i class="fa-solid fa-palette"></i> CSS · <span id="el-active-tag-label"><?= htmlspecialchars($initialTag) ?></span></span>
                         </header>
                         <div class="el-col-body" id="el-css-body">
-                            <div class="el-bp-bar" id="el-bp-bar" role="tablist" aria-label="Breakpoint">
-                                <button type="button" class="el-bp-btn is-active" data-bp="desktop" title="Desktop" aria-label="Desktop">
+                            <div class="el-bp-bar" id="el-bp-bar" role="group" aria-label="Breakpoint">
+                                <button type="button" class="el-bp-btn is-active" aria-pressed="true" data-bp="desktop" title="Desktop" aria-label="Desktop">
                                     <i class="fa-solid fa-desktop" aria-hidden="true"></i>
                                 </button>
-                                <button type="button" class="el-bp-btn" data-bp="tablet" title="Tablet" aria-label="Tablet">
+                                <button type="button" class="el-bp-btn" aria-pressed="false" data-bp="tablet" title="Tablet" aria-label="Tablet">
                                     <i class="fa-solid fa-tablet-screen-button" aria-hidden="true"></i>
                                 </button>
-                                <button type="button" class="el-bp-btn" data-bp="mobile" title="Mobile" aria-label="Mobile">
+                                <button type="button" class="el-bp-btn" aria-pressed="false" data-bp="mobile" title="Mobile" aria-label="Mobile">
                                     <i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i>
                                 </button>
                             </div>
-                            <div class="el-pseudo-bar" id="el-pseudo-bar" role="tablist" aria-label="Pseudo">
-                                <button type="button" class="el-pseudo-btn is-active" data-pseudo="base">Base</button>
-                                <button type="button" class="el-pseudo-btn" data-pseudo="hover">:hover</button>
-                                <button type="button" class="el-pseudo-btn" data-pseudo="focus">:focus</button>
-                                <button type="button" class="el-pseudo-btn" data-pseudo="focus-visible">:focus-visible</button>
-                                <button type="button" class="el-pseudo-btn" data-pseudo="first-child">:first-child</button>
-                                <button type="button" class="el-pseudo-btn" data-pseudo="last-child">:last-child</button>
+                            <div class="el-pseudo-bar" id="el-pseudo-bar" role="group" aria-label="Pseudo">
+                                <button type="button" class="el-pseudo-btn is-active" aria-pressed="true" data-pseudo="base">Base</button>
+                                <button type="button" class="el-pseudo-btn" aria-pressed="false" data-pseudo="hover">:hover</button>
+                                <button type="button" class="el-pseudo-btn" aria-pressed="false" data-pseudo="focus">:focus</button>
+                                <button type="button" class="el-pseudo-btn" aria-pressed="false" data-pseudo="focus-visible">:focus-visible</button>
+                                <button type="button" class="el-pseudo-btn" aria-pressed="false" data-pseudo="first-child">:first-child</button>
+                                <button type="button" class="el-pseudo-btn" aria-pressed="false" data-pseudo="last-child">:last-child</button>
                             </div>
                             <div class="el-css-groups" id="el-css-groups"></div>
                         </div>
@@ -152,7 +152,7 @@ if ($initialTag === '') {
                             })();
                             </script>
                             <div class="el-preview-frame site-main" id="el-preview-frame" data-theme="light" data-pw="desktop">
-                                <div id="el-preview-content"></div>
+                                <div id="el-preview-content" role="img" aria-label="Live style preview of the selected element"></div>
                             </div>
                         </div>
                     </section>
@@ -215,10 +215,10 @@ if ($initialTag === '') {
 </div>
 
 <link rel="stylesheet" href="/assets/css/elements-editor.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
-<script src="/assets/js/elements-editor.js?v=20260921vars" defer></script>
+<link rel="stylesheet" href="/assets/vendor/codemirror/codemirror.css?v=5.65.16">
+<link rel="stylesheet" href="/assets/vendor/codemirror/theme/material-darker.css?v=5.65.16">
+<script src="/assets/vendor/codemirror/codemirror.js?v=5.65.16"></script>
+<script src="/assets/vendor/codemirror/mode/css/css.js?v=5.65.16"></script>
+<script src="/assets/js/elements-editor.js?v=20261023p5f" defer></script>
 <script src="/assets/js/hq-layers.js" defer></script>
 <?php include __DIR__ . '/_design_styles.php'; ?>

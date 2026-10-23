@@ -1,9 +1,9 @@
 <?php
 $report = $report ?? ['overall' => 'ok', 'checks' => []];
 $statusColor = [
-    'ok' => 'var(--hq-success)',
+    'ok' => 'var(--hq-success-text, #166534)',
     'warn' => 'var(--hq-warning)',
-    'error' => 'var(--hq-danger)',
+    'error' => 'var(--hq-danger-text, #b91c1c)',
     'info' => 'var(--hq-muted)',
 ];
 ?>
@@ -15,7 +15,7 @@ $statusColor = [
     <ul style="list-style:none;padding:0;margin:0;font-size:0.85rem;">
     <?php foreach ($requirements['items'] as $item): ?>
         <li style="padding:0.3rem 0;border-bottom:1px solid var(--hq-border);display:flex;gap:0.5rem;">
-            <span style="color:<?= $item['ok'] ? '#15803d' : ($item['required'] ? '#b91c1c' : '#b45309') ?>"><?= $item['ok'] ? 'OK' : 'NO' ?></span>
+            <span class="<?= $item['ok'] ? 'hq-ok-text' : ($item['required'] ? 'hq-bad-text' : 'hq-warn-text') ?>"><?= $item['ok'] ? 'OK' : 'NO' ?></span>
             <span><?= htmlspecialchars($item['label']) ?> — <span style="color:var(--hq-muted)"><?= htmlspecialchars($item['detail']) ?></span></span>
         </li>
     <?php endforeach; ?>
@@ -73,11 +73,11 @@ $statusColor = [
             <?php if (empty($recentLogins)): ?>
                 <p style="font-size:0.85rem;color:var(--hq-muted);">No logins recorded yet.</p>
             <?php else: ?>
-                <div style="font-size:0.8rem;max-height:360px;overflow:auto;">
+                <div style="font-size:0.8rem;max-height:360px;overflow:auto;" tabindex="0" role="region" aria-label="Login history">
                     <?php foreach ($recentLogins as $l): ?>
                         <div style="padding:0.45rem 0;border-bottom:1px solid var(--hq-border);">
                             <div><?= htmlspecialchars($l['username'] ?? '') ?>
-                                <span style="color:<?= !empty($l['success']) ? 'var(--hq-success)' : 'var(--hq-danger)' ?>">
+                                <span style="color:<?= !empty($l['success']) ? 'var(--hq-success-text)' : 'var(--hq-danger-text)' ?>">
                                     <?= !empty($l['success']) ? 'OK' : 'FAIL' ?>
                                 </span>
                             </div>

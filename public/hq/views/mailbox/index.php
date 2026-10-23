@@ -96,10 +96,7 @@ if (!empty($_GET['new'])) {
           <div class="form-group"><label>Username</label><input name="imap_username" required value="<?= htmlspecialchars($editAccount['imap_username'] ?? '') ?>" autocomplete="off"></div>
           <div class="form-group span-2">
             <label>Password</label>
-            <div class="password-field">
-              <input type="password" name="imap_password" value="" autocomplete="new-password" placeholder="<?= $editAccount ? '••••••••' : '' ?>">
-              <button type="button" class="password-toggle" aria-label="Show password"><i class="fa-solid fa-eye"></i><i class="fa-solid fa-eye-slash"></i></button>
-            </div>
+            <input type="password" name="imap_password" value="" autocomplete="new-password" placeholder="<?= $editAccount ? '•••••••• — leave blank to keep' : '' ?>">
           </div>
         </div>
       </div>
@@ -113,10 +110,7 @@ if (!empty($_GET['new'])) {
           <div class="form-group"><label>SMTP username</label><input name="smtp_username" value="<?= htmlspecialchars($editAccount['smtp_username'] ?? '') ?>" autocomplete="off"></div>
           <div class="form-group span-2">
             <label>SMTP password</label>
-            <div class="password-field">
-              <input type="password" name="smtp_password" value="" autocomplete="new-password" placeholder="Blank = IMAP password">
-              <button type="button" class="password-toggle" aria-label="Show password"><i class="fa-solid fa-eye"></i><i class="fa-solid fa-eye-slash"></i></button>
-            </div>
+            <input type="password" name="smtp_password" value="" autocomplete="new-password" placeholder="Blank = IMAP password">
           </div>
         </div>
       </div>
@@ -339,7 +333,7 @@ if (!empty($_GET['new'])) {
 <style>
 .mailbox-top{flex-wrap:wrap;gap:.75rem;align-items:center}
 .mailbox-avatar{width:32px;height:32px;border-radius:50%;object-fit:cover}
-.mailbox-avatar-fallback{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:var(--hq-accent,#2563eb);color:#fff;font-weight:600;font-size:.85rem}
+.mailbox-avatar-fallback{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:var(--hq-accent-fill, #4f46e5);color:#fff;font-weight:600;font-size:.85rem}
 .mailbox-layout{display:grid;grid-template-columns:minmax(220px,1fr) minmax(280px,1.4fr);gap:.75rem;align-items:start}
 .mailbox-layout.is-list-only{grid-template-columns:1fr}
 .mailbox-layout.is-list-only .mailbox-detail{display:none}
@@ -467,16 +461,6 @@ if (!empty($_GET['new'])) {
     });
     menu.addEventListener('click', function (e) { e.stopPropagation(); });
   }
-  // Password eye toggles
-  document.querySelectorAll('.password-toggle').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var input = btn.parentElement.querySelector('input');
-      if (!input) return;
-      var show = input.type === 'password';
-      input.type = show ? 'text' : 'password';
-      btn.classList.toggle('is-visible', show);
-      btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
-    });
-  });
+  // Password eye toggles: handled globally by hq.js (MovaEye)
 })();
 </script>

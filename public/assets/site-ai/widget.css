@@ -93,7 +93,22 @@ html[data-theme="dark"] {
   }
   .msa-fab {
     right: 0.85rem;
-    bottom: 0.85rem;
+    bottom: calc(0.85rem + env(safe-area-inset-bottom, 0px));
+    width: 2.9rem;
+    height: 2.9rem;
+  }
+}
+
+/* Mobile: keep the bubble off the page's form fields */
+.msa-spacer { display: none; }
+@media (max-width: 720px) {
+  html.msa-has-fab { scroll-padding-bottom: 5.5rem; }
+  .msa-spacer { display: block; height: 4.75rem; pointer-events: none; }
+  html.msa-typing .msa-fab,
+  html.msa-kbd .msa-fab {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(1rem) scale(0.85);
   }
 }
 

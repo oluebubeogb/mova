@@ -145,6 +145,71 @@ $router->post('/brand', function (Request $req) {
     return (new Response())->redirect('/hq/brand?saved=1');
 });
 
+// ---- Themes gallery (device mockups, live preview on the user's own site, one-click apply) ----
+function mova_theme_gallery_data(): array
+{
+    $mgr = new ThemeManager();
+    $active = $mgr->activeSlug();
+    $themes = [];
+    $root = dirname(__DIR__, 3) . '/public';
+    foreach ($mgr->all() as $t) {
+        $slug = (string) $t['slug'];
+        $shots = (array) ($t['screenshots'] ?? []);
+        foreach (['desktop', 'mobile', 'card'] as $k) {
+            $url = (string) ($shots[$k] ?? ('/assets/themes/' . $slug . '/' . $k . '.png'));
+            $shots[$k] = is_file($root . parse_url($url, PHP_URL_PATH)) ? $url . '?v=' . filemtime($root . parse_url($url, PHP_URL_PATH)) : '';
+        }
+        $themes[] = [
+            'slug' => $slug,
+            'name' => (string) ($t['name'] ?? ucfirst($slug)),
+            'description' => (string) ($t['description'] ?? ''),
+            'tags' => array_values(array_slice((array) ($t['tags'] ?? []), 0, 4)),
+            'best_for' => array_values((array) ($t['best_for'] ?? [])),
+            'palette' => (array) ($t['palette'] ?? []),
+            'fonts' => (array) ($t['fonts'] ?? []),
+            'shots' => $shots,
+            'active' => $slug === $active,
+        ];
+    }
+    // Presence first (Mova's signature default), then the active theme, then alphabetical.
+    usort($themes, static fn ($a, $b) => [$a['slug'] !== 'presence', $a['name']] <=> [$b['slug'] !== 'presence', $b['name']]);
+    $pages = 0;
+    try {
+        $pages = (int) (\Mova\Core\Database::fetch("SELECT COUNT(*) AS c FROM content WHERE status = 'published' AND type IN ('page','post')")['c'] ?? 0);
+    } catch (\Throwable $e) {
+    }
+    return ['themes' => $themes, 'active' => $active, 'hasContent' => $pages > 0];
+}
+
+$router->get('/themes', function () {
+    if ($r = mova_design_guard()) {
+        return $r;
+    }
+    $data = mova_theme_gallery_data();
+    $data['title'] = 'Themes';
+    $data['demoKit'] = 'org-modern';
+    return renderHq('design/themes', $data);
+});
+
+$router->post('/themes/apply', function (Request $req) {
+    if ($r = mova_design_guard()) {
+        return $r;
+    }
+    if (!Csrf::validate()) {
+        return (new Response())->status(403)->json(['ok' => false, 'error' => 'Your session expired — reload the page.']);
+    }
+    $slug = preg_replace('/[^a-z0-9_-]/', '', strtolower((string) $req->post('theme', ''))) ?? '';
+    if ($slug === '' || !(new ThemeManager())->setActive($slug)) {
+        return (new Response())->status(422)->json(['ok' => false, 'error' => 'Unknown theme.']);
+    }
+    PageCache::flush();
+    Audit::log('design.theme.applied', 'theme', null, ['theme' => $slug]);
+    if (str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json') || !empty($_SERVER['HTTP_X_CSRF_TOKEN'])) {
+        return (new Response())->json(['ok' => true, 'theme' => $slug]);
+    }
+    return (new Response())->redirect('/hq/themes?applied=' . rawurlencode($slug));
+});
+
 // ---- Style (design tokens) ----
 $router->get('/style', function () {
     if ($r = mova_design_guard()) {
@@ -350,7 +415,7 @@ $router->get('/layout', function () {
     }
     return renderHq('design/layout', [
         'layout' => DesignConfig::layout(),
-        'nav_links' => DesignConfig::setting('nav_links', "Home|/\nAbout Us|/about\nContact|/contact\nBlog|/blog\nSearch|/search"),
+        'nav_links' => DesignConfig::setting('nav_links', \Mova\Theme\NavDefaults::raw()),
         'nav_links_desktop' => DesignConfig::setting('nav_links_desktop', ''),
         'mobile_menu_icon_mode' => DesignConfig::setting('mobile_menu_icon_mode', 'preset'),
         'mobile_menu_icon_preset' => DesignConfig::setting('mobile_menu_icon_preset', 'fa-bars'),
@@ -711,6 +776,13 @@ $router->get('/variables/export', function () {
 });
 
 // ---- Design templates (Phase 2 catalog) ----
+// "Sections" is the user-facing name everywhere; keep /hq/sections as a friendly alias.
+$router->get('/sections', function () {
+    requireAuth();
+    $q = (string) ($_SERVER['QUERY_STRING'] ?? '');
+    return (new Response())->redirect('/hq/templates' . ($q !== '' ? '?' . $q : ''));
+});
+
 $router->get('/templates', function () {
     if ($r = mova_design_guard()) {
         return $r;
@@ -731,12 +803,42 @@ $router->get('/templates', function () {
         $categories[$c] = ($categories[$c] ?? 0) + 1;
     }
     return renderHq('design/templates', [
-        'title' => 'Design templates',
+        'title' => 'Section library',
+        'labels' => \Mova\Theme\TemplateService::categoryLabels(),
         'templates' => $templates,
         'categories' => $categories,
         'activeCategory' => $category,
         'sharedCss' => \Mova\Theme\TemplateService::sharedCssUrl(),
     ]);
+});
+
+// Section library payload for pickers (visual editor, Assembly, gallery). Any content editor may read it.
+$router->get('/templates/library.json', function () {
+    requireAuth();
+    if (!Auth::can('manage_content') && !Auth::can('manage_appearance') && !Auth::hasRole('owner', 'administrator')) {
+        return (new Response())->status(403)->header('Content-Type', 'application/json')->body('{"ok":false}');
+    }
+    $pages = [];
+    if (!empty($_GET['pages'])) {
+        try {
+            $rows = \Mova\Core\Database::fetchAll(
+                "SELECT id, title, slug, status FROM content WHERE type = 'page' AND status != 'trash' ORDER BY updated_at DESC LIMIT 200"
+            );
+            foreach ($rows as $r) {
+                $pages[] = ['id' => (int) $r['id'], 'title' => (string) $r['title'], 'slug' => (string) $r['slug'], 'status' => (string) $r['status']];
+            }
+        } catch (\Throwable $e) {
+        }
+    }
+    return (new Response())
+        ->header('Content-Type', 'application/json')
+        ->header('Cache-Control', 'no-store')
+        ->body(json_encode([
+            'ok' => true,
+            'categories' => \Mova\Theme\TemplateService::categoryLabels(),
+            'items' => \Mova\Theme\TemplateService::library(true),
+            'pages' => $pages,
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 });
 
 $router->get('/templates/{id}', function (Request $req, array $params = []) {

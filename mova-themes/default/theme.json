@@ -1,5 +1,40 @@
 {
-  "name": "Default",
-  "version": "1.0.0",
-  "description": "Clean default Mova theme"
+  "name": "Clarity",
+  "version": "2.0.0",
+  "description": "Calm and neutral. Crisp white header, Inter throughout and a soft single-hue glow. Lets your content and photography lead.",
+  "tags": [
+    "clean",
+    "neutral",
+    "minimal",
+    "business"
+  ],
+  "palette": {
+    "primary": "#2563eb",
+    "accent": "#7c3aed",
+    "background": "#f8f9fb",
+    "surface": "#ffffff",
+    "text": "#111827"
+  },
+  "fonts": {
+    "heading": "Inter",
+    "body": "Inter"
+  },
+  "best_for": [
+    "Company",
+    "Portfolio",
+    "Non-profit"
+  ],
+  "author": "Mova",
+  "supports": [
+    "dark-mode",
+    "mobile-menu",
+    "sections",
+    "reduced-motion",
+    "header-scroll-state"
+  ],
+  "screenshots": {
+    "desktop": "/assets/themes/default/desktop.png",
+    "mobile": "/assets/themes/default/mobile.png",
+    "card": "/assets/themes/default/card.png"
+  }
 }

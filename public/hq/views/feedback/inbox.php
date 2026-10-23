@@ -53,7 +53,7 @@ $single = $formId > 0;
       <span id="fb-bulk-count">0 selected</span>
       <button type="button" class="btn-ghost btn-sm" data-bulk="read">Mark read</button>
       <button type="button" class="btn-ghost btn-sm" data-bulk="export">Export</button>
-      <button type="button" class="btn-ghost btn-sm" data-bulk="delete" style="color:#dc2626">Delete</button>
+      <button type="button" class="btn-ghost btn-sm" data-bulk="delete" style="color:var(--hq-danger-text,#b91c1c)">Delete</button>
     </div>
   </div>
 
@@ -149,7 +149,7 @@ $single = $formId > 0;
         <form method="post" id="fb-side-del" action="">
           <?= Csrf::field() ?>
           <input type="hidden" name="form" value="<?= $formId ?>">
-          <button type="submit" class="btn-ghost btn-sm" style="color:#dc2626" onclick="return confirm('Delete this entry?')">Delete</button>
+          <button type="submit" class="btn-ghost btn-sm" style="color:var(--hq-danger-text,#b91c1c)" onclick="return confirm('Delete this entry?')">Delete</button>
         </form>
       </div>
     </div>
@@ -165,27 +165,27 @@ $single = $formId > 0;
 .fb-pill.is-new{background:#ecfdf5;color:#059669}
 .fb-inbox-toolbar{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem}
 .fb-form-select{display:flex;align-items:center;gap:0.5rem}
-.fb-form-select label{font-size:0.8rem;font-weight:600;color:#64748b}
+.fb-form-select label{font-size:0.8rem;font-weight:600;color:var(--hq-muted,#64748b)}
 .fb-form-select select{
-  font:inherit;font-size:0.9rem;padding:0.4rem 0.65rem;border:1px solid #e2e8f0;border-radius:8px;
-  background:#fff;min-width:12rem;color:inherit;
+  font:inherit;font-size:0.9rem;padding:0.4rem 0.65rem;border:1px solid var(--hq-border,#e2e8f0);border-radius:8px;
+  background:var(--hq-surface,#fff);min-width:12rem;color:inherit;
 }
-.fb-bulk{display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;color:#64748b}
-.fb-inbox-table-wrap{border:1px solid #e5e7eb;border-radius:12px;overflow:auto;background:#fff;max-width:100%}
+.fb-bulk{display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;color:var(--hq-muted,#64748b)}
+.fb-inbox-table-wrap{border:1px solid var(--hq-border,#e5e7eb);border-radius:12px;overflow:auto;background:var(--hq-surface,#fff);max-width:100%}
 .fb-inbox-table{width:100%;border-collapse:collapse;font-size:0.88rem;min-width:100%}
 .fb-inbox-table-wrap.is-wide .fb-inbox-table{min-width:720px}
 .fb-inbox-table th{
   text-align:left;font-size:0.7rem;font-weight:650;text-transform:uppercase;letter-spacing:0.04em;
-  color:#64748b;padding:0.65rem 0.85rem;background:#f8fafc;border-bottom:1px solid #eef2f7;white-space:nowrap;
+  color:var(--hq-muted,#64748b);padding:0.65rem 0.85rem;background:color-mix(in srgb,var(--hq-text,#0f172a) 4%,var(--hq-surface,#fff));border-bottom:1px solid var(--hq-border,#eef2f7);white-space:nowrap;
 }
-.fb-inbox-table td{padding:0.7rem 0.85rem;border-bottom:1px solid #f1f5f9;vertical-align:middle}
-.fb-inbox-table tbody tr:nth-child(even){background:#fafbfc}
-.fb-inbox-table tbody tr:hover{background:#f1f5f9;cursor:pointer}
+.fb-inbox-table td{padding:0.7rem 0.85rem;border-bottom:1px solid var(--hq-border,#f1f5f9);vertical-align:middle}
+.fb-inbox-table tbody tr:nth-child(even){background:color-mix(in srgb,var(--hq-text,#0f172a) 2%,transparent)}
+.fb-inbox-table tbody tr:hover{background:var(--hq-hover,#f1f5f9);cursor:pointer}
 .fb-inbox-table tbody tr.is-unread{font-weight:600}
 .fb-check{width:2.2rem}
 .fb-dt{white-space:nowrap;font-variant-numeric:tabular-nums;font-size:0.85rem}
 .fb-dot{display:inline-block;width:0.45rem;height:0.45rem;border-radius:999px;background:#10b981;margin-left:0.25rem;vertical-align:middle}
-.fb-preview,.fb-cell{color:#64748b;max-width:18rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fb-preview,.fb-cell{color:var(--hq-muted,#64748b);max-width:18rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fb-pager{display:flex;gap:1rem;align-items:center;justify-content:center;margin-top:1rem;font-size:0.85rem}
 .fb-pager a{color:var(--hq-accent,#0f766e);text-decoration:none}
 
@@ -232,18 +232,18 @@ $single = $formId > 0;
 .fb-sidebar-inner{display:flex;flex-direction:column;min-height:12rem}
 .fb-sidebar-head{
   display:flex;justify-content:space-between;align-items:flex-start;gap:0.75rem;
-  padding:0.85rem 0.9rem;border-bottom:1px solid #f1f5f9;
+  padding:0.85rem 0.9rem;border-bottom:1px solid var(--hq-border,#f1f5f9);
 }
 .fb-sidebar-head-text{min-width:0;flex:1}
 .fb-sidebar-dt{font-size:0.95rem;font-weight:650;font-variant-numeric:tabular-nums}
-.fb-sidebar-form{font-size:0.8rem;color:#64748b;margin-top:0.15rem}
+.fb-sidebar-form{font-size:0.8rem;color:var(--hq-muted,#64748b);margin-top:0.15rem}
 .fb-sidebar-close{
   flex-shrink:0;
   width:2.25rem;height:2.25rem;
-  border:1px solid #e2e8f0;
+  border:1px solid var(--hq-border,#e2e8f0);
   border-radius:8px;
-  background:#f8fafc;
-  color:#0f172a;
+  background:color-mix(in srgb,var(--hq-text,#0f172a) 4%,var(--hq-surface,#fff));
+  color:var(--hq-text,#0f172a);
   font-size:1.1rem;
   line-height:1;
   cursor:pointer;
@@ -259,7 +259,7 @@ $single = $formId > 0;
 .fb-side-field{margin-bottom:0.85rem}
 .fb-side-field label{display:block;font-size:0.72rem;font-weight:650;color:#94a3b8;margin-bottom:0.2rem;text-transform:uppercase;letter-spacing:0.03em}
 .fb-side-field div{font-size:0.92rem;line-height:1.45;white-space:pre-wrap;word-break:break-word}
-.fb-sidebar-foot{padding:0.75rem 1.1rem;border-top:1px solid #f1f5f9}
+.fb-sidebar-foot{padding:0.75rem 1.1rem;border-top:1px solid var(--hq-border,#f1f5f9)}
 @media (max-width: 800px) {
   .fb-inbox-layout.is-sidebar-open{flex-direction:column}
   .fb-inbox-layout.is-sidebar-open .fb-inbox-main{max-width:100%;flex:1 1 auto}

@@ -10,6 +10,7 @@ use Mova\Plugin\PluginManager;
 require_once __DIR__ . '/src/SiteAiService.php';
 require_once __DIR__ . '/src/KnowledgeBank.php';
 require_once __DIR__ . '/src/SiteAiSessions.php';
+require_once __DIR__ . '/src/SiteIndex.php';
 
 PluginManager::addAction('mova.boot', function () {
     \MovaSiteAi\KnowledgeBank::ensureSchema();

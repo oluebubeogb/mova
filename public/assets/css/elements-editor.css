@@ -176,7 +176,7 @@
 }
 .el-splitter:hover,
 body.el-resizing .el-splitter {
-  background: var(--hq-accent);
+  background: var(--hq-accent-fill);
 }
 body.el-resizing {
   cursor: col-resize;
@@ -515,7 +515,7 @@ body.el-resizing {
 }
 .el-splitter:hover,
 body.el-resizing .el-splitter {
-  background: var(--hq-accent);
+  background: var(--hq-accent-fill);
 }
 body.el-resizing {
   cursor: col-resize !important;

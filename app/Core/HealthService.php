@@ -67,15 +67,13 @@ class HealthService
         ];
 
         // Mova AI
-        $aiKey = '';
-        try {
-            $row = Database::fetch("SELECT setting_value FROM settings WHERE setting_key = 'ai_api_key'");
-            $aiKey = $row['setting_value'] ?? '';
-        } catch (\Throwable $e) {
-        }
+        $aiUrl = \Mova\AI\AiConfig::get('ai_api_url');
+        $aiKey = \Mova\AI\AiConfig::get('ai_api_key');
         $checks['ai'] = [
-            'status' => $aiKey !== '' ? 'ok' : 'info',
-            'detail' => $aiKey !== '' ? 'Mova AI configured' : 'Heuristic mode (no API key)',
+            'status' => ($aiKey !== '' && $aiUrl !== '') ? 'ok' : 'info',
+            'detail' => ($aiKey !== '' && $aiUrl !== '')
+                ? (\Mova\AI\AiConfig::usesPlatformGateway() ? 'Mova AI gateway' : 'Custom AI endpoint') . ' · ' . \Mova\AI\AiConfig::get('ai_model')
+                : 'Heuristic mode (no API key)',
         ];
 
         // Recent errors from logs

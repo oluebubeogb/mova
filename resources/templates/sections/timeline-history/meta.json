@@ -1,0 +1,54 @@
+{
+    "name": "Timeline",
+    "category": "steps",
+    "tags": [
+        "timeline",
+        "history",
+        "milestones"
+    ],
+    "description": "Vertical timeline of milestones.",
+    "preview": "/assets/templates/previews/timeline-history.png",
+    "type": "timeline",
+    "slots": [
+        "eyebrow",
+        "title",
+        "lead",
+        "items",
+        "buttons",
+        "images"
+    ],
+    "constraints": [
+        "Keep the root <section class=\"mx mx-…\"> and inner <div class=\"mx-in\"> wrappers.",
+        "Colours, fonts and radius come from theme CSS variables — do not hard-code colours.",
+        "Keep data-reveal attributes; motion is disabled automatically for reduced-motion users.",
+        "Use inline SVG/gradient art or uploaded images only — no external image hosts."
+    ],
+    "spec": {
+        "type": "timeline",
+        "variant": "timeline",
+        "eyebrow": "Our journey",
+        "title": "Milestones along the way",
+        "items": [
+            {
+                "meta": "2012",
+                "title": "Founded",
+                "text": "Started in a tiny studio with two desks and a big idea."
+            },
+            {
+                "meta": "2017",
+                "title": "First 100 clients",
+                "text": "Word of mouth carried us further than we imagined."
+            },
+            {
+                "meta": "2021",
+                "title": "New headquarters",
+                "text": "A bright, open space for our growing team."
+            },
+            {
+                "meta": "2026",
+                "title": "Going global",
+                "text": "Serving customers on five continents."
+            }
+        ]
+    }
+}

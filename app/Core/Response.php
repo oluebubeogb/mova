@@ -70,25 +70,25 @@ class Response
             $uri = $_SERVER['REQUEST_URI'] ?? '';
             $isHq = (strpos($uri, '/hq') === 0);
             if ($isHq) {
-                // HQ: inline scripts for editors; Monaco from jsDelivr (loader + workers);
-                // Font Awesome / Google Fonts optional CDNs
+                // HQ: inline scripts for editors. Monaco, CodeMirror, Font Awesome and
+                // fonts are bundled under /assets (Phase 5), so no third-party CDNs.
                 $csp = "default-src 'self'; "
-                    . "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; "
-                    . "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
-                    . "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net data:; "
+                    . "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; "
+                    . "style-src 'self' 'unsafe-inline'; "
+                    . "font-src 'self' data:; "
                     . "img-src 'self' data: https: blob:; "
-                    . "connect-src 'self' https://cdn.jsdelivr.net https://cloudflareinsights.com; "
-                    . "worker-src 'self' blob: https://cdn.jsdelivr.net; "
+                    . "connect-src 'self' https://cloudflareinsights.com; "
+                    . "worker-src 'self' blob:; "
                     . "child-src 'self' blob:; "
                     . "frame-ancestors 'self'; "
                     . "base-uri 'self'; "
                     . "form-action 'self'";
 			} else {
-				// Public site: allow Font Awesome (cdnjs) + Cloudflare Insights while keeping the rest tight
+				// Public site: Font Awesome is bundled locally; Cloudflare Insights allowed; rest tight
 				$csp = "default-src 'self'; "
 					. "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; "
-					. "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
-					. "font-src 'self' data: https://cdnjs.cloudflare.com; "
+					. "style-src 'self' 'unsafe-inline'; "
+					. "font-src 'self' data:; "
 					. "img-src 'self' data: https: blob:; "
 					. "connect-src 'self' https://cloudflareinsights.com; "
 					. "frame-ancestors 'self'; "

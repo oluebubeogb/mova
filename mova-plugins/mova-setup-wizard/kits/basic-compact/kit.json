@@ -1,89 +1,598 @@
 {
-  "id": "basic-compact",
-  "pack": "generic",
-  "label": "Compact simple",
-  "description": "Tight and practical.",
-  "version": "1.0.0",
-  "tokens": [
-    "site_name",
-    "tagline",
-    "about",
-    "contact",
-    "year"
-  ],
-  "pages": [
-    {
-      "slug": "home",
-      "title": "Home",
-      "file": "pages/home.html",
-      "role": "front"
+    "id": "basic-compact",
+    "pack": "generic",
+    "style": "compact",
+    "label": "Compact one-pager+",
+    "description": "Lean, fast and to the point — perfect for freelancers and shops.",
+    "version": "2.0.0",
+    "schema": 2,
+    "tokens": [
+        "site_name",
+        "tagline",
+        "about",
+        "city_or_area",
+        "email",
+        "phone",
+        "address",
+        "year"
+    ],
+    "palette": {
+        "primary": "#0f172a",
+        "accent": "#10b981",
+        "secondary": "#6366f1"
     },
-    {
-      "slug": "about",
-      "title": "About us",
-      "file": "pages/about.html",
-      "role": "about"
+    "demo": {
+        "site_name": "Northlight Studio",
+        "tagline": "Thoughtful work, beautifully delivered",
+        "city": "Austin",
+        "email": "hello@northlight.example",
+        "phone": "+1 512 000 0000",
+        "address": "400 Congress Ave, Austin, TX"
     },
-    {
-      "slug": "contact",
-      "title": "Contact",
-      "file": "pages/contact.html",
-      "role": "contact"
-    }
-  ],
-  "css": [
-    "assets/kit.css"
-  ],
-  "js": [
-    "assets/kit.js"
-  ],
-  "nav": [
-    {
-      "label": "Home",
-      "url": "/"
-    },
-    {
-      "label": "About us",
-      "url": "/about"
-    },
-    {
-      "label": "Contact",
-      "url": "/contact"
-    }
-  ],
-  "footer_columns": [
-    {
-      "title": "Explore",
-      "links": [
+    "preview": "preview.png",
+    "preview_mobile": "preview-mobile.png",
+    "nav": [
         {
-          "label": "About us",
-          "url": "/about"
+            "label": "Home",
+            "url": "/"
         },
         {
-          "label": "Contact",
-          "url": "/contact"
-        }
-      ]
-    },
-    {
-      "title": "Contact",
-      "text": "{{contact}}",
-      "links": [
+            "label": "About",
+            "url": "/about"
+        },
         {
-          "label": "Contact",
-          "url": "/contact"
-        }
-      ]
-    },
-    {
-      "title": "Connect",
-      "links": [
+            "label": "Services",
+            "url": "/services"
+        },
         {
-          "label": "Home",
-          "url": "/"
+            "label": "Pricing",
+            "url": "/pricing"
+        },
+        {
+            "label": "Contact",
+            "url": "/contact"
         }
-      ]
-    }
-  ],
-  "preview": "preview.svg"
+    ],
+    "nav_cta": {
+        "label": "Get in touch",
+        "url": "/contact"
+    },
+    "footer_columns": [
+        {
+            "title": "{{site_name}}",
+            "text": "{{tagline}}."
+        },
+        {
+            "title": "Explore",
+            "links": [
+                {
+                    "label": "About",
+                    "url": "/about"
+                },
+                {
+                    "label": "Services",
+                    "url": "/services"
+                },
+                {
+                    "label": "Pricing",
+                    "url": "/pricing"
+                }
+            ]
+        },
+        {
+            "title": "Contact",
+            "links": [
+                {
+                    "label": "{{email}}",
+                    "url": "{{email_href}}"
+                },
+                {
+                    "label": "{{phone}}",
+                    "url": "{{phone_href}}"
+                },
+                {
+                    "label": "Contact us",
+                    "url": "/contact"
+                }
+            ]
+        }
+    ],
+    "pages": [
+        {
+            "slug": "home",
+            "title": "Home",
+            "role": "front",
+            "description": "{{site_name}} — {{tagline}}.",
+            "sections": [
+                {
+                    "type": "hero",
+                    "variant": "centered",
+                    "eyebrow": "{{tagline}}",
+                    "title": "{{site_name}}",
+                    "lead": "{{about}}",
+                    "primary": {
+                        "label": "Get a quote",
+                        "href": "/contact"
+                    },
+                    "secondary": {
+                        "label": "Pricing",
+                        "href": "/pricing"
+                    },
+                    "art": "abstract"
+                },
+                {
+                    "type": "features",
+                    "variant": "minimal",
+                    "columns": 4,
+                    "eyebrow": "Services",
+                    "title": "How we can help",
+                    "lead": "Focused services, delivered by people who care about the details.",
+                    "items": [
+                        {
+                            "icon": "compass",
+                            "title": "Strategy",
+                            "text": "Clear goals, honest advice and a plan you can act on.",
+                            "href": "/services"
+                        },
+                        {
+                            "icon": "palette",
+                            "title": "Design",
+                            "text": "Beautiful, on-brand work that people remember.",
+                            "href": "/services"
+                        },
+                        {
+                            "icon": "zap",
+                            "title": "Delivery",
+                            "text": "Fast, reliable execution with no surprises.",
+                            "href": "/services"
+                        },
+                        {
+                            "icon": "chart",
+                            "title": "Growth",
+                            "text": "Measure what matters and keep improving.",
+                            "href": "/services"
+                        }
+                    ]
+                },
+                {
+                    "type": "timeline",
+                    "variant": "steps",
+                    "anchor": "how",
+                    "eyebrow": "How it works",
+                    "title": "From first call to finished work",
+                    "items": [
+                        {
+                            "title": "Tell us what you need",
+                            "text": "A short, free call to understand your goals."
+                        },
+                        {
+                            "title": "Get a clear proposal",
+                            "text": "Scope, timeline and a fixed price — no surprises."
+                        },
+                        {
+                            "title": "We deliver",
+                            "text": "Regular updates and a result you will love."
+                        }
+                    ]
+                },
+                {
+                    "type": "stats",
+                    "variant": "band",
+                    "title": "Numbers we are proud of",
+                    "items": [
+                        {
+                            "value": "250+",
+                            "label": "Projects",
+                            "text": "Delivered on time."
+                        },
+                        {
+                            "value": "98%",
+                            "label": "Happy clients",
+                            "text": "Would recommend us."
+                        },
+                        {
+                            "value": "12",
+                            "label": "Years",
+                            "text": "Of experience."
+                        },
+                        {
+                            "value": "48h",
+                            "label": "Response",
+                            "text": "Or faster."
+                        }
+                    ]
+                },
+                {
+                    "type": "testimonials",
+                    "variant": "grid",
+                    "eyebrow": "Reviews",
+                    "title": "Clients love working with us",
+                    "items": [
+                        {
+                            "quote": "{{site_name}} made the whole process effortless. Professional, friendly and brilliant results.",
+                            "name": "Sophie L.",
+                            "role": "Founder, Bloom Studio"
+                        },
+                        {
+                            "quote": "Clear communication, fair pricing and delivered ahead of schedule. Highly recommended.",
+                            "name": "Emeka N.",
+                            "role": "Operations Manager"
+                        },
+                        {
+                            "quote": "They genuinely care about getting it right. We will be back for our next project.",
+                            "name": "Laura P.",
+                            "role": "Marketing Lead"
+                        }
+                    ]
+                },
+                {
+                    "type": "cta",
+                    "variant": "card",
+                    "title": "Let’s build something great",
+                    "lead": "Tell us about your project — we reply within one business day.",
+                    "primary": {
+                        "label": "Start a conversation",
+                        "href": "/contact"
+                    }
+                }
+            ]
+        },
+        {
+            "slug": "about",
+            "title": "About",
+            "role": "about",
+            "description": "About {{site_name}}: our story, values and team.",
+            "sections": [
+                {
+                    "type": "pagehead",
+                    "variant": "soft",
+                    "crumb": "About",
+                    "eyebrow": "Our story",
+                    "title": "About {{site_name}}",
+                    "lead": "{{tagline}}. {{about}}"
+                },
+                {
+                    "type": "split",
+                    "eyebrow": "What drives us",
+                    "title": "Quality, honesty and care",
+                    "paragraphs": [
+                        "We started {{site_name}} because we believed clients deserved better: clear advice, fair prices and work that is genuinely excellent.",
+                        "That belief still guides every project we take on."
+                    ],
+                    "points": [
+                        "We say what we will do — then do it",
+                        "We treat your budget like our own",
+                        "We are here long after launch"
+                    ],
+                    "art": "study"
+                },
+                {
+                    "type": "team",
+                    "eyebrow": "Team",
+                    "title": "The people behind the work",
+                    "items": [
+                        {
+                            "name": "Olivia Grant",
+                            "role": "Founder & Director",
+                            "bio": "Leads strategy and client partnerships."
+                        },
+                        {
+                            "name": "Tunde Bakare",
+                            "role": "Head of Delivery",
+                            "bio": "Keeps every project on time and on budget."
+                        },
+                        {
+                            "name": "Mei Chen",
+                            "role": "Lead Designer",
+                            "bio": "Turns ideas into beautiful, useful work."
+                        },
+                        {
+                            "name": "Lucas Moreau",
+                            "role": "Client Success",
+                            "bio": "Your first point of contact, always."
+                        }
+                    ]
+                },
+                {
+                    "type": "testimonials",
+                    "variant": "grid",
+                    "eyebrow": "Reviews",
+                    "title": "Clients love working with us",
+                    "items": [
+                        {
+                            "quote": "{{site_name}} made the whole process effortless. Professional, friendly and brilliant results.",
+                            "name": "Sophie L.",
+                            "role": "Founder, Bloom Studio"
+                        },
+                        {
+                            "quote": "Clear communication, fair pricing and delivered ahead of schedule. Highly recommended.",
+                            "name": "Emeka N.",
+                            "role": "Operations Manager"
+                        },
+                        {
+                            "quote": "They genuinely care about getting it right. We will be back for our next project.",
+                            "name": "Laura P.",
+                            "role": "Marketing Lead"
+                        }
+                    ]
+                },
+                {
+                    "type": "cta",
+                    "variant": "card",
+                    "title": "Work with us",
+                    "lead": "Let’s talk about what you need.",
+                    "primary": {
+                        "label": "Get in touch",
+                        "href": "/contact"
+                    }
+                }
+            ]
+        },
+        {
+            "slug": "services",
+            "title": "Services",
+            "role": "generic",
+            "description": "Services offered by {{site_name}}.",
+            "sections": [
+                {
+                    "type": "pagehead",
+                    "variant": "soft",
+                    "crumb": "Services",
+                    "eyebrow": "What we do",
+                    "title": "Services",
+                    "lead": "Everything you need to plan, launch and grow — delivered by one dedicated team."
+                },
+                {
+                    "type": "features",
+                    "variant": "cards",
+                    "columns": 3,
+                    "eyebrow": "",
+                    "title": "Our services",
+                    "lead": "",
+                    "items": [
+                        {
+                            "icon": "compass",
+                            "title": "Strategy",
+                            "text": "Clear goals, honest advice and a plan you can act on.",
+                            "href": "/services"
+                        },
+                        {
+                            "icon": "palette",
+                            "title": "Design",
+                            "text": "Beautiful, on-brand work that people remember.",
+                            "href": "/services"
+                        },
+                        {
+                            "icon": "zap",
+                            "title": "Delivery",
+                            "text": "Fast, reliable execution with no surprises.",
+                            "href": "/services"
+                        },
+                        {
+                            "icon": "chart",
+                            "title": "Growth",
+                            "text": "Measure what matters and keep improving.",
+                            "href": "/services"
+                        }
+                    ]
+                },
+                {
+                    "type": "timeline",
+                    "variant": "steps",
+                    "anchor": "",
+                    "eyebrow": "How it works",
+                    "title": "From first call to finished work",
+                    "items": [
+                        {
+                            "title": "Tell us what you need",
+                            "text": "A short, free call to understand your goals."
+                        },
+                        {
+                            "title": "Get a clear proposal",
+                            "text": "Scope, timeline and a fixed price — no surprises."
+                        },
+                        {
+                            "title": "We deliver",
+                            "text": "Regular updates and a result you will love."
+                        }
+                    ]
+                },
+                {
+                    "type": "faq",
+                    "eyebrow": "FAQ",
+                    "title": "Questions, answered",
+                    "primary": {
+                        "label": "Ask us anything",
+                        "href": "/contact"
+                    },
+                    "open_first": true,
+                    "items": [
+                        {
+                            "q": "How quickly can you start?",
+                            "a": "Most projects begin within one to two weeks of agreeing the proposal."
+                        },
+                        {
+                            "q": "Do you work with small businesses?",
+                            "a": "Absolutely — many of our favourite clients are small, ambitious teams."
+                        },
+                        {
+                            "q": "What does it cost?",
+                            "a": "See our pricing page for packages, or ask for a fixed quote."
+                        },
+                        {
+                            "q": "Do you offer ongoing support?",
+                            "a": "Yes — our Partner plan includes ongoing support and reporting."
+                        }
+                    ]
+                },
+                {
+                    "type": "cta",
+                    "variant": "band",
+                    "title": "Not sure what you need?",
+                    "lead": "Book a free 20-minute call and we will point you in the right direction.",
+                    "primary": {
+                        "label": "Book a call",
+                        "href": "/contact"
+                    }
+                }
+            ]
+        },
+        {
+            "slug": "pricing",
+            "title": "Pricing",
+            "role": "generic",
+            "description": "Packages and pricing at {{site_name}}.",
+            "sections": [
+                {
+                    "type": "pagehead",
+                    "variant": "soft",
+                    "crumb": "Pricing",
+                    "eyebrow": "Pricing",
+                    "title": "Clear prices, no surprises",
+                    "lead": "Choose a package or ask us for a custom quote."
+                },
+                {
+                    "type": "pricing",
+                    "variant": "compact",
+                    "title": "Packages",
+                    "plans": [
+                        {
+                            "name": "Starter",
+                            "text": "For small projects and quick wins.",
+                            "price": "$490",
+                            "price_b": "$4,900",
+                            "per": "/project",
+                            "per_b": "/year",
+                            "features": [
+                                "Discovery call",
+                                "One deliverable",
+                                "2 rounds of revisions"
+                            ],
+                            "cta": {
+                                "label": "Get started",
+                                "href": "/contact"
+                            }
+                        },
+                        {
+                            "name": "Professional",
+                            "text": "Our most popular package.",
+                            "price": "$1,490",
+                            "price_b": "$14,900",
+                            "per": "/project",
+                            "per_b": "/year",
+                            "featured": true,
+                            "badge": "Most popular",
+                            "features": [
+                                "Everything in Starter",
+                                "Full strategy session",
+                                "Priority scheduling",
+                                "Unlimited revisions"
+                            ],
+                            "cta": {
+                                "label": "Choose Professional",
+                                "href": "/contact"
+                            }
+                        },
+                        {
+                            "name": "Partner",
+                            "text": "Ongoing support for growing teams.",
+                            "price": "Custom",
+                            "price_b": "Custom",
+                            "per": "",
+                            "per_b": "",
+                            "features": [
+                                "Dedicated contact",
+                                "Monthly reporting",
+                                "Retainer pricing"
+                            ],
+                            "cta": {
+                                "label": "Talk to us",
+                                "href": "/contact"
+                            }
+                        }
+                    ],
+                    "note": "All prices exclude tax. Custom quotes available on request."
+                },
+                {
+                    "type": "faq",
+                    "title": "Pricing FAQ",
+                    "items": [
+                        {
+                            "q": "Are there any hidden fees?",
+                            "a": "Never. Your proposal lists everything included."
+                        },
+                        {
+                            "q": "How do payments work?",
+                            "a": "Typically 50% to start and 50% on completion."
+                        },
+                        {
+                            "q": "Can I change package later?",
+                            "a": "Of course — upgrade at any time and we will credit what you have paid."
+                        }
+                    ]
+                },
+                {
+                    "type": "cta",
+                    "variant": "card",
+                    "title": "Need something custom?",
+                    "lead": "We are happy to tailor a package to your needs.",
+                    "primary": {
+                        "label": "Request a quote",
+                        "href": "/contact"
+                    }
+                }
+            ]
+        },
+        {
+            "slug": "contact",
+            "title": "Contact",
+            "role": "contact",
+            "description": "Contact {{site_name}}.",
+            "sections": [
+                {
+                    "type": "pagehead",
+                    "variant": "soft",
+                    "crumb": "Contact",
+                    "eyebrow": "Contact",
+                    "title": "Let’s talk",
+                    "lead": "Tell us about your project. We reply within one business day."
+                },
+                {
+                    "type": "contact",
+                    "title": "Get in touch",
+                    "address": "{{address}}",
+                    "items": [
+                        {
+                            "icon": "phone",
+                            "label": "Call us",
+                            "value": "{{phone}}",
+                            "href": "{{phone_href}}"
+                        },
+                        {
+                            "icon": "mail",
+                            "label": "Email",
+                            "value": "{{email}}",
+                            "href": "{{email_href}}"
+                        },
+                        {
+                            "icon": "pin",
+                            "label": "Visit",
+                            "value": "{{address}}"
+                        },
+                        {
+                            "icon": "clock",
+                            "label": "Hours",
+                            "value": "Mon–Fri, 9:00–17:30"
+                        }
+                    ]
+                },
+                {
+                    "type": "newsletter",
+                    "title": "Ideas in your inbox",
+                    "lead": "Occasional tips, news and offers. No spam, ever.",
+                    "button": "Subscribe"
+                }
+            ]
+        }
+    ]
 }

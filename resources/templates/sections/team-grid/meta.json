@@ -1,0 +1,55 @@
+{
+    "name": "Team grid",
+    "category": "team",
+    "tags": [
+        "team",
+        "people",
+        "staff",
+        "grid"
+    ],
+    "description": "Four-column team cards with gradient portrait placeholders.",
+    "preview": "/assets/templates/previews/team-grid.png",
+    "type": "team",
+    "slots": [
+        "eyebrow",
+        "title",
+        "lead",
+        "items",
+        "buttons",
+        "images"
+    ],
+    "constraints": [
+        "Keep the root <section class=\"mx mx-…\"> and inner <div class=\"mx-in\"> wrappers.",
+        "Colours, fonts and radius come from theme CSS variables — do not hard-code colours.",
+        "Keep data-reveal attributes; motion is disabled automatically for reduced-motion users.",
+        "Use inline SVG/gradient art or uploaded images only — no external image hosts."
+    ],
+    "spec": {
+        "type": "team",
+        "eyebrow": "Our people",
+        "title": "Meet the team",
+        "lead": "Experienced, curious and always on your side.",
+        "items": [
+            {
+                "name": "Grace Mensah",
+                "role": "Managing Director",
+                "bio": "Twenty years leading creative teams."
+            },
+            {
+                "name": "Tom Fischer",
+                "role": "Head of Design",
+                "bio": "Obsessed with typography and detail."
+            },
+            {
+                "name": "Lina Haddad",
+                "role": "Engineering Lead",
+                "bio": "Builds fast, accessible products."
+            },
+            {
+                "name": "Kofi Asante",
+                "role": "Client Success",
+                "bio": "Your first call for anything."
+            }
+        ]
+    }
+}

@@ -1,0 +1,50 @@
+{
+    "name": "Testimonial cards",
+    "category": "testimonials",
+    "tags": [
+        "testimonials",
+        "reviews",
+        "stars",
+        "grid"
+    ],
+    "description": "Three review cards with star ratings and avatars.",
+    "preview": "/assets/templates/previews/testimonials-grid.png",
+    "type": "testimonials",
+    "slots": [
+        "eyebrow",
+        "title",
+        "lead",
+        "items",
+        "buttons",
+        "images"
+    ],
+    "constraints": [
+        "Keep the root <section class=\"mx mx-…\"> and inner <div class=\"mx-in\"> wrappers.",
+        "Colours, fonts and radius come from theme CSS variables — do not hard-code colours.",
+        "Keep data-reveal attributes; motion is disabled automatically for reduced-motion users.",
+        "Use inline SVG/gradient art or uploaded images only — no external image hosts."
+    ],
+    "spec": {
+        "type": "testimonials",
+        "variant": "grid",
+        "eyebrow": "Testimonials",
+        "title": "Loved by people like you",
+        "items": [
+            {
+                "quote": "The most polished launch we have ever had. Our enquiries doubled in the first month.",
+                "name": "Amara Okafor",
+                "role": "Founder, Lumen Studio"
+            },
+            {
+                "quote": "Clear, fast and genuinely helpful. It feels like they are part of our team.",
+                "name": "Daniel Reyes",
+                "role": "Operations Lead, Northwind"
+            },
+            {
+                "quote": "Every detail was considered. Our customers notice the difference.",
+                "name": "Priya Shah",
+                "role": "Director, Bloom & Co"
+            }
+        ]
+    }
+}

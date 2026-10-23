@@ -1,0 +1,33 @@
+{
+    "name": "Newsletter signup",
+    "category": "newsletter",
+    "tags": [
+        "newsletter",
+        "email",
+        "subscribe",
+        "form"
+    ],
+    "description": "Email signup card wired to Mova subscribers (/subscribe).",
+    "preview": "/assets/templates/previews/newsletter-card.png",
+    "type": "newsletter",
+    "slots": [
+        "eyebrow",
+        "title",
+        "lead",
+        "items",
+        "buttons",
+        "images"
+    ],
+    "constraints": [
+        "Keep the root <section class=\"mx mx-…\"> and inner <div class=\"mx-in\"> wrappers.",
+        "Colours, fonts and radius come from theme CSS variables — do not hard-code colours.",
+        "Keep data-reveal attributes; motion is disabled automatically for reduced-motion users.",
+        "Use inline SVG/gradient art or uploaded images only — no external image hosts."
+    ],
+    "spec": {
+        "type": "newsletter",
+        "title": "Stay in the loop",
+        "lead": "One thoughtful email a month. News, ideas and early invites.",
+        "button": "Subscribe"
+    }
+}

@@ -1,21 +1,180 @@
 {
-  "version": 1,
-  "shared_css": "/assets/css/templates.css",
-  "templates": [
-    {
-      "id": "pricing-saas-featured",
-      "path": "pricing/saas-featured",
-      "category": "pricing"
+    "version": 2,
+    "shared_css": "/assets/css/sections.css",
+    "shared_js": "/assets/js/sections.js",
+    "categories": {
+        "hero": "Heroes",
+        "stats": "Stats",
+        "features": "Features",
+        "content": "Content",
+        "testimonials": "Testimonials",
+        "team": "Team",
+        "faq": "FAQ",
+        "gallery": "Gallery",
+        "steps": "Steps & timeline",
+        "logos": "Logos",
+        "cta": "Call to action",
+        "contact": "Contact",
+        "news": "News & events",
+        "newsletter": "Newsletter",
+        "pricing": "Pricing"
     },
-    {
-      "id": "pricing-compact-stack",
-      "path": "pricing/compact-stack",
-      "category": "pricing"
-    },
-    {
-      "id": "pricing-horizontal-toggle",
-      "path": "pricing/horizontal-toggle",
-      "category": "pricing"
-    }
-  ]
+    "templates": [
+        {
+            "id": "hero-gradient",
+            "path": "sections/hero-gradient",
+            "category": "hero",
+            "order": 0
+        },
+        {
+            "id": "hero-split",
+            "path": "sections/hero-split",
+            "category": "hero",
+            "order": 1
+        },
+        {
+            "id": "hero-centered",
+            "path": "sections/hero-centered",
+            "category": "hero",
+            "order": 2
+        },
+        {
+            "id": "stats-band",
+            "path": "sections/stats-band",
+            "category": "stats",
+            "order": 3
+        },
+        {
+            "id": "stats-cards",
+            "path": "sections/stats-cards",
+            "category": "stats",
+            "order": 4
+        },
+        {
+            "id": "features-cards",
+            "path": "sections/features-cards",
+            "category": "features",
+            "order": 5
+        },
+        {
+            "id": "features-bento",
+            "path": "sections/features-bento",
+            "category": "features",
+            "order": 6
+        },
+        {
+            "id": "features-minimal",
+            "path": "sections/features-minimal",
+            "category": "features",
+            "order": 7
+        },
+        {
+            "id": "split-story",
+            "path": "sections/split-story",
+            "category": "content",
+            "order": 8
+        },
+        {
+            "id": "testimonials-grid",
+            "path": "sections/testimonials-grid",
+            "category": "testimonials",
+            "order": 9
+        },
+        {
+            "id": "testimonials-spotlight",
+            "path": "sections/testimonials-spotlight",
+            "category": "testimonials",
+            "order": 10
+        },
+        {
+            "id": "team-grid",
+            "path": "sections/team-grid",
+            "category": "team",
+            "order": 11
+        },
+        {
+            "id": "faq-accordion",
+            "path": "sections/faq-accordion",
+            "category": "faq",
+            "order": 12
+        },
+        {
+            "id": "gallery-masonry",
+            "path": "sections/gallery-masonry",
+            "category": "gallery",
+            "order": 13
+        },
+        {
+            "id": "steps-process",
+            "path": "sections/steps-process",
+            "category": "steps",
+            "order": 14
+        },
+        {
+            "id": "timeline-history",
+            "path": "sections/timeline-history",
+            "category": "steps",
+            "order": 15
+        },
+        {
+            "id": "logos-strip",
+            "path": "sections/logos-strip",
+            "category": "logos",
+            "order": 16
+        },
+        {
+            "id": "cta-band",
+            "path": "sections/cta-band",
+            "category": "cta",
+            "order": 17
+        },
+        {
+            "id": "cta-card",
+            "path": "sections/cta-card",
+            "category": "cta",
+            "order": 18
+        },
+        {
+            "id": "contact-map",
+            "path": "sections/contact-map",
+            "category": "contact",
+            "order": 19
+        },
+        {
+            "id": "news-cards",
+            "path": "sections/news-cards",
+            "category": "news",
+            "order": 20
+        },
+        {
+            "id": "events-list",
+            "path": "sections/events-list",
+            "category": "news",
+            "order": 21
+        },
+        {
+            "id": "newsletter-card",
+            "path": "sections/newsletter-card",
+            "category": "newsletter",
+            "order": 22
+        },
+        {
+            "id": "pricing-saas-featured",
+            "path": "sections/pricing-saas-featured",
+            "category": "pricing",
+            "order": 23
+        },
+        {
+            "id": "pricing-compact-stack",
+            "path": "sections/pricing-compact-stack",
+            "category": "pricing",
+            "order": 24
+        },
+        {
+            "id": "pricing-horizontal-toggle",
+            "path": "sections/pricing-horizontal-toggle",
+            "category": "pricing",
+            "order": 25
+        }
+    ]
 }

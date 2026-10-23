@@ -70,7 +70,14 @@ class IntegrationManager
         if (!isset(self::DRIVERS[$driver])) {
             return;
         }
-        $existing = Database::fetch("SELECT id FROM integrations WHERE driver = :d", ['d' => $driver]);
+        $existing = Database::fetch("SELECT id, config FROM integrations WHERE driver = :d", ['d' => $driver]);
+        // Secret fields are never echoed into HTML; a blank submission keeps the stored value.
+        $prev = $existing ? (json_decode((string) ($existing['config'] ?? ''), true) ?: []) : [];
+        foreach ($config as $field => $value) {
+            if (self::isSecretField((string) $field) && trim((string) $value) === '' && isset($prev[$field])) {
+                $config[$field] = $prev[$field];
+            }
+        }
         $payload = [
             'driver' => $driver,
             'name' => self::DRIVERS[$driver]['name'],
@@ -83,6 +90,12 @@ class IntegrationManager
         } else {
             Database::insert('integrations', $payload);
         }
+    }
+
+    public static function isSecretField(string $field): bool
+    {
+        return str_contains($field, 'secret') || str_contains($field, 'key')
+            || str_contains($field, 'token') || str_contains($field, 'password');
     }
 
     public function getConfig(string $driver): array

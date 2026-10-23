@@ -46,14 +46,27 @@ $router->post('/api-keys', function (Request $req) {
         return (new Response())->redirect('/hq/api-keys');
     }
 
-    $scopes = $req->post('scopes', ['read']);
+    $scopes = $req->post('scopes', []);
     if (!is_array($scopes)) {
-        $scopes = ['read'];
+        $scopes = [];
     }
+    // Only issue known scopes (REST API v1). Legacy read/write remain valid for existing keys.
+    $known = array_keys(\Mova\Api\RestApi::SCOPES);
+    $scopes = array_values(array_unique(array_filter(array_map('strval', $scopes), static fn($s) => in_array($s, $known, true))));
+    if (!$scopes) {
+        $scopes = ['content:read'];
+    }
+    // content:write without content:read would be confusing — reading back what you wrote is implied.
+    if (in_array('content:write', $scopes, true) && !in_array('content:read', $scopes, true)) {
+        $scopes[] = 'content:read';
+    }
+    $expiresIn = (int) $req->post('expires_days', 0);
+    $expiresAt = $expiresIn > 0 ? date('c', time() + min($expiresIn, 3650) * 86400) : null;
     $created = $svc->create(
         (string) $req->post('name', 'API Key'),
         $scopes,
-        Auth::id()
+        Auth::id(),
+        $expiresAt
     );
     $_SESSION['_mova_new_api_key'] = $created['key'];
     Audit::log('api_key.created', 'api_key', $created['id']);
