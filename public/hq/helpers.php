@@ -53,14 +53,14 @@ function hqLayout(string $view, string $content, array $data = []): string
     // Determine current workspace for Line 1 section name + Line 2 items
     $workspace = 'overview';
     if (strpos($view, 'landings/content') === 0 || strpos($view, 'content') === 0 || strpos($view, 'media') === 0
-        || strpos($view, 'galleries') === 0 || strpos($view, 'types') === 0
+        || strpos($view, 'galleries') === 0 || strpos($view, 'blogs') === 0 || strpos($view, 'types') === 0
         || strpos($view, 'assembly') === 0
         || strpos($view, 'studio') === 0
         || $view === 'taxonomy/categories' || $view === 'taxonomy/tags') {
         $workspace = 'content';
     } elseif (strpos($view, 'landings/audience') === 0 || strpos($view, 'people') === 0 || strpos($view, 'mail') === 0
         || strpos($view, 'mailbox') === 0 || strpos($view, 'sequences') === 0
-        || strpos($view, 'insights') === 0) {
+        || strpos($view, 'insights') === 0 || strpos($view, 'feedback') === 0) {
         $workspace = 'audience';
     } elseif (strpos($view, 'landings/design') === 0 || strpos($view, 'brand') === 0 || strpos($view, 'style') === 0
         || strpos($view, 'layout') === 0 || strpos($view, 'components') === 0
@@ -108,7 +108,7 @@ HTML;
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer">
-    <link rel="stylesheet" href="/assets/css/hq.css?v=20260922fullwidth2">
+    <link rel="stylesheet" href="/assets/css/hq.css?v=20261018navscroll">
     <link rel="stylesheet" href="/assets/css/hq-vnext.css?v=20260922fullwidth2">
     <link rel="stylesheet" href="/assets/css/hq-landings.css?v=20260922fullwidth2">
     <?php if ($isAuth): ?>
@@ -248,6 +248,10 @@ HTML;
                     <input type="checkbox" id="mova-ai-bg-mode" checked>
                     <span>Background</span>
                 </label>
+                <label class="mova-ai-bg-toggle" title="Use original model capability — no Mova JSON schema or CMS actions. Plain replies only.">
+                    <input type="checkbox" id="mova-ai-raw-mode">
+                    <span>Raw AI</span>
+                </label>
                 <span class="hint">Ctrl+J · Enter</span>
                 <button type="button" class="mova-ai-send" id="mova-ai-send">Send</button>
             </div>
@@ -261,8 +265,8 @@ HTML;
 <?php endif; ?>
 
     <script src="/assets/js/theme.js" defer></script>
-    <script src="/assets/js/hq-search-index.js?v=20260929templates3"></script>
-    <script src="/assets/js/hq-nav.js?v=20260929templates3" defer></script>
+    <script src="/assets/js/hq-search-index.js?v=20261017fb1"></script>
+    <script src="/assets/js/hq-nav.js?v=20261017fb1" defer></script>
     <script src="/assets/js/hq-layers.js" defer></script>
     <?php if ($isAuth): ?>
     <script>

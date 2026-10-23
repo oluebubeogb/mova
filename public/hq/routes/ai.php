@@ -95,15 +95,21 @@ $router->post('/ai/chat', function (Request $req) {
     $uid = (int) Auth::id();
     $message = trim((string) $req->post('message', ''));
     $sessionId = (int) $req->post('session_id', 0) ?: null;
+    $mode = strtolower(trim((string) $req->post('mode', '')));
     $pageContext = [
         'route' => (string) $req->post('route', ''),
         'area' => (string) $req->post('area', ''),
         'layer' => (string) $req->post('layer', ''),
         'entityId' => (int) $req->post('entity_id', 0) ?: null,
         'templateId' => trim((string) $req->post('template_id', '')) ?: null,
+        'mode' => $mode,
     ];
+    $options = [];
+    if (in_array($mode, ['raw', 'original', 'general'], true)) {
+        $options['mode'] = 'raw';
+    }
     $svc = new AiChatService();
-    $result = $svc->chat($uid, $sessionId, $message, $pageContext);
+    $result = $svc->chat($uid, $sessionId, $message, $pageContext, $options);
     $status = !empty($result['ok']) ? 200 : 400;
     return (new Response())->json($result, $status);
 });
@@ -141,12 +147,14 @@ $router->post('/ai/jobs', function (Request $req) {
     $sessionId = (int) $req->post('session_id', 0) ?: null;
     $clientKey = trim((string) $req->post('client_key', '')) ?: null;
     $background = (string) $req->post('background', '1') === '1';
+    $mode = strtolower(trim((string) $req->post('mode', '')));
     $pageContext = [
         'route' => (string) $req->post('route', ''),
         'area' => (string) $req->post('area', ''),
         'layer' => (string) $req->post('layer', ''),
         'entityId' => (int) $req->post('entity_id', 0) ?: null,
         'templateId' => trim((string) $req->post('template_id', '')) ?: null,
+        'mode' => $mode,
     ];
     if ($message === '') {
         return (new Response())->json(['error' => 'Empty message'], 400);

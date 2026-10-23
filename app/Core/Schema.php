@@ -764,6 +764,7 @@ class Schema
         self::migratePhase10($db);
         self::migratePhase11($db);
         self::migratePhase12($db);
+        self::migratePhase13($db);
     }
 
     /**
@@ -889,6 +890,61 @@ class Schema
         $db->exec("CREATE INDEX IF NOT EXISTS idx_gallery_items_gallery ON gallery_items(gallery_id, sort_order)");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_galleries_status ON galleries(status)");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_galleries_updated ON galleries(updated_at)");
+
+        // Gallery groups: optional group_slug to manually cluster galleries under /gallery/{group}
+        try {
+            $cols = $db->query("PRAGMA table_info(galleries)")->fetchAll(\PDO::FETCH_ASSOC);
+            $names = array_column($cols, 'name');
+            if (!in_array('group_slug', $names, true)) {
+                $db->exec("ALTER TABLE galleries ADD COLUMN group_slug TEXT");
+            }
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_galleries_group_slug ON galleries(group_slug)");
+        // Embed layout defaults for in-page gallery mounts
+        try {
+            $cols = $db->query("PRAGMA table_info(galleries)")->fetchAll(\PDO::FETCH_ASSOC);
+            $names = array_column($cols, 'name');
+            if (!in_array('embed_layout', $names, true)) {
+                $db->exec("ALTER TABLE galleries ADD COLUMN embed_layout TEXT DEFAULT 'carousel'");
+            }
+            if (!in_array('embed_options', $names, true)) {
+                $db->exec("ALTER TABLE galleries ADD COLUMN embed_options TEXT");
+            }
+        } catch (\Throwable $e) {}
+
+        // Feedback forms + entries (Audience inbox)
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS feedback_forms (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                slug TEXT NOT NULL UNIQUE,
+                description TEXT,
+                status TEXT NOT NULL DEFAULT 'published',
+                success_message TEXT,
+                fields_json TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        ");
+        $db->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_feedback_forms_slug ON feedback_forms(slug)");
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS feedback_entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                form_id INTEGER NOT NULL,
+                payload TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'new',
+                page_url TEXT,
+                user_agent TEXT,
+                ip_hash TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (form_id) REFERENCES feedback_forms(id) ON DELETE CASCADE
+            )
+        ");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_feedback_entries_form ON feedback_entries(form_id, created_at)");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_feedback_entries_status ON feedback_entries(status)");
+
+        } catch (\Throwable $e) {
+            // ignore
+        }
     }
 
 
@@ -989,6 +1045,79 @@ class Schema
             )
         ");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_design_templates_category ON design_templates(category, enabled, sort_order)");
+    }
+
+
+    /** Blogs — curated / filtered content feeds with templates */
+    private static function migratePhase13(\PDO $db): void
+    {
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS blogs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                slug TEXT NOT NULL UNIQUE,
+                description TEXT,
+                status TEXT NOT NULL DEFAULT 'published',
+                mode TEXT NOT NULL DEFAULT 'filter',
+                allowed_types TEXT,
+                category_ids TEXT,
+                tag_ids TEXT,
+                sort TEXT NOT NULL DEFAULT 'date_desc',
+                per_page INTEGER NOT NULL DEFAULT 12,
+                excerpt_chars INTEGER NOT NULL DEFAULT 130,
+                template_mode TEXT NOT NULL DEFAULT 'default',
+                template_html TEXT,
+                embed_options TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        ");
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS blog_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                blog_id INTEGER NOT NULL,
+                content_id INTEGER NOT NULL,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (blog_id) REFERENCES blogs(id) ON DELETE CASCADE,
+                FOREIGN KEY (content_id) REFERENCES content(id) ON DELETE CASCADE,
+                UNIQUE(blog_id, content_id)
+            )
+        ");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_blogs_status ON blogs(status)");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_blogs_slug ON blogs(slug)");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_blog_items_blog ON blog_items(blog_id, sort_order)");
+        try {
+            $cols = $db->query("PRAGMA table_info(blogs)")->fetchAll(\PDO::FETCH_ASSOC);
+            $names = array_map(fn($c) => $c['name'] ?? '', $cols);
+            if (!in_array('excerpt_chars', $names, true)) {
+                $db->exec("ALTER TABLE blogs ADD COLUMN excerpt_chars INTEGER NOT NULL DEFAULT 130");
+            }
+        } catch (\Throwable $e) {
+        }
+
+        $count = (int) ($db->query("SELECT COUNT(*) FROM blogs")->fetchColumn() ?: 0);
+        if ($count === 0) {
+            $now = date('c');
+            $stmt = $db->prepare("INSERT INTO blogs (title, slug, description, status, mode, allowed_types, category_ids, tag_ids, sort, per_page, template_mode, template_html, embed_options, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+            $stmt->execute([
+                'Blog',
+                'blog',
+                'Default blog feed',
+                'published',
+                'filter',
+                json_encode(['article']),
+                json_encode([]),
+                json_encode([]),
+                'date_desc',
+                12,
+                'default',
+                null,
+                json_encode(['limit' => 6]),
+                $now,
+                $now,
+            ]);
+        }
     }
 
     public static function isInstalled(): bool

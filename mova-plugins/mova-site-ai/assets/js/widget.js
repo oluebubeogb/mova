@@ -18,6 +18,18 @@
   var bgLight = root.getAttribute('data-bg-light');
   var bgDark = root.getAttribute('data-bg-dark');
 
+  // Ensure Font Awesome is available for icons (CDN; same kit HQ uses)
+  (function ensureFA() {
+    if (document.querySelector('link[href*="font-awesome"], link[href*="fontawesome"]')) return;
+    var link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css';
+    link.crossOrigin = 'anonymous';
+    link.referrerPolicy = 'no-referrer';
+    document.head.appendChild(link);
+  })();
+
+
   var LS_SESSIONS = 'msa_sessions';
   var LS_ACTIVE = 'msa_active_session';
   var LS_OPEN = 'msa_panel_open';
@@ -145,22 +157,22 @@
   fab.type = 'button';
   fab.className = 'msa-fab';
   fab.setAttribute('aria-label', 'Open ' + name);
-  fab.innerHTML = '✦';
+  fab.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M19 14l.75 2.25L22 17l-2.25.75L19 20l-.75-2.25L16 17l2.25-.75L19 14z"/><path d="M5 15l.6 1.8L7.5 17.5 5.6 18.1 5 20l-.6-1.9L2.5 17.5l1.9-.7L5 15z"/></svg>';
 
   var panel = document.createElement('div');
   panel.className = 'msa-panel';
   panel.innerHTML =
     '<div class="msa-head">' +
       '<strong data-title>' + escapeHtml(name) + '</strong>' +
-      '<button type="button" class="msa-icon-btn" data-sessions title="Sessions" aria-label="Sessions">☰</button>' +
-      '<button type="button" class="msa-icon-btn" data-new title="New chat" aria-label="New chat">＋</button>' +
-      '<button type="button" data-close aria-label="Close">&times;</button>' +
+      '<button type="button" class="msa-icon-btn" data-sessions title="Sessions" aria-label="Sessions"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>' +
+      '<button type="button" class="msa-icon-btn" data-new title="New chat" aria-label="New chat"><i class="fa-solid fa-plus" aria-hidden="true"></i></button>' +
+      '<button type="button" data-close aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>' +
     '</div>' +
     '<div class="msa-sessions" data-sessions-list hidden></div>' +
     '<div class="msa-msgs" data-msgs><div class="msa-greet">' + escapeHtml(hourGreet()) + '</div></div>' +
     '<div class="msa-compose">' +
       '<input type="text" placeholder="Ask anything…" data-input autocomplete="off">' +
-      '<button type="button" data-send>Send</button>' +
+      '<button type="button" data-send aria-label="Send"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i></button>' +
     '</div>';
 
   document.body.appendChild(fab);
@@ -174,6 +186,7 @@
   function setOpen(open) {
     state.open = !!open;
     panel.classList.toggle('is-open', state.open);
+    fab.classList.toggle('is-hidden', state.open);
     try { localStorage.setItem(LS_OPEN, state.open ? '1' : '0'); } catch (e) {}
     if (state.open) {
       setTimeout(function () { input.focus(); }, 80);
@@ -261,10 +274,10 @@
         var tools = document.createElement('div');
         tools.className = 'msa-msg-tools';
         tools.innerHTML =
-          '<button type="button" data-act="copy" title="Copy">Copy</button>' +
-          '<button type="button" data-act="regen" title="Regenerate">↻</button>' +
-          '<button type="button" data-act="up" title="Helpful">👍</button>' +
-          '<button type="button" data-act="down" title="Not helpful">👎</button>';
+          '<button type="button" data-act="copy" title="Copy" aria-label="Copy"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>' +
+          '<button type="button" data-act="regen" title="Regenerate" aria-label="Regenerate"><i class="fa-solid fa-rotate" aria-hidden="true"></i></button>' +
+          '<button type="button" data-act="up" title="Helpful" aria-label="Helpful"><i class="fa-regular fa-thumbs-up" aria-hidden="true"></i></button>' +
+          '<button type="button" data-act="down" title="Not helpful" aria-label="Not helpful"><i class="fa-regular fa-thumbs-down" aria-hidden="true"></i></button>';
         var plain = text;
         tools.addEventListener('click', function (e) {
           var b = e.target.closest('[data-act]');

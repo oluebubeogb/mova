@@ -174,31 +174,67 @@ class AiJobService
                 $img = new ImageGenService();
                 $aspect = (string) ($pageContext['aspect'] ?? 'square');
                 $negative = (string) ($pageContext['negative_prompt'] ?? '');
+                $replaceMediaId = (int) ($pageContext['replace_media_id'] ?? 0);
+                $onProg = function (string $msg) use ($jobId) {
+                    $this->touchProgress($jobId, $msg);
+                };
+                // Always create a normal new media item (same as Upload)
                 $gen = $img->generateAndIngest(
                     (string) $row['prompt'],
                     $aspect,
                     $negative,
                     $userId,
-                    function (string $msg) use ($jobId) {
-                        $this->touchProgress($jobId, $msg);
-                    }
+                    $onProg
                 );
                 if (empty($gen['ok'])) {
                     throw new \RuntimeException((string) ($gen['error'] ?? 'Image generation failed'));
                 }
                 $media = $gen['media'] ?? [];
+                $retarget = null;
+                $deletedOld = false;
+                if ($replaceMediaId > 0 && !empty($media['id'])) {
+                    $this->touchProgress($jobId, 'Updating site references to new image…');
+                    try {
+                        $mediaSvc = new \Mova\Media\MediaService();
+                        $swap = $mediaSvc->replaceByExistingMedia(
+                            $replaceMediaId,
+                            (int) $media['id'],
+                            false // keep both old and new media
+                        );
+                        $retarget = $swap['retarget'] ?? null;
+                        $deletedOld = !empty($swap['deleted']);
+                        $media = $swap['new'] ?? $media;
+                    } catch (\Throwable $e) {
+                        $retarget = ['error' => $e->getMessage()];
+                    }
+                }
+                $replaced = $replaceMediaId > 0;
+                $outUrl = (string) ($gen['url'] ?? '');
+                if ($outUrl === '' && !empty($media)) {
+                    try {
+                        $outUrl = (new \Mova\Media\MediaService())->url($media);
+                    } catch (\Throwable $e) {
+                        $outUrl = '';
+                    }
+                }
                 $result = [
-                    'reply' => 'Image generated and added to the media library.',
+                    'reply' => $replaced
+                        ? 'Image regenerated as a new file; site URLs were updated to the new media.'
+                        : 'Image generated and added to the media library.',
                     'actions' => [[
-                        'type' => 'media_created',
+                        'type' => $replaced ? 'media_replaced' : 'media_created',
                         'media_id' => (int) ($media['id'] ?? 0),
-                        'url' => (string) ($gen['url'] ?? ''),
+                        'old_media_id' => $replaced ? $replaceMediaId : null,
+                        'url' => $outUrl,
                         'width' => (int) ($media['width'] ?? 0),
                         'height' => (int) ($media['height'] ?? 0),
                         'path' => (string) ($media['path'] ?? ''),
                         'original_name' => (string) ($media['original_name'] ?? ''),
                         'mime_type' => (string) ($media['mime_type'] ?? ''),
                         'variants' => $media['variants'] ?? [],
+                        'replaced' => $replaced,
+                        'deleted_old' => $deletedOld,
+                        'retarget' => $retarget,
                     ]],
                     'provider' => (string) ($gen['provider'] ?? 'Mova Image'),
                     'session_id' => 0,
@@ -206,16 +242,21 @@ class AiJobService
             } else {
                 $sessionId = !empty($row['session_id']) ? (int) $row['session_id'] : null;
                 $chat = new AiChatService();
+                $jobMode = strtolower(trim((string) ($pageContext['mode'] ?? '')));
+                $jobOpts = [
+                    'long_running' => true,
+                    'kind' => $kind,
+                    'skip_user_message' => false,
+                ];
+                if (in_array($jobMode, ['raw', 'original', 'general'], true)) {
+                    $jobOpts['mode'] = 'raw';
+                }
                 $result = $chat->chat(
                     $userId,
                     $sessionId,
                     (string) $row['prompt'],
                     $pageContext,
-                    [
-                        'long_running' => true,
-                        'kind' => $kind,
-                        'skip_user_message' => false,
-                    ]
+                    $jobOpts
                 );
             }
 

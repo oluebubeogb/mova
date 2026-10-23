@@ -149,6 +149,122 @@ class ImageGenService
     }
 
     /**
+     * Generate a new image and replace an existing media row (same public URL / variants).
+     *
+     * @return array{ok:bool,media?:array,url?:string,provider:string,error?:string,gateway_job_id?:string,replaced?:bool}
+     */
+    public function generateAndReplace(
+        int $mediaId,
+        string $prompt,
+        string $aspect = 'square',
+        string $negativePrompt = '',
+        ?int $userId = null,
+        ?callable $onProgress = null
+    ): array {
+        $prompt = trim($prompt);
+        if ($prompt === '') {
+            return ['ok' => false, 'provider' => $this->providerLabel(), 'error' => 'Empty prompt'];
+        }
+        if ($mediaId <= 0) {
+            return ['ok' => false, 'provider' => $this->providerLabel(), 'error' => 'Invalid media id'];
+        }
+        if (!$this->isConfigured()) {
+            return ['ok' => false, 'provider' => 'none', 'error' => 'Image AI is not configured'];
+        }
+
+        if (!isset(self::ASPECTS[$aspect])) {
+            $aspect = 'square';
+        }
+        $size = $this->sizeForAspect($aspect);
+        $dims = self::ASPECTS[$aspect];
+
+        if ($onProgress) {
+            $onProgress('Submitting to Mova Image…');
+        }
+
+        try {
+            $start = $this->startJob($prompt, $size, $aspect, $negativePrompt);
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'provider' => $this->providerLabel(), 'error' => $e->getMessage()];
+        }
+
+        $jobId = (string) ($start['id'] ?? '');
+        if ($jobId === '') {
+            return ['ok' => false, 'provider' => $this->providerLabel(), 'error' => 'Gateway did not return a job id'];
+        }
+
+        if ($onProgress) {
+            $onProgress('Generating image (job ' . $jobId . ')…');
+        }
+
+        try {
+            $result = $this->pollJob($jobId, 900, $onProgress);
+        } catch (\Throwable $e) {
+            return [
+                'ok' => false,
+                'provider' => $this->providerLabel(),
+                'error' => $e->getMessage(),
+                'gateway_job_id' => $jobId,
+            ];
+        }
+
+        $binary = $result['binary'] ?? null;
+        $mime = (string) ($result['mime'] ?? 'image/png');
+        if (!is_string($binary) || $binary === '') {
+            return [
+                'ok' => false,
+                'provider' => $this->providerLabel(),
+                'error' => 'Job completed but no image data returned',
+                'gateway_job_id' => $jobId,
+            ];
+        }
+
+        if ($onProgress) {
+            $onProgress('Replacing existing media (keeping URL)…');
+        }
+
+        try {
+            $svc = new MediaService();
+            $existing = $svc->find($mediaId);
+            if (!$existing) {
+                throw new \RuntimeException('Media not found for replace');
+            }
+            $media = $svc->replaceImageFromBinary(
+                $mediaId,
+                $binary,
+                $mime,
+                [
+                    'width' => (int) ($result['width'] ?? $dims['w']),
+                    'height' => (int) ($result['height'] ?? $dims['h']),
+                    // Keep existing alt unless empty — optional refresh from prompt
+                    // Do not overwrite original_name so the library label stays familiar
+                ]
+            );
+            if (!$media) {
+                throw new \RuntimeException('Replace returned empty media');
+            }
+        } catch (\Throwable $e) {
+            return [
+                'ok' => false,
+                'provider' => $this->providerLabel(),
+                'error' => 'Image received but replace failed: ' . $e->getMessage(),
+                'gateway_job_id' => $jobId,
+            ];
+        }
+
+        $url = (new MediaService())->url($media);
+
+        return [
+            'ok' => true,
+            'media' => $media,
+            'url' => $url,
+            'provider' => $this->providerLabel(),
+            'gateway_job_id' => $jobId,
+            'replaced' => true,
+        ];
+    }
+
+    /**
      * @return array{id:string,status?:string}
      */
     private function startJob(string $prompt, string $size, string $aspect, string $negativePrompt): array

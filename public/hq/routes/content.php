@@ -60,6 +60,17 @@ $router->get('/content/new', function () {
     $relatedIds = [];
     $relatedOptions = (new ContentRepository())->all(['status' => 'published'], 100);
     $revisions = [];
+
+    $assemblies = [];
+    try {
+        if (class_exists(\Mova\Assembly\AssemblyService::class)) {
+            $assemblies = (new \Mova\Assembly\AssemblyService())->all();
+        }
+    } catch (\Throwable $e) {
+        $assemblies = [];
+    }
+    $parentOptions = (new ContentRepository())->all([], 200);
+
     return renderHq('content/edit', [
         'content' => null,
         'types' => $types,
@@ -71,6 +82,8 @@ $router->get('/content/new', function () {
         'relatedIds' => $relatedIds,
         'relatedOptions' => $relatedOptions,
         'revisions' => $revisions,
+        'assemblies' => $assemblies,
+        'parentOptions' => $parentOptions,
     ]);
 });
 
@@ -114,6 +127,7 @@ $router->post('/content/new', function (Request $req) {
         'author_id'      => Auth::id(),
         'featured_image' => trim((string) $req->post('featured_image', '')),
         'published_at'   => $publishedAt,
+        'parent_id'      => ($req->post('parent_id') !== null && $req->post('parent_id') !== '') ? (int) $req->post('parent_id') : null,
         'meta'           => [
             'seo_title'            => trim((string) $req->post('seo_title', '')),
             'meta_description'     => trim((string) $req->post('meta_description', '')),
@@ -121,6 +135,8 @@ $router->post('/content/new', function (Request $req) {
             'og_description'       => trim((string) $req->post('og_description', '')),
             'robots'               => trim((string) $req->post('robots', 'index, follow')),
             'hide_article_chrome'  => $req->post('hide_article_chrome') ? '1' : '0',
+            'header_assembly_slug' => trim((string) $req->post('header_assembly_slug', '')),
+            'footer_assembly_slug' => trim((string) $req->post('footer_assembly_slug', '')),
         ],
     ];
 
@@ -183,9 +199,21 @@ $router->get('/content/edit/{id}', function (Request $req, array $params) {
     $relatedIds = (new RelationService())->getRelatedIds((int) $content['id'], 'related');
     $relatedOptions = $repo->all([], 100);
     $revisions = $repo->listRevisions((int) $content['id']);
+
+    $assemblies = [];
+    try {
+        if (class_exists(\Mova\Assembly\AssemblyService::class)) {
+            $assemblies = (new \Mova\Assembly\AssemblyService())->all();
+        }
+    } catch (\Throwable $e) {
+        $assemblies = [];
+    }
+    $parentOptions = (new ContentRepository())->all([], 200);
+
     return renderHq('content/edit', compact(
         'content', 'types', 'categories', 'selectedCategories', 'tagString',
-        'customFields', 'fieldValues', 'relatedIds', 'relatedOptions', 'revisions'
+        'customFields', 'fieldValues', 'relatedIds', 'relatedOptions', 'revisions',
+        'assemblies', 'parentOptions'
     ));
 });
 
@@ -231,6 +259,7 @@ $router->post('/content/edit/{id}', function (Request $req, array $params) {
         'status'         => $status,
         'featured_image' => trim((string) $req->post('featured_image', '')),
         'published_at'   => $publishedAt,
+        'parent_id'      => ($req->post('parent_id') !== null && $req->post('parent_id') !== '') ? (int) $req->post('parent_id') : null,
         'meta'           => [
             'seo_title'            => trim((string) $req->post('seo_title', '')),
             'meta_description'     => trim((string) $req->post('meta_description', '')),
@@ -238,6 +267,8 @@ $router->post('/content/edit/{id}', function (Request $req, array $params) {
             'og_description'       => trim((string) $req->post('og_description', '')),
             'robots'               => trim((string) $req->post('robots', 'index, follow')),
             'hide_article_chrome'  => $req->post('hide_article_chrome') ? '1' : '0',
+            'header_assembly_slug' => trim((string) $req->post('header_assembly_slug', '')),
+            'footer_assembly_slug' => trim((string) $req->post('footer_assembly_slug', '')),
         ],
     ];
 

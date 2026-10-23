@@ -57,7 +57,7 @@ try {
 
 // Page cache for anonymous GET (skip search, HQ, and system XML/text endpoints)
 // System routes must not be cached as bare body — they need correct Content-Type
-$systemPaths = ['/search', '/gallery', '/robots.txt', '/sitemap.xml', '/feed.xml', '/llms.txt', '/unsubscribe', '/mova.json'];
+$systemPaths = ['/search', '/gallery', '/feedback', '/blog', '/robots.txt', '/sitemap.xml', '/feed.xml', '/llms.txt', '/unsubscribe', '/mova.json'];
 $cacheable = $request->isGet()
     && !Auth::check()
     && !in_array($path, $systemPaths, true)
@@ -185,27 +185,220 @@ $router->get('/gallery/api/search', function (Request $req) {
         ->body(json_encode($results));
 });
 
+
+$router->get('/gallery/api/embed/{id}', function (Request $req, array $params) {
+    $id = (int) ($params['id'] ?? 0);
+    $svc = new \Mova\Gallery\GalleryService();
+    $layout = $req->query('layout');
+    $preset = $req->query('preset');
+    $opts = [];
+    $optsRaw = $req->query('opts');
+    if (is_string($optsRaw) && $optsRaw !== '') {
+        $decoded = json_decode($optsRaw, true);
+        if (is_array($decoded)) {
+            $opts = $decoded;
+        }
+    }
+    $payload = $svc->embedPayload(
+        $id,
+        $layout ? (string) $layout : null,
+        $opts,
+        $preset ? (string) $preset : null
+    );
+    if (!$payload) {
+        return (new \Mova\Core\Response())
+            ->header('Content-Type', 'application/json')
+            ->status(404)
+            ->body(json_encode(['error' => 'Not found']));
+    }
+    // Only published on public
+    $g = $svc->find($id);
+    if (!$g || ($g['status'] ?? '') !== 'published') {
+        return (new \Mova\Core\Response())
+            ->header('Content-Type', 'application/json')
+            ->status(404)
+            ->body(json_encode(['error' => 'Not found']));
+    }
+    return (new \Mova\Core\Response())
+        ->header('Content-Type', 'application/json')
+        ->header('Cache-Control', 'public, max-age=60')
+        ->body(json_encode($payload));
+});
+
+$router->get('/feedback/api/form/{slug}', function (Request $req, array $params) {
+    $slug = (string) ($params['slug'] ?? '');
+    $svc = new \Mova\Feedback\FeedbackService();
+    $form = $svc->findBySlug($slug, true);
+    if (!$form) {
+        return (new \Mova\Core\Response())
+            ->header('Content-Type', 'application/json')
+            ->status(404)
+            ->body(json_encode(['error' => 'Not found']));
+    }
+    return (new \Mova\Core\Response())
+        ->header('Content-Type', 'application/json')
+        ->body(json_encode([
+            'form' => [
+                'id' => $form['id'],
+                'title' => $form['title'],
+                'slug' => $form['slug'],
+                'description' => $form['description'] ?? '',
+                'success_message' => $form['success_message'] ?? '',
+                'fields' => $form['fields'],
+            ],
+        ]));
+});
+
+$router->post('/feedback/api/submit/{slug}', function (Request $req, array $params) {
+    $slug = (string) ($params['slug'] ?? '');
+    $svc = new \Mova\Feedback\FeedbackService();
+    $form = $svc->findBySlug($slug, true);
+    if (!$form) {
+        return (new \Mova\Core\Response())
+            ->header('Content-Type', 'application/json')
+            ->status(404)
+            ->body(json_encode(['success' => false, 'error' => 'Form not found']));
+    }
+    $raw = file_get_contents('php://input');
+    $json = $raw ? json_decode($raw, true) : null;
+    $values = is_array($json['values'] ?? null) ? $json['values'] : ($req->post() ?: []);
+    try {
+        $svc->submit((int) $form['id'], $values, [
+            'page_url' => is_array($json) ? ($json['page_url'] ?? null) : null,
+            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+            'ip' => $_SERVER['REMOTE_ADDR'] ?? null,
+        ]);
+        return (new \Mova\Core\Response())
+            ->header('Content-Type', 'application/json')
+            ->body(json_encode([
+                'success' => true,
+                'message' => $form['success_message'] ?? 'Thank you.',
+            ]));
+    } catch (\Throwable $e) {
+        return (new \Mova\Core\Response())
+            ->header('Content-Type', 'application/json')
+            ->status(400)
+            ->body(json_encode(['success' => false, 'error' => $e->getMessage()]));
+    }
+});
+
+
+
+// —— Blogs ——
+$router->get('/blog', function (Request $req) use ($seo) {
+    $svc = new \Mova\Blog\BlogService();
+    $blog = $svc->findBySlug('blog', true);
+    if (!$blog) {
+        return renderTheme('404', ['seo' => $seo], 404);
+    }
+    $limit = (int) ($blog['per_page'] ?? 12);
+    $feed = $svc->feed((int) $blog['id'], $limit, 0);
+    $html = $svc->renderFeedHtml($blog, $feed['items']);
+    return renderTheme('blog', [
+        'seo' => $seo,
+        'title' => $blog['title'],
+        'blog' => $blog,
+        'feed' => $feed,
+        'html' => $html,
+    ]);
+});
+
+$router->get('/blog/api/feed/{id}', function (Request $req, array $params) {
+    $svc = new \Mova\Blog\BlogService();
+    $id = (int) ($params['id'] ?? 0);
+    $blog = $svc->find($id);
+    if (!$blog || ($blog['status'] ?? '') !== 'published') {
+        return (new Response())->header('Content-Type', 'application/json')->status(404)
+            ->body(json_encode(['error' => 'Not found']));
+    }
+    $limit = (int) $req->query('limit', $blog['per_page'] ?? 12);
+    $offset = (int) $req->query('offset', 0);
+    $feed = $svc->feed($id, $limit, $offset);
+    $html = $svc->renderFeedHtml($blog, $feed['items']);
+    return (new Response())->header('Content-Type', 'application/json')
+        ->body(json_encode([
+            'html' => $html,
+            'items' => $feed['items'],
+            'has_more' => $feed['has_more'],
+            'next_offset' => $feed['next_offset'],
+            'total' => $feed['total'],
+            'limit' => $limit,
+        ]));
+});
+
+$router->get('/blog/{slug}', function (Request $req, array $params) use ($seo) {
+    $svc = new \Mova\Blog\BlogService();
+    $slug = (string) ($params['slug'] ?? '');
+    if ($slug === '' || $slug === 'api') {
+        return renderTheme('404', ['seo' => $seo], 404);
+    }
+    $blog = $svc->findBySlug($slug, true);
+    if (!$blog) {
+        return renderTheme('404', ['seo' => $seo], 404);
+    }
+    $limit = (int) ($blog['per_page'] ?? 12);
+    $feed = $svc->feed((int) $blog['id'], $limit, 0);
+    $html = $svc->renderFeedHtml($blog, $feed['items']);
+    return renderTheme('blog', [
+        'seo' => $seo,
+        'title' => $blog['title'],
+        'blog' => $blog,
+        'feed' => $feed,
+        'html' => $html,
+    ]);
+});
+
 $router->get('/gallery/{slug}', function (Request $req, array $params) use ($seo) {
     $svc = new \Mova\Gallery\GalleryService();
     $slug = $params['slug'] ?? '';
     $gallery = $svc->findBySlug($slug, true);
-    if (!$gallery) {
-        return renderTheme('404', ['seo' => $seo], 404);
+    if ($gallery) {
+        $items = $svc->items((int) $gallery['id']);
+        // Stay in group context when this gallery belongs to a group
+        $gSlug = trim((string) ($gallery['group_slug'] ?? ''));
+        if ($gSlug !== '') {
+            $sidebar = $svc->byGroup($gSlug, true, 100, 0);
+            $groupSlug = $gSlug;
+        } else {
+            $sidebar = $svc->all(true, 50, 0);
+            $groupSlug = null;
+        }
+        return renderTheme('gallery', [
+            'seo' => $seo,
+            'title' => $gallery['title'],
+            'mode' => 'gallery',
+            'query' => '',
+            'sidebar' => $sidebar,
+            'recent' => [],
+            'stream' => ['items' => [], 'has_more' => false, 'next_before' => null],
+            'gallery' => $gallery,
+            'items' => $items,
+            'searchResults' => null,
+            'groupSlug' => $groupSlug,
+        ]);
     }
-    $items = $svc->items((int) $gallery['id']);
-    $sidebar = $svc->all(true, 50, 0);
-    return renderTheme('gallery', [
-        'seo' => $seo,
-        'title' => $gallery['title'],
-        'mode' => 'gallery',
-        'query' => '',
-        'sidebar' => $sidebar,
-        'recent' => [],
-        'stream' => ['items' => [], 'has_more' => false, 'next_before' => null],
-        'gallery' => $gallery,
-        'items' => $items,
-        'searchResults' => null,
-    ]);
+
+    // Treat as gallery group: list member galleries under /gallery/{group_slug}
+    $groupMembers = $svc->byGroup($slug, true, 100, 0);
+    if ($groupMembers) {
+        $sidebar = $groupMembers;
+        $title = ucwords(str_replace('-', ' ', $slug));
+        return renderTheme('gallery', [
+            'seo' => $seo,
+            'title' => $title,
+            'mode' => 'group',
+            'query' => '',
+            'sidebar' => $sidebar,
+            'recent' => array_slice($groupMembers, 0, 4),
+            'stream' => ['items' => [], 'has_more' => false, 'next_before' => null],
+            'gallery' => null,
+            'items' => [],
+            'searchResults' => null,
+            'groupSlug' => $slug,
+        ]);
+    }
+
+    return renderTheme('404', ['seo' => $seo], 404);
 });
 
 

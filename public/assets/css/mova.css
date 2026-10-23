@@ -270,7 +270,7 @@ body {
 
 /* ---------- Main ---------- */
 .site-main {
-    padding: 2.5rem 0 4rem;
+    padding: 0 0 4rem;
     min-height: 60vh;
 }
 
@@ -1030,7 +1030,7 @@ body.mobile-nav-bottom-sheet .nav-drawer.is-open {
     }
 
     .site-main {
-        padding: 1.75rem 0 3rem;
+        padding: 0 0 3rem;
     }
 
     .hero {
@@ -1272,7 +1272,6 @@ body.hero-fullscreen .hero {
 
 /* Density */
 .site-main {
-    padding-top: var(--space-section, 2.5rem);
     padding-bottom: calc(var(--space-section, 2.5rem) * 1.4);
 }
 
@@ -1469,11 +1468,34 @@ img.mova-img:not([src=""]) {
     content-visibility: auto;
 }
 /* Reduce layout shift: keep aspect ratio when width/height known via CSS */
+.article-featured {
+    /* Edge-to-edge within the site container (cancel side gutters) */
+    width: calc(100% + 2.5rem);
+    max-width: none;
+    margin: 0 -1.25rem 1.75rem;
+    padding: 0;
+}
+.article-featured img,
 .article-featured img.mova-img,
+.article-featured .mova-img {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0;
+    border-radius: 0;
+}
 .article-body img.mova-img {
     max-width: 100%;
     height: auto;
     display: block;
+}
+@media (max-width: 480px) {
+    .article-featured {
+        width: calc(100% + 2rem);
+        margin-left: -1rem;
+        margin-right: -1rem;
+    }
 }
 /* Font Awesome / icon fonts: swap so text & icons never stay invisible */
 .fa, .fas, .far, .fal, .fab, .fa-solid, .fa-regular, .fa-brands,

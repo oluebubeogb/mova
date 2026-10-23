@@ -1,0 +1,323 @@
+/* Embed isolation — same type as /blog even inside .article-body */
+.mova-blog,
+.mova-blog-feed,
+.mova-blog-page {
+  font-family: var(--font-sans, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--color-text, #111827);
+  -webkit-font-smoothing: antialiased;
+}
+.mova-blog a,
+.mova-blog-feed a,
+.mova-blog-page a {
+  font-family: inherit;
+}
+
+/* Beat theme .article-body h3 / p rules when blog is embedded in content */
+.mova-blog .mova-blog-title,
+.mova-blog-feed .mova-blog-title,
+.mova-blog-page .mova-blog-title,
+.article-body .mova-blog-title,
+.article-body .mova-blog h3.mova-blog-title {
+  font-family: var(--font-sans, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif) !important;
+  font-size: 1.05rem !important;
+  font-weight: 700 !important;
+  line-height: 1.35 !important;
+  letter-spacing: -0.015em !important;
+  margin: 0 !important;
+  color: var(--color-text, #111827) !important;
+}
+.mova-blog .mova-blog-excerpt,
+.mova-blog-feed .mova-blog-excerpt,
+.mova-blog-page .mova-blog-excerpt,
+.article-body .mova-blog-excerpt,
+.article-body .mova-blog p.mova-blog-excerpt {
+  font-family: inherit !important;
+  font-size: 0.88rem !important;
+  font-weight: 400 !important;
+  line-height: 1.45 !important;
+  margin: 0 !important;
+  color: var(--color-muted, #64748b) !important;
+}
+.mova-blog .mova-blog-more,
+.mova-blog-feed .mova-blog-more,
+.article-body .mova-blog-more {
+  font-family: inherit !important;
+  font-size: 0.82rem !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+}
+.mova-blog .mova-blog-cat,
+.mova-blog-feed .mova-blog-cat,
+.article-body .mova-blog-cat {
+  font-family: inherit !important;
+  font-size: 0.68rem !important;
+  font-weight: 650 !important;
+  line-height: 1.2 !important;
+}
+.mova-blog .mova-blog-card.is-modern .mova-blog-title,
+.article-body .mova-blog-card.is-modern .mova-blog-title {
+  font-size: 1.15rem !important;
+  letter-spacing: -0.02em !important;
+}
+.mova-blog .mova-blog-card.is-minimal .mova-blog-title,
+.article-body .mova-blog-card.is-minimal .mova-blog-title {
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+}
+
+
+/* Embed spacing — cards/grid keep padding inside content body */
+.mova-blog,
+.article-body .mova-blog {
+  margin: 1.25rem 0 1.75rem;
+  padding: 0;
+  box-sizing: border-box;
+}
+.mova-blog .mova-blog-grid,
+.mova-blog-feed .mova-blog-grid,
+.article-body .mova-blog-grid {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 1rem !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+@media (min-width: 640px) {
+  .mova-blog .mova-blog-grid,
+  .mova-blog-feed .mova-blog-grid,
+  .article-body .mova-blog-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+.mova-blog .mova-blog-card,
+.mova-blog-feed .mova-blog-card,
+.article-body .mova-blog-card,
+.article-body a.mova-blog-card {
+  padding: 1rem 1.1rem !important;
+  margin: 0 !important;
+  gap: 0.85rem !important;
+  box-sizing: border-box !important;
+  border-radius: 12px !important;
+}
+.mova-blog .mova-blog-card.is-modern,
+.article-body .mova-blog-card.is-modern {
+  padding: 0 !important;
+}
+.mova-blog .mova-blog-card.is-modern .mova-blog-col1,
+.article-body .mova-blog-card.is-modern .mova-blog-col1 {
+  padding: 1rem 1.15rem 1.15rem !important;
+}
+.mova-blog .mova-blog-card.is-minimal,
+.article-body .mova-blog-card.is-minimal {
+  padding: 1.1rem 0 !important;
+  border-radius: 0 !important;
+}
+.mova-blog .mova-blog-col1,
+.article-body .mova-blog-col1 {
+  gap: 0.4rem !important;
+  padding: 0; /* default cards use card padding */
+}
+.mova-blog .mova-blog-cat,
+.article-body .mova-blog-cat {
+  padding: 0.2rem 0.55rem !important;
+}
+.mova-blog .mova-blog-card.is-minimal .mova-blog-cat,
+.article-body .mova-blog-card.is-minimal .mova-blog-cat {
+  padding: 0 !important;
+}
+
+/* Mova blog feed */
+.mova-blog-page {
+  /* Fill the theme .container (uses site --max-width); no extra max-width */
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 1.5rem 0 3rem;
+  box-sizing: border-box;
+}
+.mova-blog-page-title { font-size: 1.75rem; margin: 0 0 0.35rem; }
+.mova-blog-page-desc { color: var(--color-muted, #64748b); margin: 0 0 1.5rem; }
+
+.mova-blog-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+@media (min-width: 640px) {
+  .mova-blog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.mova-blog-card {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
+  text-decoration: none;
+  color: inherit;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  height: 100%;
+  box-sizing: border-box;
+}
+.mova-blog-card.has-image {
+  grid-template-columns: minmax(0, 7fr) minmax(0, 3fr);
+  align-items: stretch;
+}
+.mova-blog-card:hover {
+  border-color: color-mix(in srgb, var(--color-primary, #0d9488) 35%, #e2e8f0);
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+}
+.mova-blog-col1 { min-width: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.mova-blog-col2 {
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--color-surface-muted, #f1f5f9);
+  min-height: 100px;
+}
+.mova-blog-col2 img {
+  width: 100%;
+  height: 100%;
+  min-height: 100px;
+  max-height: 140px;
+  object-fit: cover;
+  display: block;
+}
+.mova-blog-cat {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+  font-variant: small-caps;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary, #0d9488) 14%, #fff);
+  color: var(--color-primary, #0d9488);
+}
+.mova-blog-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.35;
+  /* sentence case as saved — do not force transform */
+}
+.mova-blog-excerpt {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--color-muted, #64748b);
+}
+.mova-blog-more {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-primary, #0d9488);
+  margin-top: 0.15rem;
+}
+.mova-blog-sentinel {
+  height: 1px;
+  margin: 1rem 0;
+}
+.mova-blog-loading {
+  text-align: center;
+  color: var(--color-muted, #64748b);
+  font-size: 0.85rem;
+  padding: 0.75rem;
+}
+.mova-blog-end {
+  text-align: center;
+  color: var(--color-muted, #94a3b8);
+  font-size: 0.8rem;
+  padding: 1rem;
+}
+@media (max-width: 639px) {
+  .mova-blog-card.has-image { grid-template-columns: 1fr; }
+  .mova-blog-col2 img { max-height: 180px; }
+}
+
+
+/* Modern template cards */
+.mova-blog-card.is-modern {
+  padding: 0;
+  overflow: hidden;
+  border: none;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
+  background: var(--color-surface, #fff);
+}
+.mova-blog-card.is-modern.has-image {
+  grid-template-columns: 1fr;
+}
+.mova-blog-card.is-modern .mova-blog-col2 {
+  border-radius: 0;
+  min-height: 160px;
+  order: -1;
+}
+.mova-blog-card.is-modern .mova-blog-col2 img {
+  max-height: 180px;
+  min-height: 160px;
+}
+.mova-blog-card.is-modern .mova-blog-col1 {
+  padding: 1rem 1.15rem 1.15rem;
+  gap: 0.35rem;
+}
+.mova-blog-card.is-modern .mova-blog-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.72rem;
+  color: var(--color-muted, #64748b);
+}
+.mova-blog-card.is-modern .mova-blog-title {
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+}
+.mova-blog-card.is-modern .mova-blog-more {
+  margin-top: 0.4rem;
+}
+
+/* Minimal template cards */
+.mova-blog-card.is-minimal {
+  border: none;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 0;
+  padding: 1.1rem 0;
+  background: transparent;
+  box-shadow: none;
+}
+.mova-blog-card.is-minimal:hover {
+  box-shadow: none;
+  border-color: var(--color-primary, #0d9488);
+}
+.mova-blog-card.is-minimal.has-image {
+  grid-template-columns: minmax(0, 1fr) 5.5rem;
+  gap: 1rem;
+  align-items: center;
+}
+.mova-blog-card.is-minimal .mova-blog-col2 {
+  border-radius: 6px;
+  min-height: 5.5rem;
+}
+.mova-blog-card.is-minimal .mova-blog-col2 img {
+  max-height: 5.5rem;
+  min-height: 5.5rem;
+}
+.mova-blog-card.is-minimal .mova-blog-cat {
+  background: transparent;
+  padding: 0;
+  color: var(--color-muted, #64748b);
+  font-weight: 500;
+}
+.mova-blog-card.is-minimal .mova-blog-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+.mova-blog-card.is-minimal .mova-blog-more {
+  display: none;
+}
+.mova-blog-card.is-minimal .mova-blog-excerpt {
+  font-size: 0.84rem;
+}

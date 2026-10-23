@@ -1,0 +1,233 @@
+/* Mova Feedback forms — aligned with Site AI token language */
+.mova-feedback {
+  --mova-fb-primary: var(--msa-primary, var(--color-primary, #0d9488));
+  --mova-fb-on-primary: var(--msa-on-primary, #fff);
+  --mova-fb-surface: var(--msa-surface, var(--color-surface, #fff));
+  --mova-fb-text: var(--msa-text, var(--color-text, #0f172a));
+  --mova-fb-muted: var(--msa-muted, var(--color-muted, #64748b));
+  --mova-fb-border: var(--msa-border, var(--color-border, #e2e8f0));
+  --mova-fb-radius: var(--msa-radius, var(--radius-md, 12px));
+  --mova-fb-font: var(--msa-font, var(--font-body, system-ui, sans-serif));
+  --mova-fb-input-bg: var(--color-input-bg, #f8fafc);
+  font-family: var(--mova-fb-font);
+  color: var(--mova-fb-text);
+  max-width: 32rem;
+  margin: 1.25rem 0;
+}
+.mova-fb-card {
+  background: var(--mova-fb-surface);
+  border: 1px solid var(--mova-fb-border);
+  border-radius: calc(var(--mova-fb-radius) + 2px);
+  padding: 1.15rem 1.25rem 1.35rem;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.06);
+}
+.mova-fb-title { margin: 0 0 0.35rem; font-size: 1.15rem; font-weight: 650; }
+.mova-fb-desc { margin: 0 0 1rem; font-size: 0.9rem; color: var(--mova-fb-muted); }
+.mova-fb-field { margin-bottom: 0.9rem; }
+.mova-fb-field label {
+  display: block; font-size: 0.8rem; font-weight: 600;
+  margin-bottom: 0.3rem; color: var(--mova-fb-muted);
+}
+.mova-fb-field .req { color: #dc2626; }
+.mova-fb-field input[type="text"],
+.mova-fb-field input[type="email"],
+.mova-fb-field input[type="tel"],
+.mova-fb-field input[type="date"],
+.mova-fb-field select,
+.mova-fb-field textarea {
+  width: 100%; box-sizing: border-box;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--mova-fb-border);
+  border-radius: calc(var(--mova-fb-radius) - 2px);
+  background: var(--mova-fb-input-bg);
+  color: var(--mova-fb-text);
+  font: inherit;
+}
+.mova-fb-field textarea { min-height: 6rem; resize: vertical; }
+.mova-fb-field input:focus,
+.mova-fb-field select:focus,
+.mova-fb-field textarea:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--mova-fb-primary) 55%, var(--mova-fb-border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mova-fb-primary) 18%, transparent);
+}
+.mova-fb-help { font-size: 0.75rem; color: var(--mova-fb-muted); margin-top: 0.25rem; }
+.mova-fb-options { display: flex; flex-direction: column; gap: 0.35rem; }
+.mova-fb-options label {
+  display: flex; align-items: center; gap: 0.45rem;
+  font-weight: 400; color: var(--mova-fb-text); font-size: 0.9rem; margin: 0;
+}
+.mova-fb-submit {
+  display: inline-flex; align-items: center; justify-content: center;
+  margin-top: 0.35rem; padding: 0.55rem 1.15rem;
+  border: none; border-radius: 999px; cursor: pointer; font: inherit; font-weight: 600;
+  background: var(--mova-fb-primary); color: var(--mova-fb-on-primary);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--mova-fb-primary) 35%, transparent);
+}
+.mova-fb-submit:hover { filter: brightness(1.05); }
+.mova-fb-submit:disabled { opacity: 0.65; cursor: wait; }
+.mova-fb-msg { margin-top: 0.75rem; font-size: 0.9rem; }
+.mova-fb-msg.ok { color: #047857; }
+.mova-fb-msg.err { color: #b91c1c; }
+.mova-fb-hp { position: absolute; left: -9999px; opacity: 0; height: 0; width: 0; overflow: hidden; }
+
+/* —— Intl phone —— */
+.mova-fb-intl {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border: 1px solid var(--mova-fb-border);
+  border-radius: calc(var(--mova-fb-radius) - 2px);
+  background: var(--mova-fb-input-bg);
+  overflow: visible;
+}
+.mova-fb-intl:focus-within {
+  border-color: color-mix(in srgb, var(--mova-fb-primary) 55%, var(--mova-fb-border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mova-fb-primary) 18%, transparent);
+}
+.mova-fb-intl-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  border: none;
+  border-right: 1px solid var(--mova-fb-border);
+  background: transparent;
+  padding: 0.5rem 0.5rem 0.5rem 0.55rem;
+  cursor: pointer;
+  /* Match number input text exactly */
+  font: inherit;
+  font-size: inherit;
+  font-weight: 400;
+  line-height: inherit;
+  color: var(--mova-fb-text);
+  border-radius: calc(var(--mova-fb-radius) - 2px) 0 0 calc(var(--mova-fb-radius) - 2px);
+}
+.mova-fb-intl-trigger:hover { background: color-mix(in srgb, var(--mova-fb-surface) 70%, var(--mova-fb-border)); }
+img.mova-fb-flag,
+.mova-fb-flag {
+  width: 20px;
+  height: 15px;
+  object-fit: cover;
+  border-radius: 2px;
+  display: inline-block;
+  flex-shrink: 0;
+  vertical-align: middle;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08);
+}
+.mova-fb-dial {
+  font: inherit;
+  font-size: inherit;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+.mova-fb-chevron {
+  font-size: 0.7em;
+  font-weight: 400;
+  opacity: 0.45;
+  margin-left: 0.05rem;
+  line-height: 1;
+}
+.mova-fb-intl-num {
+  flex: 1;
+  min-width: 0;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: 0.5rem 0.65rem !important;
+  font: inherit;
+  color: var(--mova-fb-text);
+  border-radius: 0 !important;
+}
+.mova-fb-intl-num:focus { outline: none; }
+
+/* —— Country combobox —— */
+.mova-fb-country { position: relative; }
+.mova-fb-country-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--mova-fb-border);
+  border-radius: calc(var(--mova-fb-radius) - 2px);
+  background: var(--mova-fb-input-bg);
+  color: var(--mova-fb-text);
+  font: inherit;
+}
+.mova-fb-country-input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--mova-fb-primary) 55%, var(--mova-fb-border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mova-fb-primary) 18%, transparent);
+}
+
+/* —— Shared dropdown panel —— */
+.mova-fb-panel {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 40;
+  background: var(--mova-fb-surface, #fff);
+  border: 1px solid var(--mova-fb-border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+  max-height: min(70vh, 22rem);
+  overflow: hidden;
+  flex-direction: column;
+}
+.mova-fb-panel.is-open { display: flex; }
+.mova-fb-panel-search {
+  border: none;
+  border-bottom: 1px solid var(--mova-fb-border);
+  padding: 0.5rem 0.65rem;
+  font: inherit;
+  background: transparent;
+  color: var(--mova-fb-text);
+}
+.mova-fb-panel-search:focus { outline: none; }
+.mova-fb-panel-list { overflow: auto; max-height: min(60vh, 18rem); }
+.mova-fb-panel-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0.45rem 0.65rem;
+  text-align: left;
+  font: inherit;
+  color: var(--mova-fb-text);
+  cursor: pointer;
+}
+.mova-fb-panel-item:hover,
+.mova-fb-panel-item:focus {
+  background: color-mix(in srgb, var(--mova-fb-primary) 10%, transparent);
+  outline: none;
+}
+.mova-fb-panel-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.88rem; }
+.mova-fb-panel-dial {
+  font-size: inherit;
+  font-weight: 400;
+  color: var(--mova-fb-muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.mova-fb-panel-code {
+  /* ISO code de-emphasized — flag is the primary marker */
+  display: none;
+}
+.mova-fb-panel-item img.mova-fb-flag {
+  width: 20px;
+  height: 15px;
+}
+.mova-fb-panel-name {
+  font-weight: 400;
+}
+.mova-fb-panel-empty {
+  padding: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--mova-fb-muted);
+  text-align: center;
+}

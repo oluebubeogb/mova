@@ -69,6 +69,9 @@ class GalleryService
         }
         $slug = $this->uniqueSlug($this->slugify((string) ($data['slug'] ?? $title)));
         $now = date('c');
+        $groupSlug = $this->normalizeGroupSlug($data['group_slug'] ?? null);
+        $embedLayout = $this->normalizeEmbedLayout($data['embed_layout'] ?? 'carousel');
+        $embedOptions = $this->encodeEmbedStorage($data);
         $id = Database::insert('galleries', [
             'title' => $title,
             'slug' => $slug,
@@ -77,6 +80,9 @@ class GalleryService
             'status' => in_array($data['status'] ?? 'published', ['published', 'draft'], true)
                 ? ($data['status'] ?? 'published')
                 : 'published',
+            'group_slug' => $groupSlug,
+            'embed_layout' => $embedLayout,
+            'embed_options' => $embedOptions,
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -120,7 +126,11 @@ class GalleryService
                 : null;
         }
 
-        Database::update('galleries', [
+        $groupSlug = array_key_exists('group_slug', $data)
+            ? $this->normalizeGroupSlug($data['group_slug'])
+            : ($row['group_slug'] ?? null);
+
+        $update = [
             'title' => $title,
             'slug' => $slug,
             'description' => array_key_exists('description', $data)
@@ -128,8 +138,18 @@ class GalleryService
                 : $row['description'],
             'cover_media_id' => $cover,
             'status' => $status,
+            'group_slug' => $groupSlug,
             'updated_at' => date('c'),
-        ], 'id = :id', ['id' => $id]);
+        ];
+        if (array_key_exists('embed_layout', $data) || array_key_exists('embed_options', $data) || array_key_exists('embed_presets', $data)) {
+            if (array_key_exists('embed_layout', $data)) {
+                $update['embed_layout'] = $this->normalizeEmbedLayout($data['embed_layout']);
+            }
+            $update['embed_options'] = $this->encodeEmbedStorage($data + [
+                'embed_layout' => $update['embed_layout'] ?? ($row['embed_layout'] ?? 'carousel'),
+            ]);
+        }
+        Database::update('galleries', $update, 'id = :id', ['id' => $id]);
 
         if (array_key_exists('media_ids', $data) && is_array($data['media_ids'])) {
             $this->setItems($id, array_map('intval', $data['media_ids']), $data['captions'] ?? []);
@@ -319,6 +339,50 @@ class GalleryService
         return (int) ($row['c'] ?? 0);
     }
 
+
+    /**
+     * Galleries belonging to a group (group_slug). Used for /gallery/{group} listing pages.
+     */
+    public function byGroup(string $groupSlug, bool $publishedOnly = true, int $limit = 100, int $offset = 0): array
+    {
+        $groupSlug = $this->normalizeGroupSlug($groupSlug) ?? '';
+        if ($groupSlug === '') {
+            return [];
+        }
+        $sql = 'SELECT * FROM galleries WHERE group_slug = :g';
+        if ($publishedOnly) {
+            $sql .= " AND status = 'published'";
+        }
+        $sql .= ' ORDER BY updated_at DESC LIMIT :limit OFFSET :offset';
+        $rows = Database::fetchAll($sql, ['g' => $groupSlug, 'limit' => $limit, 'offset' => $offset]);
+        return array_map(fn($r) => $this->hydrate($r), $rows);
+    }
+
+    public function countByGroup(string $groupSlug, bool $publishedOnly = true): int
+    {
+        $groupSlug = $this->normalizeGroupSlug($groupSlug) ?? '';
+        if ($groupSlug === '') {
+            return 0;
+        }
+        $sql = 'SELECT COUNT(*) AS c FROM galleries WHERE group_slug = :g';
+        if ($publishedOnly) {
+            $sql .= " AND status = 'published'";
+        }
+        $row = Database::fetch($sql, ['g' => $groupSlug]);
+        return (int) ($row['c'] ?? 0);
+    }
+
+    /**
+     * Normalize group slug: lowercase, dashes, empty becomes null.
+     */
+    private function normalizeGroupSlug(mixed $raw): ?string
+    {
+        $s = strtolower(trim((string) ($raw ?? '')));
+        $s = preg_replace('/[^a-z0-9\-]+/', '-', $s) ?? '';
+        $s = trim($s, '-');
+        return $s === '' ? null : $s;
+    }
+
     private function hydrate(array $row): array
     {
         $row['id'] = (int) $row['id'];
@@ -343,6 +407,14 @@ class GalleryService
                 $row['cover_url'] = $this->media->url($m);
                 $row['cover_thumb'] = $this->media->url($m, 480);
             }
+        }
+        if (!empty($row['embed_options']) && is_string($row['embed_options'])) {
+            $row['embed_options'] = json_decode($row['embed_options'], true) ?: [];
+        } elseif (empty($row['embed_options'])) {
+            $row['embed_options'] = [];
+        }
+        if (empty($row['embed_layout'])) {
+            $row['embed_layout'] = 'carousel';
         }
         return $row;
     }
@@ -424,4 +496,372 @@ class GalleryService
         }
         return Database::fetch($sql, $params) !== null;
     }
+
+
+
+    /** Persist presets (+ legacy default layout) into embed_options JSON */
+    public function encodeEmbedStorage(array $data): string
+    {
+        $layout = $this->normalizeEmbedLayout($data['embed_layout'] ?? 'carousel');
+        if (!empty($data['embed_presets']) && is_array($data['embed_presets'])) {
+            $presets = $this->normalizePresets(['presets' => $data['embed_presets']], $layout);
+        } elseif (isset($data['embed_options']) && is_array($data['embed_options']) && isset($data['embed_options']['presets'])) {
+            $presets = $this->normalizePresets($data['embed_options'], $layout);
+        } elseif (isset($data['embed_options'])) {
+            $presets = $this->normalizePresets([
+                'presets' => [[
+                    'key' => 'default',
+                    'name' => 'Default',
+                    'layout' => $layout,
+                ] + (is_array($data['embed_options']) ? $data['embed_options'] : [])],
+            ], $layout);
+        } else {
+            $presets = $this->normalizePresets([], $layout);
+        }
+        return json_encode(['presets' => $presets, 'default' => $presets[0]['key'] ?? 'default']);
+    }
+
+    public function normalizeEmbedLayout($layout): string
+    {
+        $layout = strtolower(trim((string) $layout));
+        $allowed = ['carousel', 'columns', 'grid', 'collage', 'slide'];
+        if ($layout === 'slide') {
+            $layout = 'carousel';
+        }
+        return in_array($layout, $allowed, true) ? $layout : 'carousel';
+    }
+
+    /** Sanitize CSS padding shorthand (e.g. 0 0 1em, 8px 12px) */
+    public function normalizePadding($value, string $fallback = ''): string
+    {
+        $value = trim(preg_replace('/\s+/', ' ', (string) $value) ?? '');
+        if ($value === '') {
+            return $fallback;
+        }
+        // Allow 1–4 tokens of number+unit or 0
+        if (!preg_match(
+            '/^(?:\d+(?:\.\d+)?(?:px|em|rem|%|vh|vw|pt)?|0)(?:\s+(?:\d+(?:\.\d+)?(?:px|em|rem|%|vh|vw|pt)?|0)){0,3}$/i',
+            $value
+        )) {
+            return $fallback;
+        }
+        // Bare numbers → px (except 0)
+        $parts = explode(' ', $value);
+        foreach ($parts as &$part) {
+            if ($part === '0') {
+                continue;
+            }
+            if (preg_match('/^\d+(?:\.\d+)?$/', $part)) {
+                $part .= 'px';
+            }
+        }
+        unset($part);
+        return implode(' ', $parts);
+    }
+
+    /** Sanitize overlay / color values */
+    public function normalizeColor($value): string
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return 'rgba(15,23,42,0.72)';
+        }
+        if (preg_match('/^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i', $value)) {
+            return $value;
+        }
+        if (preg_match('/^rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}(\s*,\s*(0|1|0?\.\d+))?\s*\)$/i', $value)) {
+            return $value;
+        }
+        if (preg_match('/^var\(--[a-z0-9-]+\)$/i', $value)) {
+            return $value;
+        }
+        return 'rgba(15,23,42,0.72)';
+    }
+
+    /** Sanitize CSS size values like 20vh, 180px, 12rem */
+    public function normalizeSize($value, string $fallback = '20vh'): string
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return $fallback;
+        }
+        if (preg_match('/^\d+(\.\d+)?(px|vh|vw|rem|em|%)$/i', $value)) {
+            return $value;
+        }
+        if (preg_match('/^\d+(\.\d+)?$/', $value)) {
+            return $value . 'px';
+        }
+        return $fallback;
+    }
+
+    public function normalizeEmbedOptions($opts): array
+    {
+        if (is_string($opts)) {
+            $decoded = json_decode($opts, true);
+            $opts = is_array($decoded) ? $decoded : [];
+        }
+        if (!is_array($opts)) {
+            $opts = [];
+        }
+        $visible = (int) ($opts['slides_visible'] ?? $opts['visible'] ?? 1);
+        if ($visible < 1) {
+            $visible = 1;
+        }
+        if ($visible > 6) {
+            $visible = 6;
+        }
+        return [
+            'autoplay' => !empty($opts['autoplay']),
+            'interval' => max(2000, min(20000, (int) ($opts['interval'] ?? 5000))),
+            'arrows' => array_key_exists('arrows', $opts) ? !empty($opts['arrows']) : true,
+            'dots' => array_key_exists('dots', $opts) ? !empty($opts['dots']) : true,
+            'columns' => max(2, min(4, (int) ($opts['columns'] ?? 3))),
+            'min_width' => max(120, min(480, (int) ($opts['min_width'] ?? 200))),
+            'gap' => max(0, min(48, (int) ($opts['gap'] ?? 12))),
+            'lightbox' => array_key_exists('lightbox', $opts) ? !empty($opts['lightbox']) : true,
+            'aspect' => in_array(($opts['aspect'] ?? '16/9'), ['auto', '1/1', '4/3', '16/9', '3/2'], true)
+                ? (string) ($opts['aspect'] ?? '16/9') : '16/9',
+            'max_height' => $this->normalizeSize($opts['max_height'] ?? '20vh', '20vh'),
+            'slides_visible' => $visible,
+            'radius' => $this->normalizeSize($opts['radius'] ?? '8px', '8px'),
+            // legacy
+            'hover_name' => !empty($opts['hover_name']) || (($opts['name_mode'] ?? '') === 'hover'),
+            'name_mode' => in_array(($opts['name_mode'] ?? ''), ['hover', 'always', 'caption', 'hide'], true)
+                ? (string) $opts['name_mode']
+                : (!empty($opts['hover_name']) ? 'hover' : 'hide'),
+            'name_padding' => $this->normalizePadding($opts['name_padding'] ?? '', ''),
+            'overlay_color' => $this->normalizeColor($opts['overlay_color'] ?? 'rgba(15,23,42,0.72)'),
+        ];
+    }
+
+    /**
+     * Multiple named embed presets per gallery.
+     * @return list<array{key:string,name:string,layout:string,...options}>
+     */
+    public function normalizePresets($raw, string $fallbackLayout = 'carousel'): array
+    {
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true) ?: [];
+        }
+        if (!is_array($raw)) {
+            $raw = [];
+        }
+        // Support { presets: [...], default: "x" } or a plain list
+        $list = [];
+        if (isset($raw['presets']) && is_array($raw['presets'])) {
+            $list = $raw['presets'];
+        } elseif ($raw !== [] && array_is_list($raw)) {
+            $list = $raw;
+        } elseif ($raw !== [] && !isset($raw['presets'])) {
+            // Legacy flat options → one default preset
+            $list = [[
+                'key' => 'default',
+                'name' => 'Default',
+                'layout' => $fallbackLayout,
+            ] + $raw];
+        }
+        $out = [];
+        $used = [];
+        foreach ($list as $i => $p) {
+            if (!is_array($p)) {
+                continue;
+            }
+            $key = preg_replace('/[^a-z0-9_-]/', '', strtolower((string) ($p['key'] ?? ''))) ?: ('preset-' . ($i + 1));
+            if (isset($used[$key])) {
+                $key .= '-' . ($i + 1);
+            }
+            $used[$key] = true;
+            $layout = $this->normalizeEmbedLayout($p['layout'] ?? $fallbackLayout);
+            $opts = $this->normalizeEmbedOptions($p);
+            $out[] = array_merge($opts, [
+                'key' => $key,
+                'name' => trim((string) ($p['name'] ?? $key)) ?: $key,
+                'layout' => $layout,
+            ]);
+        }
+        if ($out === []) {
+            $opts = $this->normalizeEmbedOptions([]);
+            $out[] = array_merge($opts, [
+                'key' => 'default',
+                'name' => 'Default',
+                'layout' => $this->normalizeEmbedLayout($fallbackLayout),
+            ]);
+        }
+        return $out;
+    }
+
+    public function getPresets(array $gallery): array
+    {
+        $layout = (string) ($gallery['embed_layout'] ?? 'carousel');
+        $raw = $gallery['embed_options'] ?? [];
+        return $this->normalizePresets($raw, $layout);
+    }
+
+    public function findPreset(array $gallery, ?string $key): array
+    {
+        $presets = $this->getPresets($gallery);
+        if ($key) {
+            foreach ($presets as $p) {
+                if (($p['key'] ?? '') === $key) {
+                    return $p;
+                }
+            }
+        }
+        return $presets[0];
+    }
+
+    /**
+     * Payload for frontend embed (mount div / API).
+     */
+    public function embedPayload(int $id, ?string $layoutOverride = null, array $optsOverride = [], ?string $presetKey = null): ?array
+    {
+        $g = $this->find($id);
+        if (!$g) {
+            return null;
+        }
+        // Public embeds only for published galleries
+        if (($g['status'] ?? '') !== 'published') {
+            return null;
+        }
+        $preset = $this->findPreset($g, $presetKey);
+        $layout = $this->normalizeEmbedLayout($layoutOverride ?? ($preset['layout'] ?? $g['embed_layout'] ?? 'carousel'));
+        $baseOpts = $preset;
+        unset($baseOpts['key'], $baseOpts['name'], $baseOpts['layout']);
+        $opts = $this->normalizeEmbedOptions(array_merge($baseOpts, $optsOverride));
+        $items = [];
+        foreach ($this->items($id) as $it) {
+            // hydrateItem already sets url, thumb_url, media{}, alt
+            $m = is_array($it['media'] ?? null) ? $it['media'] : [];
+            $url = (string) ($it['url'] ?? '');
+            $thumb = (string) ($it['thumb_url'] ?? '');
+            if ($url === '' && $m) {
+                try {
+                    $url = $this->media->url($m);
+                    $thumb = $this->media->url($m, 480);
+                } catch (\Throwable $e) {
+                    $path = ltrim((string) ($m['path'] ?? ''), '/');
+                    $url = $path !== '' ? '/mova-uploads/' . $path : '';
+                }
+            }
+            // Prefer site-relative paths so embeds work on any host
+            try {
+                if ($url !== '' && method_exists($this->media, 'publicPath') && $m) {
+                    $rel = $this->media->publicPath($m);
+                    if (is_string($rel) && str_starts_with($rel, '/')) {
+                        $url = $rel;
+                    }
+                    if ($thumb !== '' && $m) {
+                        $relT = $this->media->publicPath($m, 480);
+                        if (is_string($relT) && str_starts_with($relT, '/')) {
+                            $thumb = $relT;
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+            }
+            if ($url === '' || rtrim($url, '/') === '/mova-uploads') {
+                continue; // skip broken media rows
+            }
+            $items[] = [
+                'id' => (int) ($it['media_id'] ?? $m['id'] ?? 0),
+                'url' => $url,
+                'thumb' => $thumb !== '' ? $thumb : $url,
+                'alt' => (string) ($it['alt'] ?? $m['alt_text'] ?? $m['original_name'] ?? ''),
+                'caption' => (string) ($it['caption'] ?? ''),
+                'width' => (int) ($m['width'] ?? $it['width'] ?? 0),
+                'height' => (int) ($m['height'] ?? $it['height'] ?? 0),
+                'mime' => (string) ($m['mime_type'] ?? ''),
+            ];
+        }
+        return [
+            'id' => (int) $g['id'],
+            'slug' => (string) $g['slug'],
+            'title' => (string) $g['title'],
+            'layout' => $layout,
+            'options' => $opts,
+            'items' => $items,
+        ];
+    }
+
+    public function mountHtml(int $id, ?string $layout = null, array $opts = []): string
+    {
+        $layout = $this->normalizeEmbedLayout($layout ?? 'carousel');
+        $attr = ' class="mova-gallery" data-gallery="' . (int) $id . '" data-layout="' . htmlspecialchars($layout, ENT_QUOTES) . '"';
+        if ($opts !== []) {
+            $attr .= ' data-opts=\'' . htmlspecialchars(json_encode($this->normalizeEmbedOptions($opts)), ENT_QUOTES) . '\'';
+        }
+        return '<div' . $attr . '></div>';
+    }
+
+    public function shortcode(int $id, ?string $layout = null): string
+    {
+        $layout = $this->normalizeEmbedLayout($layout ?? 'carousel');
+        return '[gallery id="' . (int) $id . '" layout="' . $layout . '"]';
+    }
+
+    /** Expand [gallery id="1" layout="carousel"] in content bodies */
+    public static function registerShortcodes(): void
+    {
+        static $done = false;
+        if ($done) {
+            return;
+        }
+        $done = true;
+        if (!class_exists(\Mova\Plugin\PluginManager::class)) {
+            return;
+        }
+        \Mova\Plugin\PluginManager::addFilter('content.render.body', function (string $body, array $content = []) {
+            if ($body === '' || (stripos($body, '[gallery') === false && stripos($body, 'mova-gallery') === false)) {
+                return $body;
+            }
+            $svc = new self();
+            $body = preg_replace_callback(
+                '/\[gallery\s+([^\]]*)\]/i',
+                function ($m) use ($svc) {
+                    $attrs = $m[1];
+                    $id = 0;
+                    $slug = '';
+                    $layout = null;
+                    $preset = null;
+                    if (preg_match('/\bid=["\']?(\d+)/i', $attrs, $mm)) {
+                        $id = (int) $mm[1];
+                    }
+                    if (preg_match('/\bslug=["\']([^"\']+)["\']/i', $attrs, $mm)) {
+                        $slug = $mm[1];
+                    }
+                    if (preg_match('/\blayout=["\']([^"\']+)["\']/i', $attrs, $mm)) {
+                        $layout = $mm[1];
+                    }
+                    if (preg_match('/\bpreset=["\']([^"\']+)["\']/i', $attrs, $mm)) {
+                        $preset = $mm[1];
+                    }
+                    if ($id <= 0 && $slug !== '') {
+                        $g = $svc->findBySlug($slug, false);
+                        $id = $g ? (int) $g['id'] : 0;
+                    }
+                    if ($id <= 0) {
+                        return '<!-- gallery: not found -->';
+                    }
+                    $g = $svc->find($id);
+                    if ($preset && $g) {
+                        $pr = $svc->findPreset($g, $preset);
+                        $layout = $layout ?: ($pr['layout'] ?? null);
+                    }
+                    if (!$layout && $g) {
+                        $layout = $g['embed_layout'] ?? 'carousel';
+                    }
+                    return $svc->mountHtml($id, $layout, [], $preset);
+                },
+                $body
+            );
+            static $assets = false;
+            if (!$assets && is_string($body) && strpos($body, 'mova-gallery') !== false) {
+                $assets = true;
+                $body .= "\n<link rel=\"stylesheet\" href=\"/assets/css/mova-gallery-embed.css?v=5\">"
+                    . "\n<script src=\"/assets/js/mova-gallery-embed.js?v=5\" defer></script>";
+            }
+            return $body;
+        }, 25);
+    }
+
 }

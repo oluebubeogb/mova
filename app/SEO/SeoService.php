@@ -211,6 +211,7 @@ class SeoService
         $lines[] = "";
         $lines[] = "- Sitemap: " . Bootstrap::baseUrl() . "/sitemap.xml";
         $lines[] = "- Feed: " . Bootstrap::baseUrl() . "/feed.xml";
+        $lines[] = "- Media: " . Bootstrap::baseUrl() . "/media.xml";
         $lines[] = "- This file: " . Bootstrap::baseUrl() . "/llms.txt";
 
         return implode("\n", $lines);
@@ -222,17 +223,18 @@ class SeoService
         $base = Bootstrap::baseUrl();
 
         $items = Database::fetchAll(
-            "SELECT title, slug, excerpt, body, published_at, updated_at FROM content
+            "SELECT title, slug, excerpt, body, published_at, updated_at, featured_image FROM content
              WHERE status = 'published' ORDER BY published_at DESC LIMIT 20"
         );
 
         $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
-        $xml .= '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">' . "\n";
+        $xml .= '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/">' . "\n";
         $xml .= "<channel>\n";
         $xml .= "  <title>" . htmlspecialchars($siteName) . "</title>\n";
         $xml .= "  <link>{$base}/</link>\n";
         $xml .= "  <description>" . htmlspecialchars($this->setting('site_description', '')) . "</description>\n";
         $xml .= "  <atom:link href=\"{$base}/feed.xml\" rel=\"self\" type=\"application/rss+xml\"/>\n";
+        $xml .= "  <atom:link href=\"{$base}/media.xml\" rel=\"related\" type=\"application/rss+xml\" title=\"Media library\"/>\n";
 
         foreach ($items as $item) {
             $link = $base . '/' . $item['slug'];
@@ -240,13 +242,135 @@ class SeoService
             $xml .= "    <title>" . htmlspecialchars($item['title']) . "</title>\n";
             $xml .= "    <link>{$link}</link>\n";
             $xml .= "    <guid>{$link}</guid>\n";
-            $xml .= "    <pubDate>" . date(DATE_RSS, strtotime($item['published_at'])) . "</pubDate>\n";
+            $xml .= "    <pubDate>" . date(DATE_RSS, strtotime($item['published_at'] ?: 'now')) . "</pubDate>\n";
             $ex = trim((string) ($item['excerpt'] ?? ''));
             if ($ex === '' && !empty($item['body'])) {
                 $ex = \Mova\Content\ContentRepository::excerptFromBody((string) $item['body']);
             }
             if ($ex !== '') {
                 $xml .= "    <description>" . htmlspecialchars($ex) . "</description>\n";
+            }
+            $img = trim((string) ($item['featured_image'] ?? ''));
+            if ($img !== '') {
+                $abs = $this->absoluteUrl($img);
+                $xml .= "    <media:content url=\"" . htmlspecialchars($abs) . "\" medium=\"image\"/>\n";
+                $xml .= "    <enclosure url=\"" . htmlspecialchars($abs) . "\" type=\"image/webp\" length=\"0\"/>\n";
+            }
+            $xml .= "  </item>\n";
+        }
+
+        $xml .= "</channel>\n</rss>";
+        return $xml;
+    }
+
+    /**
+     * Media library feed — name, alt, description, variants, and pages where each file appears.
+     */
+    public function generateMediaFeed(): string
+    {
+        $siteName = $this->setting('site_name', 'Mova');
+        $base = Bootstrap::baseUrl();
+        $mediaSvc = new \Mova\Media\MediaService();
+
+        try {
+            $rows = Database::fetchAll(
+                "SELECT * FROM media ORDER BY created_at DESC LIMIT 200"
+            );
+        } catch (\Throwable $e) {
+            $rows = [];
+        }
+
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
+        $xml .= '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/">' . "\n";
+        $xml .= "<channel>\n";
+        $xml .= "  <title>" . htmlspecialchars($siteName) . " — Media</title>\n";
+        $xml .= "  <link>{$base}/media.xml</link>\n";
+        $xml .= "  <description>Media library for " . htmlspecialchars($siteName) . " (images, video, alt text, descriptions, and site occurrences)</description>\n";
+        $xml .= "  <atom:link href=\"{$base}/media.xml\" rel=\"self\" type=\"application/rss+xml\"/>\n";
+        $xml .= "  <atom:link href=\"{$base}/feed.xml\" rel=\"related\" type=\"application/rss+xml\" title=\"Content feed\"/>\n";
+
+        foreach ($rows as $row) {
+            if (!empty($row['variants']) && is_string($row['variants'])) {
+                $row['variants'] = json_decode($row['variants'], true) ?: [];
+            }
+            $url = $mediaSvc->url($row);
+            $mime = (string) ($row['mime_type'] ?? 'application/octet-stream');
+            $name = (string) ($row['original_name'] ?? $row['filename'] ?? 'media');
+            $alt = trim((string) ($row['alt_text'] ?? ''));
+            $desc = trim((string) ($row['description'] ?? ''));
+            $isVideo = strpos($mime, 'video/') === 0;
+            $isImage = strpos($mime, 'image/') === 0;
+            $medium = $isVideo ? 'video' : ($isImage ? 'image' : 'document');
+            $guid = $base . '/media/' . (int) ($row['id'] ?? 0);
+
+            $xml .= "  <item>\n";
+            $xml .= "    <title>" . htmlspecialchars($name) . "</title>\n";
+            $xml .= "    <link>" . htmlspecialchars($url) . "</link>\n";
+            $xml .= "    <guid isPermaLink=\"false\">" . htmlspecialchars($guid) . "</guid>\n";
+            if (!empty($row['created_at'])) {
+                $xml .= "    <pubDate>" . date(DATE_RSS, strtotime((string) $row['created_at'])) . "</pubDate>\n";
+            }
+            $parts = [];
+            if ($alt !== '') {
+                $parts[] = $alt;
+            }
+            if ($desc !== '') {
+                $parts[] = $desc;
+            }
+            if ($parts !== []) {
+                $xml .= "    <description>" . htmlspecialchars(implode("\n\n", $parts)) . "</description>\n";
+            }
+            if ($alt !== '') {
+                $xml .= "    <media:title type=\"plain\">" . htmlspecialchars($alt) . "</media:title>\n";
+                $xml .= "    <media:description type=\"plain\">" . htmlspecialchars($desc !== '' ? $desc : $alt) . "</media:description>\n";
+            } elseif ($desc !== '') {
+                $xml .= "    <media:description type=\"plain\">" . htmlspecialchars($desc) . "</media:description>\n";
+            }
+            $w = (int) ($row['width'] ?? 0);
+            $h = (int) ($row['height'] ?? 0);
+            $size = (int) ($row['size'] ?? 0);
+            $xml .= "    <media:content url=\"" . htmlspecialchars($url) . "\" type=\"" . htmlspecialchars($mime) . "\" medium=\"{$medium}\"";
+            if ($w > 0) {
+                $xml .= " width=\"{$w}\"";
+            }
+            if ($h > 0) {
+                $xml .= " height=\"{$h}\"";
+            }
+            if ($size > 0) {
+                $xml .= " fileSize=\"{$size}\"";
+            }
+            $xml .= "/>\n";
+            if ($isVideo) {
+                $poster = $mediaSvc->posterUrl($row);
+                if ($poster !== '') {
+                    $xml .= "    <media:thumbnail url=\"" . htmlspecialchars($poster) . "\"/>\n";
+                }
+            }
+            if (!empty($row['variants']) && is_array($row['variants'])) {
+                foreach ($row['variants'] as $v) {
+                    $vw = (int) ($v['width'] ?? 0);
+                    if ($vw <= 0 || empty($v['path'])) {
+                        continue;
+                    }
+                    $vurl = $base . '/mova-uploads/' . ltrim((string) $v['path'], '/');
+                    if ($vurl === $url) {
+                        continue;
+                    }
+                    $xml .= "    <media:content url=\"" . htmlspecialchars($vurl) . "\" type=\"image/webp\" medium=\"image\" width=\"{$vw}\"";
+                    if (!empty($v['height'])) {
+                        $xml .= " height=\"" . (int) $v['height'] . "\"";
+                    }
+                    $xml .= "/>\n";
+                }
+            }
+            try {
+                $occ = $mediaSvc->findOccurrences($row);
+            } catch (\Throwable $e) {
+                $occ = [];
+            }
+            foreach ($occ as $o) {
+                $xml .= "    <media:credit role=\"appearance\" scheme=\"urn:mova:page\">" . htmlspecialchars((string) ($o['url'] ?? '')) . "</media:credit>\n";
+                $xml .= "    <category domain=\"mova:page\">" . htmlspecialchars((string) ($o['title'] ?? $o['slug'] ?? '')) . "</category>\n";
             }
             $xml .= "  </item>\n";
         }

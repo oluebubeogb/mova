@@ -63,6 +63,18 @@
       <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
     </a>
 
+
+    <a class="hq-landing-card" href="/hq/feedback">
+      <div class="hq-landing-card-inner">
+        <div class="hq-landing-icon is-mix"><i class="fa-solid fa-inbox"></i></div>
+        <div class="hq-landing-card-body">
+          <strong>Feedback</strong>
+          <span>Forms + inbox · contact and custom submissions</span>
+        </div>
+      </div>
+      <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
+    </a>
+
     <a class="hq-landing-card" href="/hq/insights">
       <div class="hq-landing-card-inner">
         <div class="hq-landing-icon is-green"><i class="fa-solid fa-chart-line"></i></div>

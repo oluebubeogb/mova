@@ -29,11 +29,14 @@
                 { label: 'All content',    href: '/hq/content' },
                 { label: 'Media',          href: '/hq/media' },
                 { label: 'Galleries',      href: '/hq/galleries', prefixMatch: true, match: { path: '/hq/galleries' } },
+                { label: 'Blogs',          href: '/hq/blogs', prefixMatch: true, match: { path: '/hq/blogs' } },
                 { label: 'Types & fields', href: '/hq/types' },
                 { label: 'Categories',     href: '/hq/categories' },
                 { label: 'Tags',           href: '/hq/tags' },
                 { label: 'Assembly',       href: '/hq/assembly' },
                 { label: 'Studio',         href: '/hq/studio', match: { path: '/hq/studio' } },
+                { label: 'Media SEO', href: '/hq/seo/media', match: { path: '/hq/seo/media' } },
+                { label: 'Content SEO', href: '/hq/seo/content', match: { path: '/hq/seo/content' } },
                 { label: 'Find & Replace', href: '/hq/content/find-replace', match: { path: '/hq/content/find-replace' } },
                 { label: 'Upload Contents', href: '/hq/content/upload', match: { path: '/hq/content/upload' } }
             ]
@@ -261,6 +264,7 @@
 
         // Section landings
         if (path === '/hq/content-hub') return { key: 'content', params };
+        if (path.indexOf('/hq/seo') === 0) return { key: 'content', params };
         if (path === '/hq/audience') return { key: 'audience', params };
         if (path === '/hq/design') return { key: 'design', params };
         if (path === '/hq/extend') return { key: 'extend', params };
@@ -273,7 +277,7 @@
         if (path === '/hq/content') {
             return { key: 'content.list', params, status };
         }
-        if (path === '/hq/content/upload' || path.startsWith('/hq/media') || path.startsWith('/hq/galleries')
+        if (path === '/hq/content/upload' || path.startsWith('/hq/media') || path.startsWith('/hq/galleries') || path.startsWith('/hq/blogs')
             || path.startsWith('/hq/types')
             || path.startsWith('/hq/categories') || path.startsWith('/hq/tags')
             || path.startsWith('/hq/assembly')) {
@@ -281,7 +285,7 @@
         }
 
         // Audience
-        if (path.startsWith('/hq/mailbox')) return { key: 'mailbox', params, folder };
+        if (path.startsWith('/hq/mailbox') || path.startsWith('/hq/feedback')) return { key: 'mailbox', params, folder };
         if (path.startsWith('/hq/mail')) return { key: 'campaigns', params };
         if (path.startsWith('/hq/insights')) return { key: 'insights', params, view };
         if (path.startsWith('/hq/people') || path.startsWith('/hq/sequences')) {
@@ -504,7 +508,10 @@
         { title: 'All content',      href: '/hq/content',         keywords: 'posts pages articles content list', group: 'Content' },
         { title: 'New content',      href: '/hq/content/new',     keywords: 'new create add content post page', group: 'Content' },
         { title: 'Media library',    href: '/hq/media',           keywords: 'media images files upload', group: 'Content' },
+        { title: 'Media SEO',        href: '/hq/seo/media',       keywords: 'seo media alt text description filename csv import export', group: 'Content' },
+        { title: 'Content SEO',      href: '/hq/seo/content',     keywords: 'seo content title meta description excerpt slug csv', group: 'Content' },
         { title: 'Galleries',        href: '/hq/galleries',       keywords: 'gallery galleries images collections album', group: 'Content' },
+        { title: 'Blogs',            href: '/hq/blogs',           keywords: 'blog blogs feed posts articles infinite scroll', group: 'Content' },
         { title: 'Types & fields',   href: '/hq/types',           keywords: 'types fields', group: 'Content' },
         { title: 'Categories',       href: '/hq/categories',      keywords: 'categories taxonomy', group: 'Content' },
         { title: 'Tags',             href: '/hq/tags',            keywords: 'tags taxonomy', group: 'Content' },
@@ -518,6 +525,8 @@
         { title: 'Campaigns',        href: '/hq/mail',            keywords: 'campaigns newsletter', group: 'Audience' },
         { title: 'Sequences',        href: '/hq/sequences',       keywords: 'sequences automation', group: 'Audience' },
         { title: 'Insights',         href: '/hq/insights',        keywords: 'insights analytics', group: 'Audience' },
+        { title: 'Feedback',         href: '/hq/feedback',        keywords: 'feedback forms inbox contact submissions export', group: 'Audience' },
+        { title: 'Feedback inbox',   href: '/hq/feedback/inbox',  keywords: 'feedback inbox unread entries', group: 'Audience' },
         { title: 'Design',           href: '/hq/design',          keywords: 'design brand style layout variables templates', group: 'Design' },
         { title: 'Design templates', href: '/hq/templates',       keywords: 'templates pricing cards layout ai design catalog', group: 'Design' },
         { title: 'Brand',            href: '/hq/brand',           keywords: 'brand identity logo dark', group: 'Design' },

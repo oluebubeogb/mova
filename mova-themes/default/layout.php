@@ -97,7 +97,7 @@ if (isset($seo) && is_object($seo)) {
     <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer"></noscript>
     <style>@font-face{font-family:"Font Awesome 6 Free";font-display:swap}@font-face{font-family:"Font Awesome 6 Brands";font-display:swap}</style>
-    <link rel="stylesheet" href="/assets/css/mova.css">
+    <link rel="stylesheet" href="/assets/css/mova.css?v=20261017fullimg">
     <link rel="stylesheet" href="/assets/css/templates.css?v=20260929">
     <style>
     .logo img{border:none!important;outline:none!important;box-shadow:none!important;}
@@ -167,8 +167,46 @@ $headerTransparent = !empty($headerCfg['transparent']);
 <body class=" header-<?= htmlspecialchars($headerType) ?> logo-<?= htmlspecialchars($logoPos) ?> nav-<?= htmlspecialchars($navAlign) ?> footer-<?= htmlspecialchars($footerStyle) ?> mobile-nav-<?= htmlspecialchars($mobileNavStyle) ?> mobile-nav-align-<?= htmlspecialchars($mobileNavAlign) ?> btn-<?= htmlspecialchars($btnVar) ?> card-<?= htmlspecialchars($cardVar) ?> hero-<?= htmlspecialchars($heroVar) ?> card-hover-<?= htmlspecialchars($cardHover) ?><?= $btnUpper ? ' btn-uppercase' : '' ?><?= $headerTransparent ? ' header-transparent' : '' ?>">
 
     <?php
+    // Resolve header/footer assembly: page meta → walk parents → site default
     $headerAsmSlug = function_exists('mova_setting') ? trim((string) mova_setting('header_assembly_slug', '')) : '';
     $footerAsmSlug = function_exists('mova_setting') ? trim((string) mova_setting('footer_assembly_slug', '')) : '';
+    if (is_array($contentData ?? null) && class_exists(\Mova\Content\ContentRepository::class)) {
+        $__crepo = new \Mova\Content\ContentRepository();
+        $__walk = $contentData;
+        $__seen = [];
+        $__hdrOverride = null;
+        $__ftrOverride = null;
+        for ($__i = 0; $__i < 12 && is_array($__walk); $__i++) {
+            $__cid = (int) ($__walk['id'] ?? 0);
+            if ($__cid <= 0 || isset($__seen[$__cid])) {
+                break;
+            }
+            $__seen[$__cid] = true;
+            $__meta = $__walk['meta'] ?? null;
+            if (!is_array($__meta) && $__cid) {
+                $__meta = $__crepo->getMeta($__cid);
+            }
+            if (is_array($__meta)) {
+                if ($__hdrOverride === null && trim((string) ($__meta['header_assembly_slug'] ?? '')) !== '') {
+                    $__hdrOverride = trim((string) $__meta['header_assembly_slug']);
+                }
+                if ($__ftrOverride === null && trim((string) ($__meta['footer_assembly_slug'] ?? '')) !== '') {
+                    $__ftrOverride = trim((string) $__meta['footer_assembly_slug']);
+                }
+            }
+            if ($__hdrOverride !== null && $__ftrOverride !== null) {
+                break;
+            }
+            $__pid = (int) ($__walk['parent_id'] ?? 0);
+            $__walk = $__pid > 0 ? $__crepo->find($__pid) : null;
+        }
+        if ($__hdrOverride !== null) {
+            $headerAsmSlug = $__hdrOverride;
+        }
+        if ($__ftrOverride !== null) {
+            $footerAsmSlug = $__ftrOverride;
+        }
+    }
     $headerAsmHtml = '';
     $footerAsmHtml = '';
     if (($headerAsmSlug !== '' || $footerAsmSlug !== '') && class_exists(\Mova\Assembly\AssemblyService::class)) {

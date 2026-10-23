@@ -272,6 +272,60 @@ if (!empty($content['published_at'])) {
                         </span>
                     </label>
                 </div>
+                <?php
+                $assemblies = $assemblies ?? [];
+                $parentOptions = $parentOptions ?? [];
+                $currentParent = (int) ($content['parent_id'] ?? 0);
+                $currentId = (int) ($content['id'] ?? 0);
+                $hdrAsm = (string) ($meta['header_assembly_slug'] ?? '');
+                $ftrAsm = (string) ($meta['footer_assembly_slug'] ?? '');
+                ?>
+                <div class="form-group">
+                    <label for="parent-page">Parent page</label>
+                    <select name="parent_id" id="parent-page">
+                        <option value="">— None (top-level) —</option>
+                        <?php foreach ($parentOptions as $po):
+                            if ($currentId && (int)$po['id'] === $currentId) continue;
+                            $pslug = (string) ($po['slug'] ?? '');
+                            $ptitle = (string) ($po['title'] ?? $pslug);
+                        ?>
+                            <option value="<?= (int)$po['id'] ?>" <?= $currentParent === (int)$po['id'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($ptitle) ?><?= $pslug ? ' (/' . htmlspecialchars($pslug) . ')' : '' ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <p style="font-size:0.75rem;color:var(--hq-muted);margin:0.35rem 0 0;">Nest under a parent so the public URL becomes /parent-slug/this-slug. Children can inherit the parent’s header/footer assembly.</p>
+                </div>
+                <div class="form-group">
+                    <label for="header-assembly">Header assembly</label>
+                    <select name="header_assembly_slug" id="header-assembly">
+                        <option value="">— Site default —</option>
+                        <?php foreach ($assemblies as $asm):
+                            $aslug = (string) ($asm['slug'] ?? '');
+                            if ($aslug === '') continue;
+                        ?>
+                            <option value="<?= htmlspecialchars($aslug) ?>" <?= $hdrAsm === $aslug ? 'selected' : '' ?>>
+                                <?= htmlspecialchars((string)($asm['title'] ?? $aslug)) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <p style="font-size:0.75rem;color:var(--hq-muted);margin:0.35rem 0 0;">Override the default site header for this page. Leave default to inherit from parent or site setting.</p>
+                </div>
+                <div class="form-group">
+                    <label for="footer-assembly">Footer assembly</label>
+                    <select name="footer_assembly_slug" id="footer-assembly">
+                        <option value="">— Site default —</option>
+                        <?php foreach ($assemblies as $asm):
+                            $aslug = (string) ($asm['slug'] ?? '');
+                            if ($aslug === '') continue;
+                        ?>
+                            <option value="<?= htmlspecialchars($aslug) ?>" <?= $ftrAsm === $aslug ? 'selected' : '' ?>>
+                                <?= htmlspecialchars((string)($asm['title'] ?? $aslug)) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <p style="font-size:0.75rem;color:var(--hq-muted);margin:0.35rem 0 0;">Override the default site footer for this page. Children inherit unless they set their own.</p>
+                </div>
                 <button type="submit" class="btn-primary btn-block" id="btn-publish-save">Save</button>
                 <?php if (!$isNew && ($content['status'] ?? '') === 'published'): ?>
                     <a href="/<?= htmlspecialchars($content['slug']) ?>" target="_blank" class="btn-ghost btn-block" style="margin-top:0.5rem;text-align:center;display:block;">View →</a>
@@ -502,16 +556,16 @@ if (!empty($content['published_at'])) {
 
     layout.classList.remove('sidebar-closed');
     sidebar.hidden = false;
-    // On narrow screens present sidebar as an overlay so users notice it
+    // Narrow screens: local overlay inside the content area (does not shift topbar/search)
     if (window.matchMedia && window.matchMedia('(max-width: 900px)').matches) {
       layout.classList.add('sidebar-overlay');
-      document.body.classList.add('hq-sidebar-open');
     } else {
       layout.classList.remove('sidebar-overlay');
-      document.body.classList.remove('hq-sidebar-open');
     }
+    // Never lock/shift the whole HQ chrome
+    document.body.classList.remove('hq-sidebar-open');
 
-    // Show only the requested panel — sidebar stays otherwise empty
+    // Show only the requested panel — keep full panel body (type, header/footer, etc.)
     document.querySelectorAll('.form-sidebar .panel.collapsible').forEach(function (p) {
       var match = p.getAttribute('data-panel') === name;
       p.hidden = !match;
@@ -519,19 +573,35 @@ if (!empty($content['published_at'])) {
       p.classList.toggle('is-active-tool', match);
       var head = p.querySelector('.panel-head');
       if (head) head.setAttribute('aria-expanded', match ? 'true' : 'false');
+      var body = p.querySelector(':scope > .panel-body') || p.querySelector('.panel-body');
+      if (body) {
+        if (match) {
+          body.style.display = 'block';
+          body.hidden = false;
+        } else {
+          body.style.display = '';
+        }
+      }
     });
 
     if (titleEl) titleEl.textContent = LABELS[name] || 'Tool';
     document.body.dataset.activeTool = name;
 
-    // Bring the sidebar into view so users notice Publish / Featured image / SEO
-    try { sidebar.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {}
-
     var panel = document.querySelector('.form-sidebar .panel.collapsible[data-panel="' + name + '"]');
     if (panel) {
+      // Ensure every field in this tool is in the scrollable sidebar
+      panel.style.display = '';
+      panel.hidden = false;
+      var body = panel.querySelector('.panel-body');
+      if (body) {
+        body.style.display = 'block';
+        body.hidden = false;
+      }
+      // Scroll sidebar to top so Status → Type → Header/Footer are all reachable
+      try { sidebar.scrollTop = 0; } catch (e) {}
       var focusEl = panel.querySelector('select, input, textarea, button:not(.panel-head)');
       if (focusEl) {
-        try { focusEl.focus({ preventScroll: true }); } catch (e) { focusEl.focus(); }
+        try { focusEl.focus({ preventScroll: true }); } catch (e) { try { focusEl.focus(); } catch (e2) {} }
       }
     }
   }

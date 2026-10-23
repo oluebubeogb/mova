@@ -118,6 +118,26 @@ class AiChatService
         }
 
         $history = $this->listMessages($sessionId, $userId, 24);
+
+        // Raw / original mode: undoctored model output (no Mova JSON schema, no CMS actions).
+        $mode = strtolower(trim((string) ($options['mode'] ?? $pageContext['mode'] ?? '')));
+        if ($mode === 'raw' || $mode === 'original' || $mode === 'general') {
+            $llm = $this->callLlmRaw($message, $history, $options);
+            $reply = $llm['reply'] ?? '';
+            $actions = [];
+            $provider = $llm['provider'] ?? 'heuristic';
+            $meta = json_encode(['actions' => [], 'provider' => $provider, 'mode' => 'raw'], JSON_UNESCAPED_UNICODE);
+            $this->addMessage($sessionId, 'assistant', $reply, $meta);
+            return [
+                'ok' => true,
+                'session_id' => $sessionId,
+                'reply' => $reply,
+                'actions' => [],
+                'provider' => $provider,
+                'mode' => 'raw',
+            ];
+        }
+
         $llm = $this->callLlm($message, $history, $pageContext, $matches, $options);
 
         $reply = $llm['reply'] ?? '';
@@ -306,6 +326,69 @@ class AiChatService
     }
 
     /**
+     * Original / undoctored model call — no Mova JSON schema, no CMS action forcing.
+     * Returns plain assistant text (markdown/code allowed) so the model behaves like a normal LLM.
+     *
+     * @param list<array<string,mixed>> $history
+     * @return array{reply:string,actions:list<array>,provider:string,error?:string}
+     */
+    private function callLlmRaw(string $message, array $history, array $options = []): array
+    {
+        $system = "You are a helpful, capable assistant. Answer the user's request fully and directly.\n"
+            . "Do NOT wrap your entire response in a JSON object. Do NOT invent CMS actions, navigate paths, or Mova-specific schemas.\n"
+            . "When the user asks for code (HTML, CSS, JS, etc.), provide complete, runnable source in markdown fenced code blocks.\n"
+            . "Be clear, accurate, and production-quality. Prefer complete solutions over stubs.";
+
+        $messages = [['role' => 'system', 'content' => $system]];
+        foreach (array_slice($history, -16) as $row) {
+            $role = ($row['role'] ?? '') === 'assistant' ? 'assistant' : 'user';
+            $messages[] = ['role' => $role, 'content' => (string) ($row['content'] ?? '')];
+        }
+        if (!$history || (string) (end($history)['content'] ?? '') !== $message) {
+            $messages[] = ['role' => 'user', 'content' => $message];
+        }
+
+        if (!$this->assist->isConfigured()) {
+            return [
+                'reply' => 'AI provider is not configured. Enable a model in Settings to use Raw AI mode.',
+                'actions' => [],
+                'provider' => 'none',
+            ];
+        }
+
+        try {
+            $maxTokens = 5000;
+            $timeout = 180;
+            $raw = $this->assist->chatRaw($messages, $maxTokens, $timeout);
+            $reply = trim((string) $raw);
+            // Defensive: if the model still emitted a JSON envelope, extract the reply field
+            if ($reply !== '' && ($reply[0] === '{' || str_starts_with($reply, '```json'))) {
+                $parsed = $this->parseJsonReply($reply);
+                if ($parsed !== null && isset($parsed['reply']) && is_string($parsed['reply']) && $parsed['reply'] !== '') {
+                    $reply = self::stripLeakedJson($parsed['reply']);
+                } else {
+                    $reply = self::stripLeakedJson($reply);
+                }
+            }
+            if ($reply === '') {
+                $reply = 'The model returned an empty response. Try again or shorten the request.';
+            }
+            return [
+                'reply' => $reply,
+                'actions' => [],
+                'provider' => $this->assist->providerLabel(),
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'reply' => 'Model error in Raw AI mode: ' . $e->getMessage(),
+                'actions' => [],
+                'provider' => 'error',
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * @param list<array<string,mixed>> $history
      * @param list<array<string,mixed>> $mapMatches
      * @return array{reply:string,actions:list<array>,provider:string,error?:string}
@@ -321,8 +404,23 @@ class AiChatService
             || (bool) preg_match('/\bcode\s*:\s*(html|css|js|javascript|php|sql|json)?/i', $message);
         $wantsChatDirective = (bool) preg_match('/(?:^|\n)\s*chat\s*:/i', $message);
         // Coding only when explicit — NOT "code of conduct" / "code of ethics"
+        // Also treat paste-and-edit requests as coding (add/fix/modify this code/html/css/js)
+        $hasPastedCode = (bool) preg_match('/<!DOCTYPE\s+html|<html[\s>]|<style[\s>]|<script[\s>]|function\s*\(|const\s+\w+\s*=|document\.getElementById/i', $message)
+            || (mb_strlen($message) > 400 && (bool) preg_match('/\{[\s\S]{80,}\}/', $message));
+        $isCodeEditRequest = (bool) preg_match(
+            '/\b(add|insert|put|include|attach|append|prepend)\b.{0,60}\b(button|start|stop|reset|input|element|div|span|class|id|style|script)\b/i',
+            $message
+        ) || (bool) preg_match(
+            '/\b(fix|modify|update|change|edit|improve|rewrite|refactor)\b.{0,40}\b(this\s+)?(code|html|css|js|javascript|snippet|script)\b/i',
+            $message
+        ) || (bool) preg_match(
+            '/\b(this\s+)?(code|html|css|js|javascript|snippet)\b.{0,40}\b(add|insert|fix|modify|update|change|edit)\b/i',
+            $message
+        );
         $isCoding = $kind === 'coding'
             || $wantsCodeDirective
+            || $isCodeEditRequest
+            || ($hasPastedCode && (bool) preg_match('/\b(add|insert|fix|modify|update|change|edit|button|start|make|create)\b/i', $message))
             || (bool) preg_match('/\b(html|css|javascript|snippet|pricelist|price\s*list)\b/i', $message)
             || (bool) preg_match('/\b(write|show|give|generate)\s+(me\s+)?(some\s+)?(html|css|js|javascript)\b/i', $message)
             || (bool) preg_match('/\b(source\s+code|code\s+snippet|code\s+block)\b/i', $message);
@@ -363,16 +461,17 @@ class AiChatService
         $qualityHelp = "CONTENT QUALITY (mandatory for articles/pages):\n"
             . "- MODE DIRECTIVES:\n"
             . "  • Default: CMS draft via create_content/update_content (semantic HTML). Do not wrap the whole article in ``` fences.\n"
-            . "  • code: … — source code in the CHAT as markdown fences (```html / ```css / ```js). Prefer insert_code when an editor is open. Topics like 'Code of conduct' are NOT code mode.\n"
+            . "  • CODE MODE (code: / HTML/CSS/JS / paste-and-edit): the COMPLETE source MUST appear in the chat reply inside ```html / ```css / ```js fences. Prefer insert_code when an editor is open. Topics like 'Code of conduct' are NOT code mode.\n"
             . "  • chat: … — answer only in the chat reply with clean markdown (headings, lists, tables). Do NOT create/update drafts unless the user also asks to save a draft.\n"
-            . "  • Enter code mode only for explicit 'code:' or clear HTML/CSS/JS/snippet/template/dev/studio requests — never because the topic contains the word 'code'.\n"
+            . "  • Enter code mode for explicit 'code:', clear HTML/CSS/JS/snippet/template/dev/studio requests, OR when the user pastes code and asks to add/fix/modify it.\n"
             . "- RICH DRAFTS: create_content/update_content MUST include title, type, full body HTML, excerpt, meta.seo_title, meta.meta_description.\n"
-            . "- BODY HTML: semantic tags — <article>, <section>, <h2>/<h3>, <p>, <ul>/<ol>, <table> when useful. No <html>/<head>/<body> wrappers.\n"
+            . "- BODY HTML: semantic tags — <article>, <section>, <h2>/<h3>, <p>, <ul>/<ol>, <table> when useful. No <html>/<head>/<body> wrappers (unless the user asked for a full document).\n"
             . "- DEPTH & COMPLETENESS (be hardworking — complete on the first try):\n"
             . "  • If asked for a 12-row table, return exactly 12 data rows plus header — not 3.\n"
             . "  • If asked for N examples, sections, FAQs, or items, produce all N — never a short sample with 'and so on'.\n"
             . "  • Write real paragraphs with explanation and examples.\n"
-            . "- Prefer full article in the action body; keep chat reply short unless user used chat:.\n"
+            . "  • For CODE MODE: the full source in a fence is mandatory — a description alone is a failure.\n"
+            . "- Prefer full article in the action body; keep chat reply short unless user used chat: or is in CODE MODE.\n"
             . "- CRITICAL: finished body only. FORBIDDEN placeholders like 'This draft was started by Mova AI' or 'Replace this section'.\n"
             . "- Title = topic only (strip 'insightful', 'SEO friendly', etc.). Never invent HQ URLs. Never publish. Never leave body empty.\n";
 
@@ -414,9 +513,14 @@ class AiChatService
             . "- Scope under one root class (e.g. .pricing-page). HTML + CSS both required unless user asked for one only.\n";
 
         $codingHelp = $isCoding
-            ? "CODE MODE (code: or clear HTML/CSS/JS request). Put complete source in the reply using markdown fences (```html, ```css, ```js). "
-              . "Do not omit code. Prefer a full paste-ready snippet with moderate comments. Use classes/ids and site CSS variables. "
-              . "You may include navigate or insert_code actions. "
+            ? "CODE MODE (code: / HTML/CSS/JS / paste-and-edit request). CRITICAL RULES:\n"
+              . "1. ALWAYS put the COMPLETE, runnable, paste-ready source code in the reply inside markdown fences (```html, ```css, or ```js).\n"
+              . "2. NEVER reply with only a description of the change. NEVER say 'Here is the updated…' without the full code block.\n"
+              . "3. When the user pastes existing code and asks to add/fix/modify something (e.g. 'add a start button to this code'), return the ENTIRE updated document — not a diff, not a fragment, not a summary.\n"
+              . "4. Keep the short prose summary to 1–2 sentences max; the code fence is the main deliverable.\n"
+              . "5. Do NOT invent design-token apply instructions, 'Apply background …', or color-change actions unless the user explicitly asked to change a color/theme.\n"
+              . "6. Prefer a full paste-ready snippet. Use classes/ids and site CSS variables (var(--color-*, …) with fallbacks).\n"
+              . "7. You may include navigate or insert_code actions when useful; otherwise actions can be empty.\n"
               . $designHelp
               . $cssVarHelp
             : ($wantsChatDirective
@@ -436,7 +540,9 @@ class AiChatService
 
         $system = "You are Mova AI, the assistant inside Mova CMS HQ. "
             . "Help users navigate HQ, create/update draft content, adjust design colors, and write HTML/CSS/JS when asked. "
-            . "Be concise in chat replies; put substance into draft actions. "
+            . ($isCoding
+                ? "CODE requests: the full source code in a markdown fence IS the answer — never replace it with a summary. "
+                : "Be concise in chat replies; put substance into draft actions. ")
             . "Never publish content. Never invent HQ URLs — use the map. "
             . "{$paletteHelp} {$contentHelp} {$qualityHelp} {$modesHelp} {$codingHelp} "
             . "When the user should open a screen, include navigate actions.\n\n"
@@ -446,7 +552,7 @@ class AiChatService
             . ($templateId ? " templateId={$templateId}" : '') . "\n"
             . "Top map matches for this message:\n" . ($matchLines ? implode("\n", $matchLines) : "(none)") . "\n\n"
             . "Respond with ONLY valid JSON (no markdown fences around the JSON itself):\n"
-            . '{"reply":"string — short summary; may contain markdown and ```html / ```css / ```js code fences","actions":[ '
+            . '{"reply":"string — for CODE MODE: 1-2 sentence summary + the COMPLETE source inside ```html / ```css / ```js fences (mandatory). For other modes: short summary; may contain markdown and code fences","actions":[ '
             . '{"type":"navigate","label":"Open …","path":"/hq/..."}, '
             . '{"type":"create_content","label":"Create draft","payload":{"title":"…","type":"page","body":"<article>…</article>","excerpt":"…","meta":{"seo_title":"…","meta_description":"…"}}}, '
             . '{"type":"update_content","label":"Update draft","payload":{"id":' . max($entityId, 0) . ',"mode":"append|replace","body":"…","excerpt":"…","meta":{"seo_title":"…","meta_description":"…"}}}, '

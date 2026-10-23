@@ -850,3 +850,41 @@
 
   setMode(cfg.mode === 'dev');
 })();
+
+
+/* When content sidebar opens/closes, reflow Monaco so it stays in the 70% column */
+(function () {
+  function relayoutMonaco() {
+    try {
+      if (window.monaco && window.__movaDevEditors) {
+        Object.keys(window.__movaDevEditors).forEach(function (k) {
+          var ed = window.__movaDevEditors[k];
+          if (ed && typeof ed.layout === 'function') ed.layout();
+        });
+      }
+      // Monaco global instances sometimes hang on editors array
+      if (window.monaco && monaco.editor && monaco.editor.getEditors) {
+        monaco.editor.getEditors().forEach(function (ed) {
+          try { ed.layout(); } catch (e) {}
+        });
+      }
+      window.dispatchEvent(new Event('resize'));
+    } catch (e) {}
+  }
+  document.addEventListener('hq:tool', function () {
+    setTimeout(relayoutMonaco, 50);
+    setTimeout(relayoutMonaco, 250);
+  });
+  var layout = document.getElementById('content-form-layout');
+  if (layout && window.MutationObserver) {
+    new MutationObserver(function () {
+      setTimeout(relayoutMonaco, 50);
+      setTimeout(relayoutMonaco, 250);
+    }).observe(layout, { attributes: true, attributeFilter: ['class'] });
+  }
+  var closeBtn = document.getElementById('btn-close-sidebar');
+  if (closeBtn) closeBtn.addEventListener('click', function () {
+    setTimeout(relayoutMonaco, 50);
+    setTimeout(relayoutMonaco, 250);
+  });
+})();

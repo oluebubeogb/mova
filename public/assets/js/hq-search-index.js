@@ -3,6 +3,22 @@
  * Loaded by hq-nav.js for the global HQ search field.
  */
 window.MOVA_HQ_SEARCH_INDEX = [
+  { title: 'Feedback', href: '/hq/feedback', group: 'Audience',
+    keywords: 'feedback forms inbox contact submissions export csv',
+    body: 'Build embeddable feedback forms and read submissions in the Audience inbox.' },
+  { title: 'Feedback inbox', href: '/hq/feedback/inbox', group: 'Audience',
+    keywords: 'feedback inbox unread entries export',
+    body: 'Read and export feedback form submissions.' },
+  { title: 'Gallery embed', href: '/hq/galleries', group: 'Content',
+    keywords: 'gallery carousel grid collage columns shortcode embed in-page',
+    body: 'Gallery collections with in-page carousel, grid, columns, and collage embeds.' },
+  { title: 'Blogs', href: '/hq/blogs', group: 'Content',
+    keywords: 'blog blogs feed posts articles infinite scroll embed shortcode',
+    body: 'Content feeds at /blog with infinite scroll, filters, manual pick, and templates.' },
+  { title: 'New blog', href: '/hq/blogs/new', group: 'Content',
+    keywords: 'blog create new feed',
+    body: 'Create a new blog feed of articles or mixed content types.' },
+
   { title: 'Overview', href: '/hq', group: 'Overview', keywords: 'overview dashboard home start', body: 'Mova HQ home. Jump into content, audience, design, extend, and operations workspaces.' },
   { title: 'Quick Setup Wizard', href: '/hq/setup-wizard', group: 'Overview', keywords: 'setup wizard school organization pack palette footer quick start onboarding', body: 'Create a school or organization site in minutes: pages, brand palette, navigation, and footer columns.' },
   { title: 'Content hub', href: '/hq/content-hub', group: 'Content', keywords: 'content hub workspace', body: 'Create, organize, and manage posts, media, galleries, types, taxonomy, and assemblies.' },
