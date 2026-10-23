@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (HQ Mova AI panel)
+- Every HQ panel prompt now runs as a background job (worker, cron, loopback, poll and shutdown fallbacks). The 'Background' checkbox is gone, and `/hq/ai/chat` and `/hq/ai/jobs` always enqueue, so old clients can't skip the queue. Answers still appear inline with live progress. Normal chat jobs keep native tool calling; only coding jobs use the async long-running path.
+- 'Plain chat' is now a **RAW** switch (`role=switch`, off by default, remembered per user in localStorage). When it is on, the AI gets a minimal neutral prompt with no tools, no HqMap and no site context.
+- The composer footer shows a one-line 'Ctrl+J · Enter' hint ('⌘J' on Mac) next to the switch.
+- Removed the jobs icon and jobs view from the panel header and the jobs badge from the FAB. Sessions remain, and a toast still announces finished jobs while the panel is closed.
+
 ### Added (Phase 5b: installable app / PWA)
 - **HQ → Extend → App (PWA)** (`/hq/pwa`, admin only; listed in the nav, HQ search and the Mova AI HQ map via `RouteRegistry`). The page has: an enable switch; app name and short name (prefilled from the site name); theme and background colours (prefilled from the brand and theme tokens); an icon field (site logo, a URL or an upload); display mode; start URL (same-origin only, never `/hq` or `/api`); and an offline page switch. Install banner settings: on/off, message, show after a delay or after N page views, and snooze days after dismissal. It also shows a live home-screen and banner preview, tooltips instead of help text, an HTTPS warning and a notice when GD is missing.
 - `app/Site/Pwa.php` serves these routes from PHP (works on shared hosting, no build step):

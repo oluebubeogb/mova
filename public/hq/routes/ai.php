@@ -89,16 +89,20 @@ $router->get('/ai/sessions/{id}', function (Request $req, array $params = []) {
     return (new Response())->json(['ok' => true, 'session' => $session, 'messages' => $messages]);
 });
 
-$router->post('/ai/chat', function (Request $req) {
-    requireAuth();
-    if ($__deny = requirePerm('use_ai')) { return $__deny; }
-    if (!Csrf::validate()) {
-        return (new Response())->json(['error' => 'CSRF'], 403);
-    }
+/**
+ * HQ panel prompts always run as background jobs (AiJobService + AiWorker::dispatch:
+ * worker → cron → loopback poke → shutdown function; the browser poll is the last resort).
+ * Shared by POST /ai/jobs and the legacy POST /ai/chat, so no client can force a synchronous run.
+ */
+if (!function_exists('hqAiEnqueueChatJob')) {
+function hqAiEnqueueChatJob(Request $req): Response
+{
     $uid = (int) Auth::id();
     $message = trim((string) $req->post('message', ''));
     $sessionId = (int) $req->post('session_id', 0) ?: null;
+    $clientKey = trim((string) $req->post('client_key', '')) ?: null;
     $mode = strtolower(trim((string) $req->post('mode', '')));
+    $mode = in_array($mode, ['raw', 'original', 'general'], true) ? 'raw' : '';
     $pageContext = [
         'route' => (string) $req->post('route', ''),
         'area' => (string) $req->post('area', ''),
@@ -107,14 +111,35 @@ $router->post('/ai/chat', function (Request $req) {
         'templateId' => trim((string) $req->post('template_id', '')) ?: null,
         'mode' => $mode,
     ];
-    $options = [];
-    if (in_array($mode, ['raw', 'original', 'general'], true)) {
-        $options['mode'] = 'raw';
+    if ($mode === 'raw') {
+        // RAW: no HQ page context reaches the model.
+        $pageContext = ['route' => '', 'area' => '', 'layer' => '', 'entityId' => null, 'templateId' => null, 'mode' => 'raw'];
     }
-    $svc = new AiChatService();
-    $result = $svc->chat($uid, $sessionId, $message, $pageContext, $options);
-    $status = !empty($result['ok']) ? 200 : 400;
-    return (new Response())->json($result, $status);
+    if ($message === '') {
+        return (new Response())->json(['error' => 'Empty message'], 400);
+    }
+    $svc = new \Mova\AI\AiJobService();
+    try {
+        $job = $svc->enqueue($uid, $message, $sessionId, $pageContext, 'chat', $clientKey);
+    } catch (\Throwable $e) {
+        return (new Response())->json(['error' => $e->getMessage()], 400);
+    }
+    $jobId = (int) $job['id'];
+    $via = \Mova\AI\AiWorker::dispatch(static function () use ($svc, $jobId, $uid) {
+        $svc->processJob($jobId, $uid);
+    });
+    return (new Response())->json(['ok' => true, 'job' => $job, 'background' => true, 'via' => $via]);
+}
+}
+
+// Legacy endpoint (older cached panels): now queues a background job instead of answering inline.
+$router->post('/ai/chat', function (Request $req) {
+    requireAuth();
+    if ($__deny = requirePerm('use_ai')) { return $__deny; }
+    if (!Csrf::validate()) {
+        return (new Response())->json(['error' => 'CSRF'], 403);
+    }
+    return hqAiEnqueueChatJob($req);
 });
 
 
@@ -146,37 +171,7 @@ $router->post('/ai/jobs', function (Request $req) {
     if (!Csrf::validate()) {
         return (new Response())->json(['error' => 'CSRF'], 403);
     }
-    $uid = (int) Auth::id();
-    $message = trim((string) $req->post('message', ''));
-    $sessionId = (int) $req->post('session_id', 0) ?: null;
-    $clientKey = trim((string) $req->post('client_key', '')) ?: null;
-    $background = (string) $req->post('background', '1') === '1';
-    $mode = strtolower(trim((string) $req->post('mode', '')));
-    $pageContext = [
-        'route' => (string) $req->post('route', ''),
-        'area' => (string) $req->post('area', ''),
-        'layer' => (string) $req->post('layer', ''),
-        'entityId' => (int) $req->post('entity_id', 0) ?: null,
-        'templateId' => trim((string) $req->post('template_id', '')) ?: null,
-        'mode' => $mode,
-    ];
-    if ($message === '') {
-        return (new Response())->json(['error' => 'Empty message'], 400);
-    }
-    $svc = new \Mova\AI\AiJobService();
-    try {
-        $job = $svc->enqueue($uid, $message, $sessionId, $pageContext, 'chat', $clientKey);
-    } catch (\Throwable $e) {
-        return (new Response())->json(['error' => $e->getMessage()], 400);
-    }
-
-    // Background worker (cron / supervisord) → loopback poke → after-response shutdown function.
-    $jobId = (int) $job['id'];
-    $via = \Mova\AI\AiWorker::dispatch(static function () use ($svc, $jobId, $uid) {
-        $svc->processJob($jobId, $uid);
-    });
-
-    return (new Response())->json(['ok' => true, 'job' => $job, 'background' => true, 'via' => $via]);
+    return hqAiEnqueueChatJob($req);
 });
 
 $router->post('/ai/jobs/process', function (Request $req) {

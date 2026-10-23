@@ -305,7 +305,7 @@
     shortcutsModal();
   });
 
-  /* ---------------- Mova AI: chips, suggest panel, jobs badge + toast ---------------- */
+  /* ---------------- Mova AI: chips, suggest panel, job-finished toast ---------------- */
   function initAi() {
     var input = $('#mova-ai-input');
     var suggest = $('#mova-ai-suggest');
@@ -323,34 +323,14 @@
       sync();
       new MutationObserver(sync).observe(msgs, { childList: true });
     }
-    var src = $('#mova-ai-jobs-badge');
-    if (!src) return;
-    var targets = ['#mova-ai-header-btn', '#mova-ai-fab'].map(function (s) {
-      var host = $(s); if (!host) return null;
-      var b = d.createElement('span');
-      b.className = 'hq-jobs-badge is-running';
-      b.hidden = true;
-      b.setAttribute('aria-hidden', 'true');
-      host.appendChild(b);
-      return { host: host, badge: b, label: host.getAttribute('aria-label') || 'Open Mova AI' };
-    }).filter(Boolean);
-    var last = 0;
-    function mirror() {
-      var n = src.hidden ? 0 : (parseInt(src.textContent, 10) || 0);
-      targets.forEach(function (t) {
-        t.badge.hidden = n === 0;
-        t.badge.textContent = src.textContent;
-        t.host.setAttribute('aria-label', n ? t.label + ' — ' + n + ' background task' + (n === 1 ? '' : 's') + ' running' : t.label);
-      });
-      if (n < last) {
-        var panelOpen = $('#mova-ai-panel') && $('#mova-ai-panel').classList.contains('open');
-        toast(n === 0 ? 'Background AI task finished. Open Mova AI to see the result.' : 'A background AI task finished.', 'success');
-        if (panelOpen) {/* user already sees it */}
-      }
-      last = n;
-    }
-    mirror();
-    new MutationObserver(mirror).observe(src, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });
+    // Background AI jobs: no badge any more (the chat shows progress inline); a toast still
+    // announces a finished job when the panel is closed.
+    on(d, 'mova-ai:job-finished', function (e) {
+      var dt = (e && e.detail) || {};
+      if (dt.panelOpen) return;
+      if (dt.status === 'done') toast('Mova AI finished a task. Open Mova AI to see the answer.', 'success');
+      else if (dt.status === 'failed') toast('A Mova AI task failed. Open Mova AI for details.', 'error');
+    });
   }
 
   /* ---------------- Boot ---------------- */

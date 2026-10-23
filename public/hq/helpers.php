@@ -174,19 +174,19 @@ HTML;
     <link rel="apple-touch-icon" href="/assets/hq/apple-touch-icon.png?v=p5x" sizes="180x180">
     <script src="/assets/js/theme-boot.js"></script>
     <script>window.MOVA_TZ = <?= json_encode(\Mova\Core\Time::zoneName()) ?>;</script>
-    <script src="/assets/js/hq-time.js?v=20261023p5x"></script>
+    <script src="/assets/js/hq-time.js?v=20261023aip"></script>
     <link rel="preload" href="/assets/fonts/inter-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="/assets/fonts/fonts.css">
     <link rel="stylesheet" href="/assets/vendor/fontawesome/css/all.min.css?v=6.5.2">
-    <link rel="stylesheet" href="/assets/css/hq.css?v=20261023p5x">
-    <link rel="stylesheet" href="/assets/css/hq-vnext.css?v=20261023p5x">
-    <link rel="stylesheet" href="/assets/css/hq-landings.css?v=20261023p5x">
-    <link rel="stylesheet" href="/assets/css/hq-nav-search.css?v=20261023p5x">
+    <link rel="stylesheet" href="/assets/css/hq.css?v=20261023aip">
+    <link rel="stylesheet" href="/assets/css/hq-vnext.css?v=20261023aip">
+    <link rel="stylesheet" href="/assets/css/hq-landings.css?v=20261023aip">
+    <link rel="stylesheet" href="/assets/css/hq-nav-search.css?v=20261023aip">
     <?php if ($isAuth): ?>
     <meta name="csrf-token" content="<?= htmlspecialchars(\Mova\Security\Csrf::token()) ?>">
-    <link rel="stylesheet" href="/assets/css/mova-ai-panel.css?v=20261023p5x">
+    <link rel="stylesheet" href="/assets/css/mova-ai-panel.css?v=20261023aip">
     <?php endif; ?>
-    <link rel="stylesheet" href="/assets/css/hq-p5.css?v=20261023p5x">
+    <link rel="stylesheet" href="/assets/css/hq-p5.css?v=20261023aip">
 </head>
 <body class="hq hq-vnext <?= $isAuth ? 'hq-authenticated' : 'hq-guest' ?>" data-workspace="<?= htmlspecialchars($workspace) ?>" data-hq-tz="<?= htmlspecialchars(\Mova\Core\Time::zoneName()) ?>"<?php if ($isAuth): ?> data-hq-admin="<?= \Mova\Hq\RouteRegistry::allowed('admin') ? '1' : '0' ?>" data-hq-design="<?= \Mova\Hq\RouteRegistry::allowed('manage_appearance') ? '1' : '0' ?>" data-hq-ai="<?= \Mova\Hq\RouteRegistry::allowed('use_ai') ? '1' : '0' ?>"<?php endif; ?>>
 <a class="hq-skip-link" href="#hq-main">Skip to content</a>
@@ -265,13 +265,9 @@ HTML;
     <button type="button" class="mova-ai-fab" id="mova-ai-fab" title="Mova AI (Ctrl+J)" aria-label="Open Mova AI">
         <i class="fa-solid fa-wand-magic-sparkles"></i>
     </button>
-    <aside class="mova-ai-panel" id="mova-ai-panel" aria-label="Mova AI">
+    <aside class="mova-ai-panel" id="mova-ai-panel" aria-label="Mova AI" data-uid="<?= (int) ($user['id'] ?? 0) ?>">
         <div class="mova-ai-panel-header">
             <h2>Mova AI <span class="mova-ai-badge">HQ</span></h2>
-            <button type="button" class="mova-ai-icon-btn" id="mova-ai-jobs-toggle" title="Background jobs" aria-label="Background jobs">
-                <i class="fa-solid fa-layer-group"></i>
-                <span class="mova-ai-jobs-badge" id="mova-ai-jobs-badge" hidden>0</span>
-            </button>
             <button type="button" class="mova-ai-icon-btn" id="mova-ai-sessions-toggle" title="Sessions" aria-label="Sessions">
                 <i class="fa-solid fa-clock-rotate-left"></i>
             </button>
@@ -287,14 +283,6 @@ HTML;
         </div>
         <div class="mova-ai-sessions" id="mova-ai-sessions" hidden>
             <div id="mova-ai-sessions-list"></div>
-        </div>
-        <div class="mova-ai-jobs" id="mova-ai-jobs" hidden>
-            <div class="mova-ai-jobs-head">
-                <span>Background tasks</span>
-                <button type="button" class="mova-ai-text-btn" id="mova-ai-jobs-refresh">Refresh</button>
-            </div>
-            <div id="mova-ai-jobs-list"></div>
-            <p class="mova-ai-jobs-hint">Queue prompts even while offline — they run when you are back online. Coding tasks get a longer window.</p>
         </div>
         <div class="mova-ai-guide" id="mova-ai-guide" hidden>
             <div class="mova-ai-guide-head">
@@ -338,15 +326,13 @@ HTML;
         <div class="mova-ai-composer">
             <textarea id="mova-ai-input" rows="2" placeholder="Ask Mova AI… code, navigate, or content help"></textarea>
             <div class="mova-ai-composer-row">
-                <label class="mova-ai-bg-toggle" data-tip="Run in the background: longer tasks keep going after you leave">
-                    <input type="checkbox" id="mova-ai-bg-mode" checked>
-                    <span>Background</span>
-                </label>
-                <label class="mova-ai-bg-toggle" data-tip="Plain chat: no CMS actions or page changes, just answers">
-                    <input type="checkbox" id="mova-ai-raw-mode">
-                    <span>Plain chat</span>
-                </label>
-                <span class="hint">Ctrl+J · Enter</span>
+                <div class="mova-ai-foot-tools">
+                    <button type="button" class="mova-ai-raw" id="mova-ai-raw-mode" role="switch" aria-checked="false" aria-label="Raw mode" data-tip="Raw: the AI answers directly like any chat AI, with no site tools or HQ context">
+                        <span class="mova-ai-raw-track" aria-hidden="true"><span class="mova-ai-raw-knob"></span></span>
+                        <span class="mova-ai-raw-label" aria-hidden="true">Raw</span>
+                    </button>
+                    <span class="mova-ai-hint" id="mova-ai-hint" aria-hidden="true"><span data-kbd-mod>Ctrl+J</span> · Enter</span>
+                </div>
                 <button type="button" class="mova-ai-send" id="mova-ai-send" aria-label="Send message"><span>Send</span><i class="fa-solid fa-paper-plane" aria-hidden="true"></i></button>
             </div>
         </div>
@@ -363,12 +349,12 @@ HTML;
     <?php if ($isAuth && $navPayload): ?>
     <script>window.MOVA_HQ_NAV = <?= json_encode($navPayload, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
     <?php endif; ?>
-    <script src="/assets/js/hq-nav.js?v=20261023p5x" defer></script>
+    <script src="/assets/js/hq-nav.js?v=20261023aip" defer></script>
     <?php if ($isAuth): ?>
-    <script src="/assets/js/hq-search.js?v=20261023p5x" defer></script>
+    <script src="/assets/js/hq-search.js?v=20261023aip" defer></script>
     <?php endif; ?>
-    <script src="/assets/js/hq-layers.js?v=20261023p5x" defer></script>
-    <script src="/assets/js/hq-p5.js?v=20261023p5x" defer></script>
+    <script src="/assets/js/hq-layers.js?v=20261023aip" defer></script>
+    <script src="/assets/js/hq-p5.js?v=20261023aip" defer></script>
     <?php if ($isAuth): ?>
     <script>
     window.MovaAiContext = {
@@ -384,7 +370,7 @@ HTML;
     </script>
     <script src="/assets/js/mova-markdown.js?v=20260930md1"></script>
     <?php if (\Mova\Hq\RouteRegistry::allowed('use_ai')): ?>
-    <script src="/assets/js/mova-ai-panel.js?v=20261023p5x" defer></script>
+    <script src="/assets/js/mova-ai-panel.js?v=20261023aip" defer></script>
     <?php endif; ?>
     <script>
     (function () {

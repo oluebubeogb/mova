@@ -457,7 +457,7 @@ body.hq-drawer-open { overflow: hidden; }
 .hq-kbd-list kbd, .hq-kbd { display: inline-flex; align-items: center; min-width: 24px; justify-content: center; padding: 2px 7px; border-radius: 6px; border: 1px solid var(--hq-border); border-bottom-width: 2px; background: var(--hq-input-bg); font: 600 12px/1.4 var(--font); color: var(--hq-text); }
 
 /* ============================================================
-   Mova AI panel — suggestion chips, send, jobs badge, toast
+   Mova AI panel — suggestion chips, send, toast
    ============================================================ */
 .mova-ai-suggest { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 14px 12px; animation: hqFadeIn .25s var(--hq-ease); }
 .mova-ai-suggest[hidden] { display: none !important; }
@@ -480,20 +480,10 @@ body.hq-drawer-open { overflow: hidden; }
 #mova-ai-send:hover { filter: brightness(1.07); }
 #mova-ai-send:active { transform: translateY(1px); }
 #mova-ai-header-btn { position: relative; }
-/* P5-fix: the FAB must stay fixed bottom-right (the badge anchors to it because fixed is a containing block too) */
+/* P5-fix: the FAB must stay fixed bottom-right */
 .mova-ai-fab { position: fixed !important; right: 1.25rem; left: auto; bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px)); }
 @media (max-width: 720px) { .mova-ai-fab { right: .85rem; bottom: calc(.85rem + env(safe-area-inset-bottom, 0px)); } }
 .hq-content { padding-bottom: max(var(--hq-content-pb, 0px), 4.5rem); }
-.hq-jobs-badge {
-    position: absolute; top: 2px; right: 2px; min-width: 17px; height: 17px; padding: 0 4px;
-    display: inline-flex; align-items: center; justify-content: center;
-    border-radius: 999px; background: #F59E0B; color: #1F1300; font-size: 10px; font-weight: 700; line-height: 1;
-    box-shadow: 0 0 0 2px var(--hq-surface);
-    animation: hqPop .2s var(--hq-ease);
-}
-.hq-jobs-badge[hidden] { display: none !important; }
-.hq-jobs-badge.is-running::after { content: ""; position: absolute; inset: -3px; border-radius: inherit; border: 2px solid rgba(245, 158, 11, .5); animation: hqRing 1.6s ease-out infinite; }
-@keyframes hqRing { from { opacity: 1; transform: scale(.9); } to { opacity: 0; transform: scale(1.5); } }
 .hq-toasts { position: fixed; z-index: 4000; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
 .hq-toast {
     pointer-events: auto; display: flex; align-items: flex-start; gap: 10px;
@@ -852,11 +842,8 @@ body.hq-guest:has(.auth-split) .hq-auth-wrap { display: block; min-height: 100vh
   .hq-hist-btn { min-width: 40px; min-height: 40px; }
   .hq-logo { min-width: 40px; min-height: 40px; display: inline-grid; place-items: center; }
   .mova-ai-icon-btn { min-width: 40px; min-height: 40px; }
-  .mova-ai-bg-toggle { min-height: 40px; display: inline-flex; align-items: center; gap: .45rem; padding: 0 .35rem; }
-  .mova-ai-bg-toggle input[type=checkbox] { width: 18px !important; height: 18px !important; margin: 0; flex: none; }
-  .mova-ai-bg-toggle { white-space: nowrap; font-size: .85rem; padding: 0 .25rem; }
+  .mova-ai-raw { min-height: 40px; }
   .mova-ai-composer-row { gap: .35rem; flex-wrap: nowrap; }
-  .mova-ai-composer-row .hint { display: none; }
   .mova-ai-send { margin-left: auto; min-height: 40px; padding: 0 1rem; }
 }
 
@@ -945,4 +932,48 @@ html:not([data-theme="dark"]) .hq-landing-kicker { color: color-mix(in srgb, var
   .content-list-table .row-action { min-width: 38px; height: 38px; padding: 0 .4rem; }
   .content-title-link { overflow-wrap: anywhere; }
   .cl-slug { max-width: 100%; }
+}
+
+/* ============================================================
+   Mova AI composer footer — RAW switch + shortcut hint (one line)
+   ============================================================ */
+.mova-ai-composer-row { flex-wrap: nowrap; min-width: 0; }
+.mova-ai-foot-tools { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 auto; }
+.mova-ai-raw {
+    display: inline-flex; align-items: center; gap: 7px; flex: none;
+    min-height: 32px; padding: 0 4px 0 2px; margin: 0;
+    border: 0; background: transparent; color: var(--hq-muted); cursor: pointer;
+    font: inherit; border-radius: 999px; -webkit-tap-highlight-color: transparent;
+}
+.mova-ai-raw-track {
+    position: relative; width: 34px; height: 20px; flex: none; border-radius: 999px;
+    background: color-mix(in srgb, var(--hq-muted) 28%, var(--hq-border));
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, .18);
+    transition: background-color .22s var(--hq-ease), box-shadow .22s var(--hq-ease);
+}
+.mova-ai-raw-knob {
+    position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 3px rgba(15, 23, 42, .3), 0 0 0 .5px rgba(15, 23, 42, .06);
+    transition: transform .24s cubic-bezier(.34, 1.4, .64, 1), width .18s var(--hq-ease);
+}
+.mova-ai-raw:active .mova-ai-raw-knob { width: 19px; }
+.mova-ai-raw[aria-checked="true"] .mova-ai-raw-track { background: var(--hq-accent-fill, #5B5CE2); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), 0 4px 10px -4px rgba(91, 92, 226, .7); }
+.mova-ai-raw[aria-checked="true"] .mova-ai-raw-knob { transform: translateX(14px); }
+.mova-ai-raw[aria-checked="true"]:active .mova-ai-raw-knob { transform: translateX(11px); }
+.mova-ai-raw-label {
+    font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; line-height: 1;
+    font-variant: small-caps; color: var(--hq-muted); transition: color .2s var(--hq-ease);
+}
+.mova-ai-raw[aria-checked="true"] .mova-ai-raw-label { color: var(--hq-brand); }
+.mova-ai-raw:hover .mova-ai-raw-track { box-shadow: inset 0 1px 2px rgba(15, 23, 42, .18), 0 0 0 3px color-mix(in srgb, var(--hq-accent-fill, #5B5CE2) 14%, transparent); }
+.mova-ai-raw:focus { outline: none; }
+.mova-ai-raw:focus-visible .mova-ai-raw-track { outline: 2px solid var(--hq-accent-fill, #5B5CE2); outline-offset: 2px; }
+.mova-ai-hint, .mova-ai-composer-row .mova-ai-hint {
+    display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+    font-size: 11px; line-height: 1; color: var(--hq-muted); opacity: .85; letter-spacing: .01em;
+    font-variant-numeric: tabular-nums;
+}
+.mova-ai-panel.is-raw .mova-ai-composer textarea { border-color: color-mix(in srgb, var(--hq-accent-fill, #5B5CE2) 45%, var(--hq-border)); }
+@media (prefers-reduced-motion: reduce) {
+    .mova-ai-raw-track, .mova-ai-raw-knob, .mova-ai-raw-label { transition: none !important; }
 }

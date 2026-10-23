@@ -283,8 +283,10 @@ class AiJobService
                 $sessionId = !empty($row['session_id']) ? (int) $row['session_id'] : null;
                 $chat = new AiChatService();
                 $jobMode = strtolower(trim((string) ($pageContext['mode'] ?? '')));
+                // Every HQ panel prompt is a job now, so only coding jobs take the async long-running
+                // path; normal chat keeps native tool calling (confirm-before-change) as before.
                 $jobOpts = [
-                    'long_running' => true,
+                    'long_running' => $kind === 'coding',
                     'kind' => $kind,
                     'skip_user_message' => false,
                 ];

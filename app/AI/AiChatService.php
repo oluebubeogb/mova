@@ -103,23 +103,9 @@ class AiChatService
 
         $this->addMessage($sessionId, 'user', $message, null);
 
-        // Local HQ map match (works even if LLM is down)
-        $matches = HqMap::search($message, 5);
-        $localActions = [];
-        foreach ($matches as $m) {
-            if (($m['score'] ?? 0) >= 2.0) {
-                $localActions[] = [
-                    'type' => 'navigate',
-                    'label' => 'Open ' . $m['label'],
-                    'path' => $m['path'],
-                    'id' => $m['id'],
-                ];
-            }
-        }
-
         $history = $this->listMessages($sessionId, $userId, 24);
 
-        // Raw / original mode: undoctored model output (no Mova JSON schema, no CMS actions).
+        // RAW mode (panel switch): plain model chat. No tools, HqMap, site context or Mova persona.
         $mode = strtolower(trim((string) ($options['mode'] ?? $pageContext['mode'] ?? '')));
         if ($mode === 'raw' || $mode === 'original' || $mode === 'general') {
             $llm = $this->callLlmRaw($message, $history, $options);
@@ -136,6 +122,20 @@ class AiChatService
                 'provider' => $provider,
                 'mode' => 'raw',
             ];
+        }
+
+        // Local HQ map match (works even if LLM is down)
+        $matches = HqMap::search($message, 5);
+        $localActions = [];
+        foreach ($matches as $m) {
+            if (($m['score'] ?? 0) >= 2.0) {
+                $localActions[] = [
+                    'type' => 'navigate',
+                    'label' => 'Open ' . $m['label'],
+                    'path' => $m['path'],
+                    'id' => $m['id'],
+                ];
+            }
         }
 
         $llm = $this->callLlm($message, $history, $pageContext, $matches, $options);
@@ -344,10 +344,8 @@ class AiChatService
      */
     private function callLlmRaw(string $message, array $history, array $options = []): array
     {
-        $system = "You are a helpful, capable assistant. Answer the user's request fully and directly.\n"
-            . "Do NOT wrap your entire response in a JSON object. Do NOT invent CMS actions, navigate paths, or Mova-specific schemas.\n"
-            . "When the user asks for code (HTML, CSS, JS, etc.), provide complete, runnable source in markdown fenced code blocks.\n"
-            . "Be clear, accurate, and production-quality. Prefer complete solutions over stubs.";
+        // RAW: a minimal, neutral persona only — no tools, no HqMap, no site/page context.
+        $system = "You are a helpful assistant. Answer directly and accurately. Use Markdown when it helps, with fenced code blocks for code.";
 
         $messages = [['role' => 'system', 'content' => $system]];
         foreach (array_slice($history, -16) as $row) {

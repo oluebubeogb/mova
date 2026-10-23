@@ -221,10 +221,6 @@
   margin-top: 0.45rem;
   gap: 0.5rem;
 }
-.mova-ai-composer-row .hint {
-  font-size: 0.7rem;
-  color: var(--color-muted, var(--hq-muted, #6b7280));
-}
 .mova-ai-send {
   border: none;
   border-radius: 8px;
