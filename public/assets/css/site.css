@@ -147,6 +147,11 @@ body.mx-site .nav-backdrop { background: rgb(8 10 20 / .45); backdrop-filter: bl
 body.mx-site .site-main { flex: 1 0 auto; padding: clamp(1.5rem, 4vw, 3rem) 0 clamp(3rem, 7vw, 5rem); }
 body.mx-site.is-canvas .site-main { padding: 0; }
 body.mx-site .site-main:has(> .container > .mx-page:first-child) { padding-top: 0; }
+/* Standalone pages (Dev Mode / kit designs) bring their own header and spacing: no theme padding. */
+body.mx-site .site-main:has(> :is(.mova-dev-isolate, .mova-kit-isolate, .mova-dev-fallback):first-child) { padding: 0; }
+/* Full-bleed hero/header as the first block: no gap above it (normal pages keep their spacing). */
+body.mx-site .site-main:has(> :is(.mx-hero, .mova-hero, .alignfull, [data-full-bleed]):first-child),
+body.mx-site .site-main:has(> .container > :is(.mx-hero, .mova-hero, .alignfull, [data-full-bleed]):first-child) { padding-top: 0; }
 body.mx-site .site-main > .container { max-width: calc(var(--read-w) + 2 * var(--site-pad)); padding-left: var(--site-pad); padding-right: var(--site-pad); }
 body.mx-site.view-home .site-main > .container,
 body.mx-site.view-search .site-main > .container,

@@ -3,11 +3,17 @@
   --mova-g-aspect: 16/9;
   --mova-g-cols: 3;
   --mova-g-min: 200px;
-  --mova-g-max-h: 20vh;
+  --mova-g-max-h: 60vh;
   --mova-g-radius: 8px;
   --mova-g-gap: 12px;
   --mova-g-visible: 1;
   margin: 1rem 0;
+}
+/* Carousel honours the aspect setting: slide height = slide width ÷ aspect, capped by max height.
+   aspect "auto" keeps the fixed max-height strip (classic behaviour). */
+.mova-gallery.has-aspect { container-type: inline-size; }
+.mova-gallery.has-aspect .mova-g-carousel {
+  --mova-g-h: min(var(--mova-g-max-h), calc(100cqw / var(--mova-g-visible) / (var(--mova-g-aspect))));
 }
 .mova-g-loading, .mova-g-empty {
   color: var(--color-muted, #64748b);
@@ -21,7 +27,7 @@
   overflow: hidden;
   border-radius: var(--mova-g-radius);
   background: var(--color-surface, #0f172a);
-  max-height: var(--mova-g-max-h);
+  max-height: var(--mova-g-h, var(--mova-g-max-h));
 }
 .mova-g-track {
   position: relative;
@@ -29,11 +35,11 @@
   align-items: flex-start;
   transition: transform 0.35s ease;
   /* Image row uses max-h; caption mode may grow slightly below */
-  min-height: var(--mova-g-max-h);
+  min-height: var(--mova-g-h, var(--mova-g-max-h));
 }
 .mova-g-carousel:not(.has-captions) .mova-g-track {
-  height: var(--mova-g-max-h);
-  max-height: var(--mova-g-max-h);
+  height: var(--mova-g-h, var(--mova-g-max-h));
+  max-height: var(--mova-g-h, var(--mova-g-max-h));
 }
 .mova-g-carousel.has-captions {
   max-height: none;
@@ -43,8 +49,8 @@
   position: relative;
   flex: 0 0 calc(100% / var(--mova-g-visible));
   width: calc(100% / var(--mova-g-visible));
-  max-height: var(--mova-g-max-h);
-  height: var(--mova-g-max-h);
+  max-height: var(--mova-g-h, var(--mova-g-max-h));
+  height: var(--mova-g-h, var(--mova-g-max-h));
   box-sizing: border-box;
   padding: 0 2px;
   overflow: hidden;
@@ -52,13 +58,13 @@
 .mova-g-slide-unit .mova-g-slide {
   flex: 0 0 auto;
   width: 100%;
-  height: var(--mova-g-max-h);
-  max-height: var(--mova-g-max-h);
+  height: var(--mova-g-h, var(--mova-g-max-h));
+  max-height: var(--mova-g-h, var(--mova-g-max-h));
 }
 .mova-g-slide img {
   width: 100%;
   height: 100%;
-  max-height: var(--mova-g-max-h);
+  max-height: var(--mova-g-h, var(--mova-g-max-h));
   object-fit: cover;
   display: block;
   border-radius: var(--mova-g-radius);
@@ -204,4 +210,12 @@
 }
 .mova-g-cell-wrap .mova-g-cell {
   flex: 1 1 auto;
+}
+
+/* Grid / collage honour the aspect setting too (max height stays the cap); aspect "auto" = classic. */
+.mova-gallery.has-aspect .mova-g-columns .mova-g-cell { aspect-ratio: var(--mova-g-aspect); }
+.mova-gallery.has-aspect .mova-g-columns .mova-g-cell img { min-height: 0; }
+.mova-gallery.has-aspect .mova-g-collage { grid-auto-rows: max(80px, min(var(--mova-g-max-h), calc(25cqw / (var(--mova-g-aspect))))); }
+@media (max-width: 640px) {
+  .mova-gallery.has-aspect .mova-g-collage { grid-auto-rows: max(80px, min(var(--mova-g-max-h), calc(50cqw / (var(--mova-g-aspect))))); }
 }

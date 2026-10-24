@@ -37,7 +37,12 @@
     if (opts.max_height) root.style.setProperty('--mova-g-max-h', opts.max_height);
     if (opts.radius) root.style.setProperty('--mova-g-radius', opts.radius);
     if (opts.gap != null) root.style.setProperty('--mova-g-gap', opts.gap + 'px');
-    if (opts.aspect && opts.aspect !== 'auto') root.style.setProperty('--mova-g-aspect', opts.aspect);
+    if (opts.aspect && opts.aspect !== 'auto') {
+      root.style.setProperty('--mova-g-aspect', opts.aspect);
+      root.classList.add('has-aspect');
+    } else {
+      root.classList.remove('has-aspect');
+    }
     if (opts.overlay_color) root.style.setProperty('--mova-g-overlay', opts.overlay_color);
     if (opts.name_padding) root.style.setProperty('--mova-g-name-pad', opts.name_padding);
   }

@@ -99,7 +99,17 @@ $router->post('/blogs/save', function (Request $req) {
         'template_mode' => (string) $req->input('template_mode', 'default'),
         'template_html' => (string) $req->input('template_html', ''),
         'content_ids' => $contentIds,
-        'embed_options' => ['limit' => (int) $req->input('embed_limit', 6)],
+        'embed_options' => [
+            'limit' => (int) $req->input('embed_limit', 6),
+            // Display settings (Blogs → Display). Defaults reproduce the classic look.
+            'columns' => (string) $req->input('opt_columns', '2'),
+            'show_image' => (string) $req->input('opt_show_image', '1') === '1',
+            'show_excerpt' => (string) $req->input('opt_show_excerpt', '1') === '1',
+            'show_category' => (string) $req->input('opt_show_category', '1') === '1',
+            'show_date' => (string) $req->input('opt_show_date', 'auto'),
+            'chip_style' => (string) $req->input('opt_chip_style', 'classic'),
+            'featured_first' => (string) $req->input('opt_featured_first', '0') === '1',
+        ],
     ];
     try {
         if ($id > 0) {

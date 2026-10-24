@@ -361,18 +361,18 @@ class BlogService
         $url = htmlspecialchars((string) ($item['url'] ?? '#'), ENT_QUOTES, 'UTF-8');
         $img = htmlspecialchars((string) ($item['featured_image'] ?? ''), ENT_QUOTES, 'UTF-8');
 
-        // data-tone: a stable colour slot per category (styled by mova-ui.css chips).
+        // data-tone: a stable colour slot per category (used only when the blog's chip style is "tones").
         $catId = (int) ($item['categories'][0]['id'] ?? 0);
         $catHtml = $cat !== ''
             ? '<span class="mova-blog-cat" data-tone="' . ($catId > 0 ? ($catId % 6) : 0) . '">' . $cat . '</span>'
             : '';
-        $date = (string) ($item['date'] ?? '');
+        $date = !empty($item['_show_date']) ? (string) ($item['date'] ?? '') : '';
         $dateHtml = $date !== ''
             ? '<time class="mova-blog-date" datetime="' . htmlspecialchars((string) ($item['date_iso'] ?? ''), ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($date, ENT_QUOTES, 'UTF-8') . '</time>'
             : '';
 
         $col1 = '<div class="mova-blog-col1">'
-            . ($catHtml !== '' || $dateHtml !== '' ? '<span class="mova-blog-meta">' . $catHtml . $dateHtml . '</span>' : '')
+            . ($dateHtml !== '' ? '<span class="mova-blog-meta">' . $catHtml . $dateHtml . '</span>' : $catHtml)
             . '<h3 class="mova-blog-title">' . $title . '</h3>'
             . ($excerpt !== '' ? '<p class="mova-blog-excerpt">' . $excerpt . '</p>' : '')
             . '<span class="mova-blog-more">Read more</span>'
@@ -386,9 +386,9 @@ class BlogService
         return '<a class="' . $cls . '" href="' . $url . '">' . $col1 . $col2 . '</a>';
     }
 
-    public function renderDefaultList(array $items): string
+    public function renderDefaultList(array $items, string $gridClasses = ''): string
     {
-        $html = '<div class="mova-blog-grid">';
+        $html = '<div class="mova-blog-grid' . $gridClasses . '">';
         foreach ($items as $it) {
             $html .= $this->renderCard($it);
         }
@@ -438,6 +438,7 @@ class BlogService
             'updated' => (string) ($it['updated'] ?? ''),
             'updated_iso' => (string) ($it['updated_iso'] ?? ''),
             'type' => (string) ($it['type'] ?? ''),
+            'cat_tone' => (string) ($it['cat_tone'] ?? '0'),
             'blog_title' => (string) ($it['blog_title'] ?? ''),
             'blog_slug' => (string) ($it['blog_slug'] ?? ''),
         ];
@@ -473,8 +474,8 @@ class BlogService
         return '{{#items}}<a class="mova-blog-card is-modern{{#has_image}} has-image{{/has_image}}" href="{{url}}">'
             . '{{#has_image}}<div class="mova-blog-col2"><img src="{{featured_image}}" alt="{{title}}" loading="lazy"></div>{{/has_image}}'
             . '<div class="mova-blog-col1">'
-            . '<div class="mova-blog-meta">{{#category}}<span class="mova-blog-cat">{{category}}</span>{{/category}}'
-            . '<span>{{date}}</span>{{#type}} · <span>{{type}}</span>{{/type}}</div>'
+            . '<div class="mova-blog-meta">{{#category}}<span class="mova-blog-cat" data-tone="{{cat_tone}}">{{category}}</span>{{/category}}'
+            . '<span class="mova-blog-date">{{date}}</span>{{#type}}<span class="mova-blog-sep"> · </span><span class="mova-blog-type">{{type}}</span>{{/type}}</div>'
             . '<h3 class="mova-blog-title">{{title}}</h3>'
             . '<p class="mova-blog-excerpt">{{excerpt_130}}</p>'
             . '<span class="mova-blog-more">Read article</span></div>'
@@ -485,7 +486,7 @@ class BlogService
     {
         return '{{#items}}<a class="mova-blog-card is-minimal{{#has_image}} has-image{{/has_image}}" href="{{url}}">'
             . '<div class="mova-blog-col1">'
-            . '{{#category}}<span class="mova-blog-cat">{{category}}</span>{{/category}}'
+            . '{{#category}}<span class="mova-blog-cat" data-tone="{{cat_tone}}">{{category}}</span>{{/category}}'
             . '<h3 class="mova-blog-title">{{title}}</h3>'
             . '<p class="mova-blog-excerpt">{{excerpt_130}}</p>'
             . '<div class="mova-blog-meta" style="font-size:0.75rem;color:var(--color-muted,#64748b);margin-top:0.25rem">{{date}}</div>'
@@ -531,20 +532,28 @@ class BlogService
         };
     }
 
-    public function renderFeedHtml(array $blog, array $items): string
+    public function renderFeedHtml(array $blog, array $items, array $attrs = []): string
     {
+        $opts = $this->displayOptions($blog, $attrs);
         $mode = $this->normalizeTemplateMode($blog['template_mode'] ?? 'default');
-        if ($mode === 'custom' && trim((string) ($blog['template_html'] ?? '')) !== '') {
-            return $this->renderCustom((string) $blog['template_html'], $items, $blog);
+        if (isset($attrs['template']) && in_array(strtolower((string) $attrs['template']), ['default', 'modern', 'minimal'], true)) {
+            $mode = strtolower((string) $attrs['template']);
         }
-        if ($mode === 'default') {
-            return $this->renderDefaultList($items);
+        $items = $this->applyDisplayToItems($items, $opts, $mode);
+        $cls = $this->gridClasses($opts);
+        if ($mode === 'custom' && trim((string) ($blog['template_html'] ?? '')) !== '') {
+            // Custom HTML owns its markup; only wrap (with option classes) when it has no grid of its own.
+            $html = $this->renderCustom((string) $blog['template_html'], $items, $blog);
+            return strpos($html, 'mova-blog-grid') === false && strpos($html, 'mova-blog-card') !== false
+                ? '<div class="mova-blog-grid' . $cls . '">' . $html . '</div>' : $html;
+        }
+        if ($mode === 'default' || $mode === 'custom') {
+            return $this->renderDefaultList($items, $cls);
         }
         $src = $this->templateSourceForMode($mode);
         $html = $this->renderCustom($src, $items, $blog);
-        // wrap if template didn't include grid
         if (strpos($html, 'mova-blog-grid') === false) {
-            $html = '<div class="mova-blog-grid">' . $html . '</div>';
+            $html = '<div class="mova-blog-grid' . $cls . '">' . $html . '</div>';
         }
         return $html;
     }
@@ -553,24 +562,28 @@ class BlogService
      * Server-rendered card list for [blog id=N layout=cards limit=3] — no JavaScript needed, so it
      * also works inside Dev Mode pages, for crawlers and with JS off. Shows the latest N posts.
      */
-    public function inlineHtml(int $id, string $layout = 'cards', int $limit = 3): string
+    public function inlineHtml(int $id, array $attrs = []): string
     {
         $blog = $this->find($id);
+        $layout = strtolower((string) ($attrs['layout'] ?? 'cards'));
         $layout = in_array($layout, ['cards', 'list', 'compact'], true) ? $layout : 'cards';
-        $feed = $this->feed($id, max(1, min(12, $limit)), 0);
-        if (!$blog || !$feed['items']) {
+        if (!$blog) {
+            return '<!-- blog: not found -->';
+        }
+        $opts = $this->displayOptions($blog, $attrs);
+        $feed = $this->feed($id, $opts['limit'], 0);
+        if (!$feed['items']) {
             return '<div class="mova-blog mova-blog--' . $layout . ' is-empty"><p class="mova-blog-end">No posts yet.</p></div>';
         }
-        $html = '<div class="mova-blog mova-blog--' . $layout . '" data-blog-inline="' . (int) $id . '"><div class="mova-blog-grid mova-blog-grid--' . $layout . '">';
-        foreach ($feed['items'] as $it) {
-            $html .= $this->renderCard($it);
-        }
-        return $html . '</div></div>';
+        return '<div class="mova-blog mova-blog--' . $layout . '" data-blog-inline="' . (int) $id . '">'
+            . $this->renderFeedHtml($blog, $feed['items'], $attrs) . '</div>';
     }
 
     public function mountHtml(int $id): string
     {
-        return '<div class="mova-blog" data-blog="' . (int) $id . '"></div>';
+        $blog = $this->find($id);
+        $limit = $blog ? $this->displayOptions($blog)['limit'] : 6;
+        return '<div class="mova-blog" data-blog="' . (int) $id . '" data-limit="' . (int) $limit . '"></div>';
     }
 
     public function shortcode(int $id): string
@@ -610,9 +623,11 @@ class BlogService
                 if ($id <= 0) {
                     return '<!-- blog: not found -->';
                 }
-                if (preg_match('/\blayout=["\']?(cards|list|compact)\b/i', $attrs, $lm)) {
-                    $lim = preg_match('/\blimit=["\']?(\d+)/i', $attrs, $mm) ? (int) $mm[1] : 3;
-                    return $svc->inlineHtml($id, strtolower($lm[1]), $lim);
+                $parsed = self::parseAttrs($attrs);
+                unset($parsed['id'], $parsed['slug']);
+                if ($parsed !== []) {
+                    // Explicit attributes (layout, limit, columns, show_*, template, …) win over the blog's settings.
+                    return $svc->inlineHtml($id, $parsed);
                 }
                 return $svc->mountHtml($id);
             }, $body) ?? $body;
@@ -620,8 +635,8 @@ class BlogService
             static $assets = false;
             if (!$assets && (strpos($body, 'mova-blog') !== false || strpos($body, '[blog') !== false)) {
                 $assets = true;
-                $body .= "\n" . '<link rel="stylesheet" href="/assets/css/mova-blog.css?v=7">'
-                    . (strpos($body, 'class="mova-blog" data-blog=') !== false ? '<script src="/assets/js/mova-blog.js?v=6" defer></script>' : '');
+                $body .= "\n" . '<link rel="stylesheet" href="/assets/css/mova-blog.css?v=8">'
+                    . (strpos($body, 'class="mova-blog" data-blog=') !== false ? '<script src="/assets/js/mova-blog.js?v=7" defer></script>' : '');
             }
             return $body;
         });
@@ -698,9 +713,113 @@ class BlogService
         if (!is_array($opts)) {
             $opts = [];
         }
+        $d = self::DISPLAY_DEFAULTS;
         return [
             'limit' => max(1, min(50, (int) ($opts['limit'] ?? 6))),
+            'columns' => in_array((string) ($opts['columns'] ?? $d['columns']), ['1', '2', '3', '4', 'auto'], true) ? (string) ($opts['columns'] ?? $d['columns']) : $d['columns'],
+            'show_image' => self::flag($opts['show_image'] ?? $d['show_image']),
+            'show_excerpt' => self::flag($opts['show_excerpt'] ?? $d['show_excerpt']),
+            'show_category' => self::flag($opts['show_category'] ?? $d['show_category']),
+            'show_date' => in_array((string) ($opts['show_date'] ?? $d['show_date']), ['auto', 'show', 'hide'], true) ? (string) ($opts['show_date'] ?? $d['show_date']) : $d['show_date'],
+            'chip_style' => in_array((string) ($opts['chip_style'] ?? $d['chip_style']), ['classic', 'tones'], true) ? (string) ($opts['chip_style'] ?? $d['chip_style']) : $d['chip_style'],
+            'featured_first' => self::flag($opts['featured_first'] ?? $d['featured_first']),
         ];
+    }
+
+    /** Display settings defaults = how blogs rendered before these settings existed. */
+    public const DISPLAY_DEFAULTS = [
+        'columns' => '2',          // classic grid: 1 column, 2 from 640px
+        'show_image' => true,
+        'show_excerpt' => true,
+        'show_category' => true,
+        'show_date' => 'auto',     // auto = as the template decides (default card: no date; modern/minimal: date)
+        'chip_style' => 'classic', // classic = single primary chip; tones = colour per category
+        'featured_first' => false,
+    ];
+
+    private static function flag($v): bool
+    {
+        if (is_bool($v)) {
+            return $v;
+        }
+        return in_array(strtolower(trim((string) $v)), ['1', 'true', 'yes', 'on', 'show'], true);
+    }
+
+    /**
+     * Effective display options: explicit shortcode attributes > the blog's HQ settings > defaults.
+     * Shortcode attrs: columns, show_image, show_excerpt, show_category, show_date, chip_style,
+     * featured (featured_first), template (default|modern|minimal; custom only via HQ), limit, layout.
+     */
+    public function displayOptions(array $blog, array $attrs = []): array
+    {
+        $base = $this->normalizeEmbedOptions($blog['embed_options'] ?? []);
+        if (isset($attrs['featured']) && !isset($attrs['featured_first'])) {
+            $attrs['featured_first'] = $attrs['featured'];
+        }
+        $merged = $base;
+        foreach (array_keys(self::DISPLAY_DEFAULTS) + ['x' => 'limit'] as $k) {
+            if (array_key_exists($k, $attrs) && $attrs[$k] !== '') {
+                $merged[$k] = $attrs[$k];
+            }
+        }
+        return $this->normalizeEmbedOptions($merged);
+    }
+
+    /** Parse [blog ...] attribute string into key => value (lower-case keys). */
+    public static function parseAttrs(string $attrs): array
+    {
+        $out = [];
+        if (preg_match_all('/([a-z_]+)\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s"\']+))/i', $attrs, $mm, PREG_SET_ORDER)) {
+            foreach ($mm as $m) {
+                $out[strtolower($m[1])] = $m[2] !== '' ? $m[2] : (($m[3] ?? '') !== '' ? $m[3] : ($m[4] ?? ''));
+            }
+        }
+        return $out;
+    }
+
+    /** Apply show_* options to presented items, so built-in AND custom templates respect them. */
+    private function applyDisplayToItems(array $items, array $opts, string $mode): array
+    {
+        $date = $opts['show_date'];
+        foreach ($items as &$it) {
+            $it['cat_tone'] = (string) (((int) ($it['categories'][0]['id'] ?? 0)) % 6);
+            if (!$opts['show_image']) {
+                $it['has_image'] = false;
+                $it['featured_image'] = '';
+            }
+            if (!$opts['show_excerpt']) {
+                $it['excerpt'] = '';
+                $it['excerpt_130'] = '';
+                $it['excerpt_n'] = '';
+            }
+            if (!$opts['show_category']) {
+                $it['category'] = '';
+                $it['categories'] = [];
+            }
+            if ($date === 'hide') {
+                $it['date'] = '';
+            }
+            // default card shows a date only when asked to (it never had one before)
+            $it['_show_date'] = $date === 'show';
+        }
+        unset($it);
+        return $items;
+    }
+
+    /** Classes on .mova-blog-grid that switch on the optional looks. */
+    private function gridClasses(array $opts): string
+    {
+        $c = [];
+        if ($opts['columns'] !== '2') {
+            $c[] = 'mova-blog-cols-' . $opts['columns'];
+        }
+        if ($opts['chip_style'] === 'tones') {
+            $c[] = 'mova-blog-chips-tones';
+        }
+        if ($opts['featured_first']) {
+            $c[] = 'mova-blog-featured';
+        }
+        return $c ? ' ' . implode(' ', $c) : '';
     }
 
     private function slugify(string $text): string
