@@ -14,6 +14,8 @@
     --color-secondary: #64748b;
     --color-accent: #2563eb;
     --color-accent-hover: #1d4ed8;
+    --color-on-accent: #ffffff;
+    --color-on-primary: #ffffff;
     --color-brand-accent: #7c3aed;
     --color-border: #e5e7eb;
     --color-code-bg: #f3f4f6;
@@ -52,6 +54,8 @@ html[data-theme="light"] {
     --color-secondary: #64748b;
     --color-accent: #2563eb;
     --color-accent-hover: #1d4ed8;
+    --color-on-accent: #ffffff;
+    --color-on-primary: #ffffff;
     --color-brand-accent: #7c3aed;
     --color-border: #e5e7eb;
     --color-code-bg: #f3f4f6;
@@ -72,6 +76,8 @@ html[data-theme="dark"] {
     --color-secondary: #94a3b8;
     --color-accent: #60a5fa;
     --color-accent-hover: #93c5fd;
+    --color-on-accent: #0b1220;
+    --color-on-primary: #0b1220;
     --color-brand-accent: #a78bfa;
     --color-border: #1f2430;
     --color-code-bg: #1a1e28;
@@ -93,6 +99,8 @@ html[data-theme="dark"] {
         --color-secondary: #94a3b8;
         --color-accent: #60a5fa;
         --color-accent-hover: #93c5fd;
+    --color-on-accent: #0b1220;
+    --color-on-primary: #0b1220;
         --color-brand-accent: #a78bfa;
         --color-border: #1f2430;
         --color-code-bg: #1a1e28;
@@ -656,7 +664,7 @@ body {
 }
 
 /* Footer columns (above Feed · llms.txt bar) — Setup Wizard */
-.footer-columns {
+.footer-columns:not(body) {
     border-bottom: 1px solid var(--color-border);
     padding: 1.75rem 0 1.25rem;
     margin-bottom: 0;
@@ -1161,7 +1169,7 @@ body.btn-uppercase button.btn {
 body.btn-solid .mova-btn,
 body.btn-solid .btn-primary {
     background: var(--color-accent);
-    color: #fff;
+    color: var(--color-on-accent, #fff);
     border: 1px solid transparent;
 }
 body.btn-outline .mova-btn,
@@ -1501,4 +1509,17 @@ img.mova-img:not([src=""]) {
 .fa, .fas, .far, .fal, .fab, .fa-solid, .fa-regular, .fa-brands,
 [class^="fa-"], [class*=" fa-"] {
     font-display: swap;
+}
+
+/* Quick-setup kit buttons: keep labels readable in every theme, including pages generated
+   before the kit.css contrast fix (their inline CSS lost to `.article-body a`). */
+.article-body a.kit-btn.kit-btn--primary,
+.article-body a.kit-btn.kit-btn--primary:visited {
+    color: var(--color-on-accent, #fff);
+    text-decoration: none;
+}
+.article-body a.kit-btn.kit-btn--ghost,
+.article-body a.kit-btn.kit-btn--ghost:visited {
+    color: var(--color-text, #111);
+    text-decoration: none;
 }

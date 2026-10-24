@@ -98,7 +98,36 @@ $router->get('/studio/{id}', function (Request $req, array $params) {
         // ignore
     }
 
+    // Phase 5: the preview iframe must render with the real public stylesheets
+    // + the active theme's CSS, otherwise mx-* sections look unstyled.
+    $previewStyles = [];
+    $previewThemeCss = '';
+    $previewBodyClass = 'mx-site view-page';
+    try {
+        $ver = \Mova\Theme\SiteFrame::assetVersion();
+        foreach (['/assets/fonts/fonts.css', '/assets/css/mova.css', '/assets/css/templates.css', '/assets/css/site.css', '/assets/css/sections.css'] as $u) {
+            $previewStyles[] = $u . '?v=' . rawurlencode($ver);
+        }
+        $previewStyles[] = '/assets/vendor/fontawesome/css/all.min.css?v=6.5.2';
+        $tm = new \Mova\Theme\ThemeManager();
+        $slug = preg_replace('/[^a-z0-9_-]/i', '', $tm->activeSlug()) ?: 'default';
+        $dir = $tm->themesPath() . '/' . $slug;
+        $cssFile = is_file($dir . '/' . $slug . '.css') ? $dir . '/' . $slug . '.css' : (glob($dir . '/*.css')[0] ?? '');
+        if ($cssFile !== '' && is_file($cssFile)) {
+            $previewThemeCss = (string) file_get_contents($cssFile);
+        }
+        if (class_exists(\Mova\Theme\ElementStyles::class)) {
+            $previewThemeCss .= "\n" . \Mova\Theme\ElementStyles::compileCss();
+        }
+        $previewBodyClass = 'theme-' . strtolower($slug) . ' mx-site view-page';
+    } catch (\Throwable $e) {
+        // preview falls back to bare tokens
+    }
+
     return renderHq('studio/editor', [
+        'previewStyles'    => $previewStyles,
+        'previewThemeCss'  => $previewThemeCss,
+        'previewBodyClass' => $previewBodyClass,
         'content'     => $content,
         'body'        => $body,
         'css'         => $css,
@@ -113,6 +142,7 @@ $router->get('/studio/{id}', function (Request $req, array $params) {
 // ── AJAX save (no full page reload) ──────────────────────────────────────────
 $router->post('/studio/{id}/save', function (Request $req, array $params) {
     requireAuth();
+    if ($__deny = requireContentAccess((int) ($params['id'] ?? 0))) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())
             ->status(403)
@@ -177,6 +207,7 @@ $router->post('/studio/{id}/save', function (Request $req, array $params) {
 // ── New blank content opened directly in Studio ──────────────────────────────
 $router->post('/studio/new', function (Request $req) {
     requireAuth();
+    if ($__deny = requireContentAccess(null)) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->status(403)->body('CSRF');
     }

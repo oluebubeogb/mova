@@ -1,9 +1,9 @@
 <?php
 $report = $report ?? ['overall' => 'ok', 'checks' => []];
 $statusColor = [
-    'ok' => 'var(--hq-success)',
+    'ok' => 'var(--hq-success-text, #166534)',
     'warn' => 'var(--hq-warning)',
-    'error' => 'var(--hq-danger)',
+    'error' => 'var(--hq-danger-text, #b91c1c)',
     'info' => 'var(--hq-muted)',
 ];
 ?>
@@ -15,7 +15,7 @@ $statusColor = [
     <ul style="list-style:none;padding:0;margin:0;font-size:0.85rem;">
     <?php foreach ($requirements['items'] as $item): ?>
         <li style="padding:0.3rem 0;border-bottom:1px solid var(--hq-border);display:flex;gap:0.5rem;">
-            <span style="color:<?= $item['ok'] ? '#15803d' : ($item['required'] ? '#b91c1c' : '#b45309') ?>"><?= $item['ok'] ? 'OK' : 'NO' ?></span>
+            <span class="<?= $item['ok'] ? 'hq-ok-text' : ($item['required'] ? 'hq-bad-text' : 'hq-warn-text') ?>"><?= $item['ok'] ? 'OK' : 'NO' ?></span>
             <span><?= htmlspecialchars($item['label']) ?> — <span style="color:var(--hq-muted)"><?= htmlspecialchars($item['detail']) ?></span></span>
         </li>
     <?php endforeach; ?>
@@ -29,7 +29,7 @@ $statusColor = [
 <div class="panel" style="margin-bottom:1.25rem;">
     <h3 style="margin-top:0;">Overall: <span style="color:<?= $statusColor[$report['overall']] ?? 'inherit' ?>"><?= htmlspecialchars(strtoupper($report['overall'])) ?></span></h3>
     <p style="font-size:0.85rem;color:var(--hq-muted);margin:0;">
-        Mova <?= htmlspecialchars($report['version'] ?? '') ?> · <?= htmlspecialchars($report['time'] ?? '') ?>
+        Mova <?= htmlspecialchars($report['version'] ?? '') ?> · <?= hqTimeTag($report['time'] ?? null, 'both', '') ?>
     </p>
 </div>
 
@@ -57,7 +57,7 @@ $statusColor = [
                     <tbody>
                     <?php foreach ($recentAudit as $row): ?>
                         <tr>
-                            <td><?= htmlspecialchars(date('Y-m-d H:i', strtotime($row['created_at']))) ?></td>
+                            <td><?= hqTimeTag($row['created_at'], 'both') ?></td>
                             <td><code><?= htmlspecialchars($row['action']) ?></code></td>
                             <td><?= htmlspecialchars(($row['entity_type'] ?? '') . ' ' . ($row['entity_id'] ?? '')) ?></td>
                         </tr>
@@ -73,15 +73,15 @@ $statusColor = [
             <?php if (empty($recentLogins)): ?>
                 <p style="font-size:0.85rem;color:var(--hq-muted);">No logins recorded yet.</p>
             <?php else: ?>
-                <div style="font-size:0.8rem;max-height:360px;overflow:auto;">
+                <div style="font-size:0.8rem;max-height:360px;overflow:auto;" tabindex="0" role="region" aria-label="Login history">
                     <?php foreach ($recentLogins as $l): ?>
                         <div style="padding:0.45rem 0;border-bottom:1px solid var(--hq-border);">
                             <div><?= htmlspecialchars($l['username'] ?? '') ?>
-                                <span style="color:<?= !empty($l['success']) ? 'var(--hq-success)' : 'var(--hq-danger)' ?>">
+                                <span style="color:<?= !empty($l['success']) ? 'var(--hq-success-text)' : 'var(--hq-danger-text)' ?>">
                                     <?= !empty($l['success']) ? 'OK' : 'FAIL' ?>
                                 </span>
                             </div>
-                            <div style="color:var(--hq-muted);"><?= htmlspecialchars(date('Y-m-d H:i', strtotime($l['created_at']))) ?>
+                            <div style="color:var(--hq-muted);"><?= hqTimeTag($l['created_at'], 'both') ?>
                                 · <?= htmlspecialchars($l['ip_address'] ?? '') ?></div>
                         </div>
                     <?php endforeach; ?>

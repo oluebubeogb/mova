@@ -1,0 +1,60 @@
+{
+    "name": "News cards",
+    "category": "news",
+    "tags": [
+        "news",
+        "blog",
+        "posts",
+        "cards"
+    ],
+    "description": "Latest-news cards with tags and illustrated covers.",
+    "preview": "/assets/templates/previews/news-cards.png",
+    "type": "news",
+    "slots": [
+        "eyebrow",
+        "title",
+        "lead",
+        "items",
+        "buttons",
+        "images"
+    ],
+    "constraints": [
+        "Keep the root <section class=\"mx mx-…\"> and inner <div class=\"mx-in\"> wrappers.",
+        "Colours, fonts and radius come from theme CSS variables — do not hard-code colours.",
+        "Keep data-reveal attributes; motion is disabled automatically for reduced-motion users.",
+        "Use inline SVG/gradient art or uploaded images only — no external image hosts."
+    ],
+    "spec": {
+        "type": "news",
+        "variant": "cards",
+        "eyebrow": "Latest",
+        "title": "News & stories",
+        "more": {
+            "label": "All news",
+            "href": "/news"
+        },
+        "items": [
+            {
+                "tag": "Announcement",
+                "date": "Oct 12, 2026",
+                "title": "Introducing our new studio space",
+                "text": "A bright new home designed for collaboration.",
+                "href": "#"
+            },
+            {
+                "tag": "Guide",
+                "date": "Sep 28, 2026",
+                "title": "Five ways to grow your audience",
+                "text": "Practical ideas you can try this week.",
+                "href": "#"
+            },
+            {
+                "tag": "Community",
+                "date": "Sep 02, 2026",
+                "title": "Highlights from our summer meetup",
+                "text": "Talks, workshops and plenty of good coffee.",
+                "href": "#"
+            }
+        ]
+    }
+}

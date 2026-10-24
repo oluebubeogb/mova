@@ -11,6 +11,72 @@ use Mova\Site\SiteService;
 
 class ThemeManager
 {
+    public const FALLBACK = 'presence';
+
+    /** Request-scoped preview theme (HQ theme gallery / signed mockup capture). Never persisted. */
+    private static ?string $preview = null;
+
+    public static function setPreview(?string $slug): void
+    {
+        $slug = $slug !== null ? preg_replace('/[^a-z0-9_\-]/', '', strtolower($slug)) : null;
+        self::$preview = $slug ?: null;
+    }
+
+    public static function previewSlug(): ?string
+    {
+        return self::$preview;
+    }
+
+    /** HMAC for signed preview URLs (?mova_theme=slug&mova_exp=ts&mova_sig=...). */
+    public static function previewSignature(string $payload): string
+    {
+        $secret = '';
+        try {
+            $row = Database::fetch("SELECT setting_value FROM settings WHERE setting_key = 'preview_secret'");
+            $secret = (string) ($row['setting_value'] ?? '');
+            if ($secret === '') {
+                $secret = bin2hex(random_bytes(24));
+                Database::query(
+                    "INSERT INTO settings (setting_key, setting_value, updated_at) VALUES ('preview_secret', :v, :t)
+                     ON CONFLICT(setting_key) DO NOTHING",
+                    ['v' => $secret, 't' => date('c')]
+                );
+                $row = Database::fetch("SELECT setting_value FROM settings WHERE setting_key = 'preview_secret'");
+                $secret = (string) ($row['setting_value'] ?? $secret);
+            }
+        } catch (\Throwable $e) {
+            $secret = (string) (Bootstrap::config('app_key', '') ?: __FILE__);
+        }
+        return hash_hmac('sha256', $payload, $secret);
+    }
+
+    public static function signedQuery(array $params, int $ttl = 3600): string
+    {
+        ksort($params);
+        $params['mova_exp'] = (string) (time() + $ttl);
+        $payload = http_build_query($params);
+        return $payload . '&mova_sig=' . self::previewSignature($payload);
+    }
+
+    public static function verifySignedQuery(array $get): bool
+    {
+        $sig = (string) ($get['mova_sig'] ?? '');
+        $exp = (int) ($get['mova_exp'] ?? 0);
+        if ($sig === '' || $exp < time()) {
+            return false;
+        }
+        $p = $get;
+        unset($p['mova_sig'], $p['mova_exp'], $p['mx_static']);
+        $keep = [];
+        foreach ($p as $k => $v) {
+            if (strpos((string) $k, 'mova_') === 0) {
+                $keep[$k] = $v;
+            }
+        }
+        ksort($keep);
+        $keep['mova_exp'] = (string) $exp;
+        return hash_equals(self::previewSignature(http_build_query($keep)), $sig);
+    }
     public function themesPath(): string
     {
         return Bootstrap::path('themes') ?: (dirname(__DIR__, 2) . '/mova-themes');
@@ -53,6 +119,9 @@ class ThemeManager
 
     public function activeSlug(): string
     {
+        if (self::$preview !== null && is_dir($this->themesPath() . '/' . self::$preview)) {
+            return self::$preview;
+        }
         $site = SiteService::current();
         if ($site && !empty($site['theme'])) {
             return $site['theme'];
@@ -64,15 +133,18 @@ class ThemeManager
             }
         } catch (\Throwable $e) {
         }
-        return 'default';
+        return is_dir($this->themesPath() . '/' . self::FALLBACK) ? self::FALLBACK : 'default';
     }
 
     public function path(?string $slug = null): string
     {
         $slug = $slug ?: $this->activeSlug();
         $path = $this->themesPath() . '/' . $slug;
-        if (!is_dir($path)) {
-            $path = $this->themesPath() . '/default';
+        if (!is_dir($path) || !is_file($path . '/layout.php')) {
+            $path = $this->themesPath() . '/' . self::FALLBACK;
+            if (!is_dir($path)) {
+                $path = $this->themesPath() . '/default';
+            }
         }
         return $path;
     }

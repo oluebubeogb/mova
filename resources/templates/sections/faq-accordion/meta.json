@@ -1,0 +1,56 @@
+{
+    "name": "FAQ accordion",
+    "category": "faq",
+    "tags": [
+        "faq",
+        "accordion",
+        "questions",
+        "animated"
+    ],
+    "description": "Two-column FAQ with smoothly animated open/close.",
+    "preview": "/assets/templates/previews/faq-accordion.png",
+    "type": "faq",
+    "slots": [
+        "eyebrow",
+        "title",
+        "lead",
+        "items",
+        "buttons",
+        "images"
+    ],
+    "constraints": [
+        "Keep the root <section class=\"mx mx-…\"> and inner <div class=\"mx-in\"> wrappers.",
+        "Colours, fonts and radius come from theme CSS variables — do not hard-code colours.",
+        "Keep data-reveal attributes; motion is disabled automatically for reduced-motion users.",
+        "Use inline SVG/gradient art or uploaded images only — no external image hosts."
+    ],
+    "spec": {
+        "type": "faq",
+        "eyebrow": "FAQ",
+        "title": "Questions, answered",
+        "lead": "Can not find what you need? We reply within one business day.",
+        "primary": {
+            "label": "Contact us",
+            "href": "/contact"
+        },
+        "open_first": true,
+        "items": [
+            {
+                "q": "How long does it take to get started?",
+                "a": "Most customers are up and running the same day. We guide you through every step."
+            },
+            {
+                "q": "Can I change plans later?",
+                "a": "Yes — upgrade, downgrade or cancel at any time from your account."
+            },
+            {
+                "q": "Do you offer discounts for non-profits?",
+                "a": "We do. Registered charities and schools receive 30% off every plan."
+            },
+            {
+                "q": "Is my data safe?",
+                "a": "Your data is encrypted in transit and at rest, and backed up daily."
+            }
+        ]
+    }
+}

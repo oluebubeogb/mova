@@ -1,6 +1,42 @@
 {
   "name": "Presence",
-  "version": "1.0.0",
-  "description": "Sleek default theme with HQ-inspired dual-tone washes and scroll-triggered presence animations",
-  "author": "Mova"
+  "version": "2.0.0",
+  "description": "Mova's signature look: vibrant dual-tone washes, a soft hairline grid, a glass header and generous rounded cards. Great for brands, startups and studios.",
+  "author": "Mova",
+  "tags": [
+    "vibrant",
+    "modern",
+    "glass",
+    "business",
+    "default"
+  ],
+  "palette": {
+    "primary": "#2563eb",
+    "accent": "#16a34a",
+    "background": "#f8f9fb",
+    "surface": "#ffffff",
+    "text": "#0f172a"
+  },
+  "fonts": {
+    "heading": "Plus Jakarta Sans",
+    "body": "Inter"
+  },
+  "best_for": [
+    "Business",
+    "Startup",
+    "Agency",
+    "Events"
+  ],
+  "supports": [
+    "dark-mode",
+    "mobile-menu",
+    "sections",
+    "reduced-motion",
+    "header-scroll-state"
+  ],
+  "screenshots": {
+    "desktop": "/assets/themes/presence/desktop.png",
+    "mobile": "/assets/themes/presence/mobile.png",
+    "card": "/assets/themes/presence/card.png"
+  }
 }

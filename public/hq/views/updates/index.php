@@ -5,8 +5,8 @@ $current = htmlspecialchars($check['current'] ?? ($meta['version'] ?? '?'));
 $latest = htmlspecialchars($check['latest'] ?? '');
 $message = htmlspecialchars($check['message'] ?? '');
 $siteName = htmlspecialchars($meta['site']['name'] ?? 'Mova');
-$created = htmlspecialchars(substr((string)($meta['site']['created_at'] ?? ''), 0, 10));
-$updated = htmlspecialchars(substr((string)($meta['site']['updated_at'] ?? ''), 0, 10));
+$created = htmlspecialchars(hqDate($meta['site']['created_at'] ?? null, ''));
+$updated = htmlspecialchars(hqDate($meta['site']['updated_at'] ?? null, ''));
 ?>
 <section class="hq-landing">
   <header class="hq-landing-header">
@@ -38,11 +38,12 @@ $updated = htmlspecialchars(substr((string)($meta['site']['updated_at'] ?? ''), 
       <li>Last modified: <?= $updated ?: '—' ?></li>
     </ul>
     <form method="post" action="/hq/updates/identity" style="display:flex;flex-wrap:wrap;gap:0.6rem;align-items:end">
+      <?= \Mova\Security\Csrf::field() ?>
       <div>
         <label style="display:block;font-size:0.8rem;color:var(--hq-muted);margin-bottom:0.25rem">Site name</label>
         <input type="text" name="site_name" value="<?= $siteName ?>" style="padding:0.45rem 0.65rem;border:1px solid var(--hq-border);border-radius:8px;background:var(--hq-input-bg);color:var(--hq-text)">
       </div>
-      <button type="submit" class="btn-primary" style="padding:0.5rem 1rem;border-radius:8px;border:none;background:var(--hq-accent);color:#fff;cursor:pointer">Refresh identity files</button>
+      <button type="submit" class="btn-primary" style="padding:0.5rem 1rem;border-radius:8px;border:none;background:var(--hq-accent-fill);color:#fff;cursor:pointer">Refresh identity files</button>
     </form>
   </div>
 </section>

@@ -1,5 +1,43 @@
 {
-  "name": "Documentation",
-  "version": "1.0.0",
-  "description": "Docs-oriented layout with tighter typography"
+    "name": "Documentation",
+    "version": "2.1.0",
+    "description": "Precise and scannable. Space Grotesk headings, mono accents, a sticky 'On this page' table of contents, styled code blocks with copy buttons and a teal accent on a dotted-paper reading surface.",
+    "tags": [
+        "technical",
+        "docs",
+        "knowledge base",
+        "structured"
+    ],
+    "palette": {
+        "primary": "#0ea5e9",
+        "accent": "#0e7490",
+        "background": "#f6f7f9",
+        "surface": "#ffffff",
+        "text": "#0f172a"
+    },
+    "fonts": {
+        "heading": "Space Grotesk",
+        "body": "Inter"
+    },
+    "best_for": [
+        "Docs",
+        "Help centre",
+        "Product",
+        "SaaS"
+    ],
+    "author": "Mova",
+    "supports": [
+        "code-copy",
+        "dark-mode",
+        "header-scroll-state",
+        "mobile-menu",
+        "reduced-motion",
+        "sections",
+        "toc-sidebar"
+    ],
+    "screenshots": {
+        "desktop": "/assets/themes/documentation/desktop.png",
+        "mobile": "/assets/themes/documentation/mobile.png",
+        "card": "/assets/themes/documentation/card.png"
+    }
 }

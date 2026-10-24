@@ -1,89 +1,216 @@
 {
-  "schema": 1,
-  "name": "Mova Site Kits",
-  "version": "1.0.0",
-  "updated_at": "2026-10-01",
-  "kits": [
-    {
-      "id": "school-classic",
-      "pack": "school",
-      "label": "Classic campus",
-      "description": "Formal hero, clear sections.",
-      "version": "1.0.0",
-      "preview": "school-classic/preview.svg",
-      "path": "school-classic"
-    },
-    {
-      "id": "school-modern",
-      "pack": "school",
-      "label": "Modern campus",
-      "description": "Spacious layout, bold type.",
-      "version": "1.0.0",
-      "preview": "school-modern/preview.svg",
-      "path": "school-modern"
-    },
-    {
-      "id": "school-compact",
-      "pack": "school",
-      "label": "Compact campus",
-      "description": "Dense, practical, mobile-first.",
-      "version": "1.0.0",
-      "preview": "school-compact/preview.svg",
-      "path": "school-compact"
-    },
-    {
-      "id": "org-classic",
-      "pack": "organization",
-      "label": "Classic organization",
-      "description": "Clear mission layout.",
-      "version": "1.0.0",
-      "preview": "org-classic/preview.svg",
-      "path": "org-classic"
-    },
-    {
-      "id": "org-modern",
-      "pack": "organization",
-      "label": "Modern organization",
-      "description": "Open, card-based.",
-      "version": "1.0.0",
-      "preview": "org-modern/preview.svg",
-      "path": "org-modern"
-    },
-    {
-      "id": "org-compact",
-      "pack": "organization",
-      "label": "Compact organization",
-      "description": "Efficient for smaller teams.",
-      "version": "1.0.0",
-      "preview": "org-compact/preview.svg",
-      "path": "org-compact"
-    },
-    {
-      "id": "basic-classic",
-      "pack": "generic",
-      "label": "Classic simple",
-      "description": "Clean three-page site.",
-      "version": "1.0.0",
-      "preview": "basic-classic/preview.svg",
-      "path": "basic-classic"
-    },
-    {
-      "id": "basic-modern",
-      "pack": "generic",
-      "label": "Modern simple",
-      "description": "Spacious minimal site.",
-      "version": "1.0.0",
-      "preview": "basic-modern/preview.svg",
-      "path": "basic-modern"
-    },
-    {
-      "id": "basic-compact",
-      "pack": "generic",
-      "label": "Compact simple",
-      "description": "Tight and practical.",
-      "version": "1.0.0",
-      "preview": "basic-compact/preview.svg",
-      "path": "basic-compact"
-    }
-  ]
+    "schema": 2,
+    "name": "Mova Site Kits",
+    "version": "2.0.0",
+    "updated_at": "2026-10-23",
+    "kits": [
+        {
+            "id": "school-classic",
+            "pack": "school",
+            "style": "classic",
+            "label": "Classic campus",
+            "description": "Timeless, trustworthy layout with a split hero, spotlight quote and calm cards.",
+            "version": "2.0.0",
+            "preview": "school-classic/preview.png",
+            "preview_mobile": "school-classic/preview-mobile.png",
+            "palette": {
+                "primary": "#1e3a8a",
+                "accent": "#b45309",
+                "secondary": "#0f766e"
+            },
+            "pages": [
+                "Home",
+                "About us",
+                "Academics",
+                "Admissions",
+                "News & events",
+                "Contact"
+            ],
+            "path": "school-classic"
+        },
+        {
+            "id": "school-modern",
+            "pack": "school",
+            "style": "modern",
+            "label": "Modern campus",
+            "description": "Bold gradient hero, bento features, live stats and an events calendar.",
+            "version": "2.0.0",
+            "preview": "school-modern/preview.png",
+            "preview_mobile": "school-modern/preview-mobile.png",
+            "palette": {
+                "primary": "#4f46e5",
+                "accent": "#06b6d4",
+                "secondary": "#f59e0b"
+            },
+            "pages": [
+                "Home",
+                "About us",
+                "Academics",
+                "Admissions",
+                "News & events",
+                "Contact"
+            ],
+            "path": "school-modern"
+        },
+        {
+            "id": "school-compact",
+            "pack": "school",
+            "style": "compact",
+            "label": "Compact campus",
+            "description": "Tight, mobile-first layout for busy parents — key info in fewer pages.",
+            "version": "2.0.0",
+            "preview": "school-compact/preview.png",
+            "preview_mobile": "school-compact/preview-mobile.png",
+            "palette": {
+                "primary": "#0f766e",
+                "accent": "#f59e0b",
+                "secondary": "#1e3a8a"
+            },
+            "pages": [
+                "Home",
+                "About us",
+                "Academics",
+                "Admissions",
+                "Contact"
+            ],
+            "path": "school-compact"
+        },
+        {
+            "id": "org-classic",
+            "pack": "organization",
+            "style": "classic",
+            "label": "Classic mission",
+            "description": "Warm, credible layout that puts your mission and people first.",
+            "version": "2.0.0",
+            "preview": "org-classic/preview.png",
+            "preview_mobile": "org-classic/preview-mobile.png",
+            "palette": {
+                "primary": "#166534",
+                "accent": "#ca8a04",
+                "secondary": "#7c2d12"
+            },
+            "pages": [
+                "Home",
+                "About",
+                "Programmes",
+                "Get involved",
+                "Contact"
+            ],
+            "path": "org-classic"
+        },
+        {
+            "id": "org-modern",
+            "pack": "organization",
+            "style": "modern",
+            "label": "Modern impact",
+            "description": "Vivid gradient hero, impact numbers and donation tiers that convert.",
+            "version": "2.0.0",
+            "preview": "org-modern/preview.png",
+            "preview_mobile": "org-modern/preview-mobile.png",
+            "palette": {
+                "primary": "#be185d",
+                "accent": "#7c3aed",
+                "secondary": "#f97316"
+            },
+            "pages": [
+                "Home",
+                "About",
+                "Programmes",
+                "Get involved",
+                "Contact"
+            ],
+            "path": "org-modern"
+        },
+        {
+            "id": "org-compact",
+            "pack": "organization",
+            "style": "compact",
+            "label": "Compact community",
+            "description": "Simple, focused pages for small charities and clubs.",
+            "version": "2.0.0",
+            "preview": "org-compact/preview.png",
+            "preview_mobile": "org-compact/preview-mobile.png",
+            "palette": {
+                "primary": "#0369a1",
+                "accent": "#16a34a",
+                "secondary": "#f59e0b"
+            },
+            "pages": [
+                "Home",
+                "About",
+                "Programmes",
+                "Get involved",
+                "Contact"
+            ],
+            "path": "org-compact"
+        },
+        {
+            "id": "basic-classic",
+            "pack": "generic",
+            "style": "classic",
+            "label": "Classic business",
+            "description": "Professional split hero, services and a featured client quote.",
+            "version": "2.0.0",
+            "preview": "basic-classic/preview.png",
+            "preview_mobile": "basic-classic/preview-mobile.png",
+            "palette": {
+                "primary": "#1f2937",
+                "accent": "#c2410c",
+                "secondary": "#0e7490"
+            },
+            "pages": [
+                "Home",
+                "About",
+                "Services",
+                "Pricing",
+                "Contact"
+            ],
+            "path": "basic-classic"
+        },
+        {
+            "id": "basic-modern",
+            "pack": "generic",
+            "style": "modern",
+            "label": "Modern studio",
+            "description": "Gradient hero, bento services, logo strip and toggle pricing.",
+            "version": "2.0.0",
+            "preview": "basic-modern/preview.png",
+            "preview_mobile": "basic-modern/preview-mobile.png",
+            "palette": {
+                "primary": "#2563eb",
+                "accent": "#7c3aed",
+                "secondary": "#06b6d4"
+            },
+            "pages": [
+                "Home",
+                "About",
+                "Services",
+                "Contact"
+            ],
+            "path": "basic-modern"
+        },
+        {
+            "id": "basic-compact",
+            "pack": "generic",
+            "style": "compact",
+            "label": "Compact one-pager+",
+            "description": "Lean, fast and to the point — perfect for freelancers and shops.",
+            "version": "2.0.0",
+            "preview": "basic-compact/preview.png",
+            "preview_mobile": "basic-compact/preview-mobile.png",
+            "palette": {
+                "primary": "#0f172a",
+                "accent": "#10b981",
+                "secondary": "#6366f1"
+            },
+            "pages": [
+                "Home",
+                "About",
+                "Services",
+                "Pricing",
+                "Contact"
+            ],
+            "path": "basic-compact"
+        }
+    ]
 }

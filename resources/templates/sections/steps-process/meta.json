@@ -1,0 +1,48 @@
+{
+    "name": "Process steps",
+    "category": "steps",
+    "tags": [
+        "steps",
+        "process",
+        "how it works",
+        "numbers"
+    ],
+    "description": "Numbered how-it-works steps on a soft background.",
+    "preview": "/assets/templates/previews/steps-process.png",
+    "type": "timeline",
+    "slots": [
+        "eyebrow",
+        "title",
+        "lead",
+        "items",
+        "buttons",
+        "images"
+    ],
+    "constraints": [
+        "Keep the root <section class=\"mx mx-…\"> and inner <div class=\"mx-in\"> wrappers.",
+        "Colours, fonts and radius come from theme CSS variables — do not hard-code colours.",
+        "Keep data-reveal attributes; motion is disabled automatically for reduced-motion users.",
+        "Use inline SVG/gradient art or uploaded images only — no external image hosts."
+    ],
+    "spec": {
+        "type": "timeline",
+        "variant": "steps",
+        "anchor": "how",
+        "eyebrow": "How it works",
+        "title": "Three simple steps",
+        "items": [
+            {
+                "title": "Tell us your goals",
+                "text": "A short call to understand what success looks like for you."
+            },
+            {
+                "title": "We craft the plan",
+                "text": "A clear proposal with timelines, costs and milestones."
+            },
+            {
+                "title": "Launch and grow",
+                "text": "We deliver, measure and keep improving together."
+            }
+        ]
+    }
+}

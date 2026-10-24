@@ -1,0 +1,58 @@
+{
+    "name": "Contact with map",
+    "category": "contact",
+    "tags": [
+        "contact",
+        "map",
+        "address",
+        "phone",
+        "email"
+    ],
+    "description": "Contact details beside a stylised map placeholder.",
+    "preview": "/assets/templates/previews/contact-map.png",
+    "type": "contact",
+    "slots": [
+        "eyebrow",
+        "title",
+        "lead",
+        "items",
+        "buttons",
+        "images"
+    ],
+    "constraints": [
+        "Keep the root <section class=\"mx mx-…\"> and inner <div class=\"mx-in\"> wrappers.",
+        "Colours, fonts and radius come from theme CSS variables — do not hard-code colours.",
+        "Keep data-reveal attributes; motion is disabled automatically for reduced-motion users.",
+        "Use inline SVG/gradient art or uploaded images only — no external image hosts."
+    ],
+    "spec": {
+        "type": "contact",
+        "eyebrow": "Contact",
+        "title": "We would love to hear from you",
+        "address": "24 Harbour Street, Lagos",
+        "items": [
+            {
+                "icon": "phone",
+                "label": "Call us",
+                "value": "+234 800 000 0000",
+                "href": "tel:+2348000000000"
+            },
+            {
+                "icon": "mail",
+                "label": "Email",
+                "value": "hello@example.com",
+                "href": "mailto:hello@example.com"
+            },
+            {
+                "icon": "pin",
+                "label": "Visit",
+                "value": "24 Harbour Street, Lagos"
+            },
+            {
+                "icon": "clock",
+                "label": "Opening hours",
+                "value": "Mon–Fri, 9:00–17:00"
+            }
+        ]
+    }
+}

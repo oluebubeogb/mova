@@ -13,14 +13,21 @@ $constraints = $meta['constraints'] ?? [];
 $slots = $meta['slots'] ?? [];
 ?>
 <link rel="stylesheet" href="/assets/css/hq-templates.css?v=20260929">
-<link rel="stylesheet" href="<?= htmlspecialchars($sharedCss) ?>?v=20260929">
-<?php if ($styles !== ''): ?>
-<style><?= $styles /* seed CSS only; admin-authored */ ?></style>
-<?php endif; ?>
+<link rel="stylesheet" href="/assets/css/hq-section-picker.css?v=20261023p5x">
+<style>
+.hq-tpl-live { border: 1px solid var(--hq-border, #e2e8f0); border-radius: 14px; overflow: hidden; background: #fff; }
+.hq-tpl-live__bar { display: flex; gap: .5rem; align-items: center; justify-content: space-between; padding: .5rem .7rem; border-bottom: 1px solid var(--hq-border, #e2e8f0); background: var(--hq-bg, #f8fafc); }
+.hq-tpl-live iframe { display: block; width: 100%; height: 640px; border: 0; margin: 0 auto; transition: width .3s; }
+.hq-tpl-live[data-w="mobile"] iframe { width: 390px; max-width: 100%; }
+.hq-tpl-live[data-w="tablet"] iframe { width: 820px; max-width: 100%; }
+.hq-tpl-live .msp-seg { background: var(--hq-surface, #fff); border-color: var(--hq-border, #e2e8f0); }
+.hq-tpl-live .msp-seg button { color: var(--hq-muted, #64748b); }
+.hq-tpl-live .msp-seg button.is-on { background: var(--hq-text, #0f172a); color: var(--hq-surface, #fff); }
+</style>
 
 <div class="hq-templates hq-templates--detail">
   <p class="hq-templates__crumb">
-    <a href="/hq/templates">Templates</a>
+    <a href="/hq/templates">Sections</a>
     <span>/</span>
     <span><?= htmlspecialchars($name) ?></span>
   </p>
@@ -48,13 +55,29 @@ $slots = $meta['slots'] ?? [];
   <div class="hq-templates__detail-grid">
     <section class="hq-templates__live">
       <h2 class="hq-templates__section-title">Live preview</h2>
-      <div class="hq-templates__stage">
-        <?= $body /* seed HTML fragment */ ?>
+      <div class="hq-tpl-live" data-w="desktop">
+        <div class="hq-tpl-live__bar">
+          <div class="msp-seg" role="group" aria-label="Width">
+            <button type="button" class="is-on" data-w="desktop" aria-pressed="true">Desktop</button>
+            <button type="button" data-w="tablet" aria-pressed="false">Tablet</button>
+            <button type="button" data-w="mobile" aria-pressed="false">Mobile</button>
+          </div>
+          <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+            <a class="msp-btn msp-btn--ghost" href="/hq/assembly/new?section=<?= rawurlencode($id) ?>">Use in Assembly</a>
+            <a class="msp-btn msp-btn--primary" href="/hq/templates?category=<?= rawurlencode((string) ($meta['category'] ?? '')) ?>">Insert into page…</a>
+          </div>
+        </div>
+        <iframe title="<?= htmlspecialchars($name) ?> preview" src="/_preview/section/<?= rawurlencode($id) ?>" loading="lazy"></iframe>
       </div>
-      <?php if ($preview !== ''): ?>
-        <p class="hq-templates__static-note">Static thumbnail (for catalog cards):</p>
-        <img class="hq-templates__static-img" src="<?= htmlspecialchars($preview) ?>" alt="" width="480" height="280">
-      <?php endif; ?>
+      <script>
+      document.querySelectorAll('.hq-tpl-live [data-w]').forEach(function (b) {
+        if (b.tagName !== 'BUTTON') return;
+        b.addEventListener('click', function () {
+          var box = b.closest('.hq-tpl-live'); box.setAttribute('data-w', b.dataset.w);
+          box.querySelectorAll('button[data-w]').forEach(function (x) { x.classList.toggle('is-on', x === b); x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+        });
+      });
+      </script>
     </section>
 
     <aside class="hq-templates__aside">

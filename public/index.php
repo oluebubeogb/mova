@@ -33,6 +33,17 @@ Bootstrap::init();
 $request = new Request();
 $path = $request->path();
 
+// REST API (/api/v1) — stateless, API-key authenticated. Dispatched before the page
+// router so the catch-all /{parent}/{child} route can never swallow it.
+if (\Mova\Api\RestApi::handles($path)) {
+    if (!Schema::isInstalled()) {
+        (new Response())->json(['error' => ['code' => 'not_installed', 'message' => 'Mova is not installed yet.']], 503)->send();
+        exit;
+    }
+    (new \Mova\Api\RestApi())->dispatch($request, $path)->send();
+    exit;
+}
+
 // Installation check
 if (!Schema::isInstalled()) {
     // Remove host index.html etc. so DirectoryIndex / visitors reach Mova
@@ -41,6 +52,20 @@ if (!Schema::isInstalled()) {
         header('Location: /hq/install');
         exit;
     }
+}
+
+// PWA endpoints (/manifest.webmanifest, /sw.js, /pwa-offline, /pwa-icon-*) — served by PHP so they
+// work on shared hosting with no build step. /sw.js is always answered (a kill-switch worker
+// when the PWA is disabled) so a previously installed worker unregisters itself cleanly.
+if (\Mova\Site\Pwa::handles($path)) {
+    \Mova\Site\Pwa::serve($path);
+}
+// Signed-in visitors get personalised HTML: tell the PWA service worker never to cache it.
+try {
+    if (Auth::check()) {
+        header('X-Mova-Private: 1');
+    }
+} catch (\Throwable $e) {
 }
 
 $contentRepo = new ContentRepository();
@@ -55,13 +80,33 @@ try {
     // ignore
 }
 
+// Preview overrides (HQ theme gallery, Quick setup review, bin/ mockup capture).
+// Honoured only for signed-in HQ users or a valid signed URL; never cached.
+$__previewKeys = array_intersect_key($_GET, array_flip(['mova_theme']));
+if ($__previewKeys) {
+    $__previewOk = false;
+    try {
+        $__previewOk = Auth::check() || \Mova\Theme\ThemeManager::verifySignedQuery($_GET);
+    } catch (\Throwable $e) {
+    }
+    if ($__previewOk) {
+        if (!empty($_GET['mova_theme'])) {
+            \Mova\Theme\ThemeManager::setPreview((string) $_GET['mova_theme']);
+        }
+        header('X-Robots-Tag: noindex, nofollow');
+    }
+}
+
 // Page cache for anonymous GET (skip search, HQ, and system XML/text endpoints)
 // System routes must not be cached as bare body — they need correct Content-Type
-$systemPaths = ['/search', '/gallery', '/feedback', '/blog', '/robots.txt', '/sitemap.xml', '/feed.xml', '/llms.txt', '/unsubscribe', '/mova.json'];
+$systemPaths = ['/favicon.svg', '/favicon.ico', '/search', '/gallery', '/feedback', '/blog', '/robots.txt', '/sitemap.xml', '/feed.xml', '/llms.txt', '/unsubscribe', '/mova.json'];
 $cacheable = $request->isGet()
     && !Auth::check()
+    && !$__previewKeys
+    && !isset($_GET['mx_static'])
     && !in_array($path, $systemPaths, true)
     && strpos($path, '/hq') !== 0
+    && strpos($path, '/_preview') !== 0
     && strpos($path, '/gallery') !== 0;
 
 $cacheKey = 'page_' . md5($path . '?' . ($_SERVER['QUERY_STRING'] ?? ''));
@@ -80,6 +125,38 @@ $router = new Router();
 $seo = new SeoService();
 
 // --- System routes ---
+
+// Default favicon: site initial on the brand gradient (used when no favicon is uploaded)
+$router->get('/favicon.svg', function () {
+    $name = 'Mova';
+    $p = '#2563eb';
+    $a = '#7c3aed';
+    try {
+        $name = (string) \Mova\Theme\DesignConfig::setting('site_name', 'Mova');
+        $t = \Mova\Theme\DesignConfig::tokens();
+        $p = (string) ($t['colors']['primary'] ?? $p);
+        $a = (string) ($t['colors']['accent'] ?? $a);
+    } catch (\Throwable $e) {
+    }
+    $ok = static fn($c, $d) => preg_match('/^#[0-9a-fA-F]{3,8}$/', $c) ? $c : $d;
+    $p = $ok($p, '#2563eb');
+    $a = $ok($a, '#7c3aed');
+    $ch = htmlspecialchars(mb_strtoupper(mb_substr(trim($name) ?: 'M', 0, 1)), ENT_XML1);
+    $svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">'
+        . '<stop offset="0" stop-color="' . $p . '"/><stop offset="1" stop-color="' . $a . '"/></linearGradient></defs>'
+        . '<rect width="64" height="64" rx="16" fill="url(#g)"/>'
+        . '<text x="32" y="43" text-anchor="middle" font-family="Inter,Segoe UI,Helvetica,Arial,sans-serif" font-size="34" font-weight="800" fill="#fff">' . $ch . '</text></svg>';
+    return (new Response())->header('Content-Type', 'image/svg+xml; charset=utf-8')
+        ->header('Cache-Control', 'public, max-age=3600')->body($svg);
+});
+$router->get('/favicon.ico', function () {
+    $fav = '';
+    try {
+        $fav = (string) \Mova\Theme\DesignConfig::setting('favicon_url', '');
+    } catch (\Throwable $e) {
+    }
+    return (new Response())->status(302)->header('Location', $fav !== '' ? $fav : '/favicon.svg')->body('');
+});
 
 $router->get('/robots.txt', function () {
     $body = "User-agent: *\nAllow: /\nDisallow: /hq/\n\nSitemap: " . Bootstrap::baseUrl() . "/sitemap.xml\n";
@@ -284,6 +361,42 @@ $router->post('/feedback/api/submit/{slug}', function (Request $req, array $para
 
 
 
+// —— Newsletter subscribe (section library form) ——
+$router->post('/subscribe', function (Request $req) {
+    $wantsJson = str_contains((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'json');
+    $reply = function (bool $ok, string $msg, int $status = 200) use ($wantsJson) {
+        if ($wantsJson) {
+            return (new \Mova\Core\Response())->header('Content-Type', 'application/json')->status($status)
+                ->body(json_encode(['ok' => $ok, 'message' => $msg]));
+        }
+        $back = (string) ($_SERVER['HTTP_REFERER'] ?? '/');
+        $host = (string) ($_SERVER['HTTP_HOST'] ?? '');
+        $bp = parse_url($back);
+        if (!empty($bp['host']) && $bp['host'] !== $host) { $back = '/'; }
+        $back = ($bp['path'] ?? '/') ?: '/';
+        return (new \Mova\Core\Response())->status(303)->header('Location', $back . '?subscribed=' . ($ok ? '1' : '0'));
+    };
+    if (trim((string) $req->post('website', '')) !== '') {
+        return $reply(true, 'Thanks — you’re subscribed!'); // honeypot: silently accept
+    }
+    $ip = \Mova\Security\ClientIp::get();
+    try {
+        if (!(new \Mova\Api\RateLimiter())->hit(null, $ip, 'public:subscribe', 6, 600)) {
+            return $reply(false, 'Too many attempts — please try again later.', 429);
+        }
+    } catch (\Throwable $e) { /* limiter table missing: continue */ }
+    $email = trim((string) $req->post('email', ''));
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 190) {
+        return $reply(false, 'Please enter a valid email address.', 422);
+    }
+    try {
+        (new \Mova\Mail\MailService())->addSubscriber($email, null);
+        return $reply(true, 'Thanks — you’re subscribed!');
+    } catch (\Throwable $e) {
+        return $reply(false, 'Could not subscribe right now — please try again later.', 500);
+    }
+});
+
 // —— Blogs ——
 $router->get('/blog', function (Request $req) use ($seo) {
     $svc = new \Mova\Blog\BlogService();
@@ -404,6 +517,83 @@ $router->get('/gallery/{slug}', function (Request $req, array $params) use ($seo
 
 // Homepage — optional fixed content from Brand → Identity
 // Browser title is always "Sitename | site description" on the homepage.
+
+// --- Previews (section thumbnails, kit demos, Quick setup review). Never cached, never indexed. ---
+$__wizLoad = dirname(__DIR__) . '/mova-plugins/mova-setup-wizard/src/load.php';
+$__previewFinish = static function (Response $res): Response {
+    $html = preg_replace('~<link[^>]+site-ai/widget\.css[^>]*>|<div id="mova-site-ai-root"[^>]*></div>|<script[^>]+site-ai/widget\.js[^>]*></script>~', '', $res->getBody()) ?? $res->getBody();
+    $html = preg_replace(['~<meta name="robots"[^>]*>~', '~<link rel="canonical"[^>]*>\s*~'], ['<meta name="robots" content="noindex, nofollow">', ''], $html) ?? $html;
+    return $res->body($html)->header('X-Robots-Tag', 'noindex, nofollow')->header('Cache-Control', 'no-store');
+};
+$__previewTheme = static function (): void {
+    $t = preg_replace('/[^a-z0-9_-]/', '', strtolower((string) ($_GET['theme'] ?? ''))) ?? '';
+    if ($t !== '') {
+        \Mova\Theme\ThemeManager::setPreview($t);
+    }
+};
+$router->get('/_preview/section/{id}', function (Request $req, array $params) use ($seo, $__previewFinish, $__previewTheme) {
+    $entry = \Mova\Theme\SectionLibrary::find((string) ($params['id'] ?? ''));
+    if (!$entry) {
+        return Response::make('Not Found', 404);
+    }
+    $__previewTheme();
+    \Mova\Theme\SiteFrame::$chrome = false;
+    $style = in_array($_GET['style'] ?? '', ['classic', 'modern', 'compact'], true) ? $_GET['style'] : 'modern';
+    $body = \Mova\Theme\Sections::page([$entry['spec']], $style);
+    return $__previewFinish(renderTheme('content', [
+        'content' => ['id' => 0, 'title' => $entry['name'], 'slug' => '_preview', 'type' => 'page', 'status' => 'published', 'body' => $body, 'excerpt' => '', 'published_at' => date('c'), 'updated_at' => date('c'), 'meta' => ['page_layout' => 'canvas']],
+        'seo' => $seo, 'title' => $entry['name'] . ' — section preview',
+    ]));
+});
+$router->get('/_preview/kit/{kit}/{page}', function (Request $req, array $params) use ($seo, $__wizLoad, $__previewFinish, $__previewTheme) {
+    if (!is_file($__wizLoad)) {
+        return Response::make('Not Found', 404);
+    }
+    require_once $__wizLoad;
+    $kit = \MovaSetupWizard\KitRepository::load((string) ($params['kit'] ?? ''));
+    if (!$kit || empty($kit['pages'])) {
+        return Response::make('Not Found', 404);
+    }
+    $demo = (array) ($kit['demo'] ?? []);
+    // Optional live brand overrides (colours/fonts only — harmless, nothing persisted)
+    $demo = \MovaSetupWizard\WizardDraft::merge($demo + ['font_pair' => 'modern'], array_intersect_key($_GET, array_flip(['primary', 'accent', 'secondary', 'font_pair'])));
+    $demo['theme'] = '';
+    $__previewTheme();
+    $q = http_build_query(array_intersect_key($_GET, array_flip(['theme', 'primary', 'accent', 'secondary', 'font_pair', 'mx_static'])));
+    $base = '/_preview/kit/' . $kit['id'];
+    $prep = \MovaSetupWizard\PreviewRenderer::prepare($kit, (string) $params['page'], $demo, $base, $q);
+    if (!$prep) {
+        return Response::make('Not Found', 404);
+    }
+    $res = renderTheme('content', ['content' => $prep['content'], 'seo' => $seo, 'title' => $prep['title']]);
+    $res->body(\MovaSetupWizard\PreviewRenderer::rewriteLinks($res->getBody(), $prep['slugs'], $base, $q));
+    return $__previewFinish($res);
+});
+$router->get('/_preview/wizard/{page}', function (Request $req, array $params) use ($seo, $__wizLoad, $__previewFinish) {
+    if (!Auth::check() || !is_file($__wizLoad)) {
+        return Response::make('Sign in to preview', 403);
+    }
+    require_once $__wizLoad;
+    $d = \MovaSetupWizard\WizardDraft::load((int) Auth::id());
+    $kitId = preg_replace('/[^a-z0-9_-]/', '', (string) ($_GET['kit'] ?? '')) ?: (string) ($d['kit'] ?? '');
+    $kit = \MovaSetupWizard\KitRepository::load($kitId);
+    if (!$kit) {
+        return Response::make('Choose a kit first', 404);
+    }
+    if (!empty($_GET['theme'])) {
+        $d['theme'] = preg_replace('/[^a-z0-9_-]/', '', strtolower((string) $_GET['theme'])) ?? '';
+    }
+    $q = http_build_query(array_intersect_key($_GET, array_flip(['theme', 'kit'])));
+    $base = '/_preview/wizard';
+    $prep = \MovaSetupWizard\PreviewRenderer::prepare($kit, (string) $params['page'], $d, $base, $q);
+    if (!$prep) {
+        return Response::make('Not Found', 404);
+    }
+    $res = renderTheme('content', ['content' => $prep['content'], 'seo' => $seo, 'title' => $prep['title']]);
+    $res->body(\MovaSetupWizard\PreviewRenderer::rewriteLinks($res->getBody(), $prep['slugs'], $base, $q));
+    return $__previewFinish($res);
+});
+
 $router->get('/', function () use ($contentRepo, $seo) {
     $siteName = 'Mova';
     $siteDesc = '';
@@ -491,10 +681,37 @@ if (is_file(dirname(__DIR__) . '/mova-plugins/mova-site-ai/src/SiteAiService.php
     require_once dirname(__DIR__) . '/mova-plugins/mova-site-ai/src/SiteAiService.php';
     require_once dirname(__DIR__) . '/mova-plugins/mova-site-ai/src/SiteAiSessions.php';
 
-    $router->post('/api/site-ai/chat', function (Request $req) {
+    /**
+     * Per-IP throttle for the public Site AI API (each chat call costs a model request).
+     * Returns a 429 Response when over the limit, null otherwise.
+     */
+    $siteAiThrottle = static function (string $bucket, int $perMinute, int $perDay): ?Response {
+        try {
+            $ip = \Mova\Security\ClientIp::get();
+            $rl = new \Mova\Api\RateLimiter();
+            $okMin = $rl->hit(null, $ip, 'site-ai:' . $bucket . ':m', $perMinute, 60);
+            $okDay = $rl->hit(null, $ip, 'site-ai:' . $bucket . ':d', $perDay, 86400);
+            if (!$okMin || !$okDay) {
+                return (new Response())
+                    ->header('Retry-After', $okMin ? '3600' : '60')
+                    ->json(['error' => 'Too many requests — please wait a moment and try again.'], 429);
+            }
+        } catch (\Throwable $e) {
+            // limiter table missing → fail open rather than break the widget
+        }
+        return null;
+    };
+
+    $router->post('/api/site-ai/chat', function (Request $req) use ($siteAiThrottle) {
         $msg = trim((string) ($req->post('message') ?? ''));
-        $page = (string) ($req->post('page') ?? '/');
-        $pageTitle = (string) ($req->post('page_title') ?? '');
+        if (mb_strlen($msg) > 2000) {
+            return (new Response())->json(['error' => 'Message is too long (max 2000 characters).'], 413);
+        }
+        if ($blocked = $siteAiThrottle('chat', 12, 300)) {
+            return $blocked;
+        }
+        $page = mb_substr((string) ($req->post('page') ?? '/'), 0, 500);
+        $pageTitle = mb_substr((string) ($req->post('page_title') ?? ''), 0, 300);
         $sessionId = (int) ($req->post('session_id') ?? 0) ?: null;
         $clientId = trim((string) ($req->post('client_id') ?? ''));
         $visitorIn = trim((string) ($req->post('visitor_id') ?? ''));
@@ -568,7 +785,10 @@ if (is_file(dirname(__DIR__) . '/mova-plugins/mova-site-ai/src/SiteAiService.php
         ]);
     });
 
-    $router->post('/api/site-ai/sessions', function (Request $req) {
+    $router->post('/api/site-ai/sessions', function (Request $req) use ($siteAiThrottle) {
+        if ($blocked = $siteAiThrottle('session', 20, 400)) {
+            return $blocked;
+        }
         $cfg = \MovaSiteAi\SiteAiService::config();
         if (empty($cfg['enabled'])) {
             return (new Response())->json(['error' => 'Site AI disabled'], 403);
@@ -576,8 +796,8 @@ if (is_file(dirname(__DIR__) . '/mova-plugins/mova-site-ai/src/SiteAiService.php
         $vid = \MovaSiteAi\SiteAiSessions::resolveVisitorId(
             trim((string) ($req->post('visitor_id') ?? ''))
         );
-        $title = trim((string) ($req->post('title') ?? 'New chat'));
-        $clientId = trim((string) ($req->post('client_id') ?? ''));
+        $title = mb_substr(trim((string) ($req->post('title') ?? 'New chat')), 0, 120);
+        $clientId = mb_substr(trim((string) ($req->post('client_id') ?? '')), 0, 64);
         $session = \MovaSiteAi\SiteAiSessions::createSession(
             $vid,
             $title !== '' ? $title : 'New chat',
@@ -599,7 +819,10 @@ if (is_file(dirname(__DIR__) . '/mova-plugins/mova-site-ai/src/SiteAiService.php
         return (new Response())->json(['ok' => $ok, 'visitor_id' => $vid]);
     });
 
-    $router->post('/api/site-ai/feedback', function (Request $req) {
+    $router->post('/api/site-ai/feedback', function (Request $req) use ($siteAiThrottle) {
+        if ($blocked = $siteAiThrottle('feedback', 30, 600)) {
+            return $blocked;
+        }
         $cfg = \MovaSiteAi\SiteAiService::config();
         if (empty($cfg['enabled'])) {
             return (new Response())->json(['error' => 'Site AI disabled'], 403);
@@ -624,6 +847,18 @@ if ($cacheable && $response->getStatus() >= 200 && $response->getStatus() < 400)
     // Only cache full HTML documents (skip plain robots etc. is fine too)
     if ($body !== '') {
         PageCache::put($cacheKey, $body);
+    }
+}
+
+// Theme preview (?mova_theme=…): keep the preview theme while the visitor clicks around inside the
+// preview iframe, and strip the site-AI widget. Only reached for signed-in users / signed URLs.
+if (!empty($__previewOk) && \Mova\Theme\ThemeManager::previewSlug() !== null) {
+    $__pb = $response->getBody();
+    if ($__pb !== '' && stripos($__pb, '</body>') !== false) {
+        $__pq = json_encode(http_build_query(array_intersect_key($_GET, array_flip(['mova_theme', 'mova_exp', 'mova_sig', 'mx_static']))));
+        $__ps = '<script>(function(q){document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("a[href]");if(!a||a.target==="_blank")return;var u=new URL(a.href,location.href);if(u.origin!==location.origin||/^\\/(hq|assets|media)\\//.test(u.pathname))return;if(!u.searchParams.has("mova_theme")){u.search+=(u.search?"&":"?")+q;a.href=u.toString();}},true);document.addEventListener("submit",function(e){var f=e.target;if(f.method&&f.method.toLowerCase()!=="get")return;new URLSearchParams(q).forEach(function(v,k){var i=document.createElement("input");i.type="hidden";i.name=k;i.value=v;f.appendChild(i);});},true);})(' . $__pq . ');</script>';
+        $__pb = preg_replace('~<link[^>]+site-ai/widget\.css[^>]*>|<div id="mova-site-ai-root"[^>]*></div>|<script[^>]+site-ai/widget\.js[^>]*></script>~', '', $__pb) ?? $__pb;
+        $response->body(preg_replace('~</body>~i', $__ps . '</body>', $__pb, 1) ?? $__pb)->header('Cache-Control', 'no-store');
     }
 }
 
@@ -694,14 +929,15 @@ function renderTheme(string $view, array $data = [], int $status = 200): Respons
     $themePath = $mgr->path();
     $file = $themePath . '/' . $view . '.php';
     if (!file_exists($file)) {
-        $themePath = Bootstrap::path('themes') . '/default';
-        $file = $themePath . '/' . $view . '.php';
+        // View missing in the active theme: borrow the default theme's view, keep the active layout.
+        $file = $mgr->themesPath() . '/default/' . $view . '.php';
     }
-    if (!file_exists($file)) {
+    if (!file_exists($file) || !file_exists($themePath . '/layout.php')) {
         return Response::make("View not found: {$view}", 500);
     }
 
     $data['view'] = $view;
+    $data['viewFile'] = $file;
     $data['themePath'] = $themePath;
     $data['activeTheme'] = $mgr->activeSlug();
     extract($data);

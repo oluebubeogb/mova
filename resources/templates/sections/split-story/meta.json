@@ -1,0 +1,46 @@
+{
+    "name": "Image + text",
+    "category": "content",
+    "tags": [
+        "about",
+        "split",
+        "image",
+        "checklist"
+    ],
+    "description": "Story block with checklist and image; flip with \"reverse\".",
+    "preview": "/assets/templates/previews/split-story.png",
+    "type": "split",
+    "slots": [
+        "eyebrow",
+        "title",
+        "lead",
+        "items",
+        "buttons",
+        "images"
+    ],
+    "constraints": [
+        "Keep the root <section class=\"mx mx-…\"> and inner <div class=\"mx-in\"> wrappers.",
+        "Colours, fonts and radius come from theme CSS variables — do not hard-code colours.",
+        "Keep data-reveal attributes; motion is disabled automatically for reduced-motion users.",
+        "Use inline SVG/gradient art or uploaded images only — no external image hosts."
+    ],
+    "spec": {
+        "type": "split",
+        "eyebrow": "Our story",
+        "title": "Small team, big ambitions",
+        "paragraphs": [
+            "We started with a simple idea: great work should feel effortless for the people who receive it.",
+            "Today we partner with organisations of every size to make that idea real."
+        ],
+        "points": [
+            "Independent and founder-led",
+            "Carbon-neutral since 2021",
+            "Clients in 18 countries"
+        ],
+        "primary": {
+            "label": "Meet the team",
+            "href": "/about"
+        },
+        "art": "community"
+    }
+}

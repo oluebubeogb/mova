@@ -42,7 +42,7 @@ unset($_SESSION['_mova_totp_secret_once']);
                     <tbody>
                     <?php foreach ($logins as $l): ?>
                         <tr>
-                            <td><?= htmlspecialchars(date('Y-m-d H:i', strtotime($l['created_at']))) ?></td>
+                            <td><?= hqTimeTag($l['created_at'], 'both') ?></td>
                             <td><?= htmlspecialchars($l['username'] ?? '') ?></td>
                             <td><?= htmlspecialchars($l['ip_address'] ?? '') ?></td>
                             <td><?= !empty($l['success']) ? 'OK' : 'FAIL' ?></td>

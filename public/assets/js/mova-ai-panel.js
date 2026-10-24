@@ -8,8 +8,11 @@
   var STORAGE_OPEN = 'mova_ai_panel_open';
   var STORAGE_SESSION = 'mova_ai_session_id';
   var STORAGE_OFFLINE_Q = 'mova_ai_offline_queue';
-  var STORAGE_BG_MODE = 'mova_ai_bg_mode';
-  var STORAGE_RAW_MODE = 'mova_ai_raw_mode';
+  // RAW switch: remembered per HQ user, starts OFF (new key, so the old "Plain chat" value is ignored).
+  function rawStorageKey() {
+    var p = document.getElementById('mova-ai-panel');
+    return 'mova_ai_raw:' + ((p && p.getAttribute('data-uid')) || '0');
+  }
   var lastUserMessage = '';
   var jobPollTimer = null;
   var knownJobIds = {};
@@ -116,7 +119,6 @@
     sessionId: null,
     busy: false,
     view: 'chat',
-    bgMode: true,
     rawMode: false,
     activeJobs: {},
     templateId: null
@@ -143,15 +145,39 @@
     setOpen(!state.open);
   }
 
+  // Mobile: hide the floating AI button while a form field is focused so it never covers inputs.
+  (function guardFab() {
+    var mq = window.matchMedia ? window.matchMedia('(max-width: 720px)') : null;
+    var t = null;
+    function isField(n) {
+      if (!n || (el('mova-ai-panel') && el('mova-ai-panel').contains(n))) return false;
+      if (n.isContentEditable) return true;
+      var tag = (n.tagName || '').toLowerCase();
+      if (tag === 'textarea' || tag === 'select') return true;
+      if (tag !== 'input') return false;
+      return ['button', 'submit', 'reset', 'checkbox', 'radio', 'range', 'color', 'file', 'image', 'hidden'].indexOf((n.type || 'text').toLowerCase()) === -1;
+    }
+    document.addEventListener('focusin', function (e) {
+      if (mq && !mq.matches) return;
+      if (!isField(e.target)) return;
+      clearTimeout(t);
+      document.body.classList.add('mova-ai-typing');
+    });
+    document.addEventListener('focusout', function (e) {
+      if (!isField(e.target)) return;
+      clearTimeout(t);
+      t = setTimeout(function () {
+        if (!isField(document.activeElement)) document.body.classList.remove('mova-ai-typing');
+      }, 150);
+    });
+  })();
+
   function showSessionsView(show) {
-    if (show) showJobsView(false);
     state.view = show ? 'sessions' : 'chat';
     var list = el('mova-ai-sessions');
     var messages = el('mova-ai-messages');
     var composer = document.querySelector('.mova-ai-composer');
-    var jobs = el('mova-ai-jobs');
     if (list) list.hidden = !show;
-    if (jobs && show) jobs.hidden = true;
     if (messages) messages.hidden = !!show;
     if (composer) composer.hidden = !!show;
     var title = document.querySelector('.mova-ai-panel-header h2');
@@ -160,26 +186,6 @@
         ? 'Sessions <span class="mova-ai-badge">HQ</span>'
         : 'Mova AI <span class="mova-ai-badge">HQ</span>';
     }
-  }
-
-  function showJobsView(show) {
-    if (show) showSessionsView(false);
-    state.view = show ? 'jobs' : 'chat';
-    var jobs = el('mova-ai-jobs');
-    var messages = el('mova-ai-messages');
-    var composer = document.querySelector('.mova-ai-composer');
-    var sessions = el('mova-ai-sessions');
-    if (jobs) jobs.hidden = !show;
-    if (sessions && show) sessions.hidden = true;
-    if (messages) messages.hidden = !!show;
-    if (composer) composer.hidden = !!show;
-    var title = document.querySelector('.mova-ai-panel-header h2');
-    if (title) {
-      title.innerHTML = show
-        ? 'Jobs <span class="mova-ai-badge">BG</span>'
-        : 'Mova AI <span class="mova-ai-badge">HQ</span>';
-    }
-    if (show) refreshJobsList();
   }
 
   function offlineQueue() {
@@ -203,108 +209,7 @@
       created_at: new Date().toISOString()
     });
     saveOfflineQueue(q);
-    updateJobsBadge();
     return q[q.length - 1];
-  }
-
-  function updateJobsBadge() {
-    var badge = el('mova-ai-jobs-badge');
-    if (!badge) return;
-    var active = 0;
-    Object.keys(state.activeJobs).forEach(function (k) {
-      var j = state.activeJobs[k];
-      if (j && (j.status === 'queued' || j.status === 'running')) active++;
-    });
-    active += offlineQueue().length;
-    if (active > 0) {
-      badge.hidden = false;
-      badge.textContent = String(active > 9 ? '9+' : active);
-    } else {
-      badge.hidden = true;
-    }
-  }
-
-  function refreshJobsList() {
-    var list = el('mova-ai-jobs-list');
-    if (!list) return;
-    list.innerHTML = '<p class="mova-ai-jobs-loading">Loading…</p>';
-
-    var offline = offlineQueue();
-    var html = '';
-    if (offline.length) {
-      html += '<div class="mova-ai-jobs-section">Offline queue</div>';
-      offline.forEach(function (item) {
-        html += '<div class="mova-ai-job-row is-offline">' +
-          '<div class="mova-ai-job-title">' + escapeHtml((item.prompt || '').slice(0, 80)) + '</div>' +
-          '<div class="mova-ai-job-meta">Waiting for network</div></div>';
-      });
-    }
-
-    fetch('/hq/ai/jobs?active=0', { credentials: 'same-origin' })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (!list) return;
-        var jobs = (data && data.jobs) || [];
-        jobs.forEach(function (j) {
-          if (j.status === 'queued' || j.status === 'running') {
-            state.activeJobs[j.id] = j;
-          }
-        });
-        updateJobsBadge();
-        if (!jobs.length && !offline.length) {
-          list.innerHTML = '<p class="mova-ai-jobs-empty">No background jobs yet. Enable Background and send a prompt — coding tasks run longer without blocking the panel.</p>';
-          return;
-        }
-        html += '<div class="mova-ai-jobs-section">Recent</div>';
-        jobs.slice(0, 20).forEach(function (j) {
-          var st = j.status || '';
-          var prog = j.progress || st;
-          html += '<div class="mova-ai-job-row is-' + escapeHtml(st) + '" data-job="' + j.id + '">' +
-            '<div class="mova-ai-job-title">' + escapeHtml((j.prompt || '').slice(0, 80)) + '</div>' +
-            '<div class="mova-ai-job-meta">' +
-            '<span class="mova-ai-job-status">' + escapeHtml(st) + '</span> · ' +
-            escapeHtml(prog) +
-            (j.provider ? ' · ' + escapeHtml(j.provider) : '') +
-            '</div></div>';
-        });
-        list.innerHTML = html;
-        list.querySelectorAll('[data-job]').forEach(function (row) {
-          row.addEventListener('click', function () {
-            var id = parseInt(row.getAttribute('data-job'), 10);
-            openJobResult(id);
-          });
-        });
-      })
-      .catch(function () {
-        if (!offline.length) {
-          list.innerHTML = '<p class="mova-ai-jobs-empty">Could not load jobs.</p>';
-        } else {
-          list.innerHTML = html;
-        }
-      });
-  }
-
-  function openJobResult(id) {
-    fetch('/hq/ai/jobs/' + id, { credentials: 'same-origin' })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (!data || !data.ok || !data.job) return;
-        var j = data.job;
-        showJobsView(false);
-        if (j.session_id) {
-          state.sessionId = j.session_id;
-          try { localStorage.setItem(STORAGE_SESSION, String(j.session_id)); } catch (e) {}
-        }
-        if (j.status === 'done' && j.reply) {
-          appendMessage('user', j.prompt, null, null);
-          appendMessage('assistant', j.reply, j.actions || [], j.provider || null);
-        } else if (j.status === 'failed') {
-          appendMessage('assistant', j.error || 'Job failed.', null, 'error');
-        } else {
-          appendMessage('assistant', 'Job is still ' + j.status + ': ' + (j.progress || ''), null, null);
-        }
-      })
-      .catch(function () {});
   }
 
   function startJobPolling() {
@@ -317,10 +222,7 @@
 
   function pollActiveJobs() {
     var ids = Object.keys(state.activeJobs);
-    if (!ids.length) {
-      updateJobsBadge();
-      return;
-    }
+    if (!ids.length) return;
     ids.forEach(function (id) {
       fetch('/hq/ai/jobs/' + id, { credentials: 'same-origin' })
         .then(function (r) { return r.json(); })
@@ -332,12 +234,13 @@
           if (j.status === 'queued') {
             kickProcess(j.id);
           }
+          if ((j.status === 'queued' || j.status === 'running') && j.progress && (!j.session_id || !state.sessionId || j.session_id === state.sessionId)) {
+            setThinkingProgress(j.progress);
+          }
           if (j.status === 'done' || j.status === 'failed' || j.status === 'cancelled') {
             onJobFinished(j);
             delete state.activeJobs[j.id];
           }
-          updateJobsBadge();
-          if (state.view === 'jobs') refreshJobsList();
         })
         .catch(function () {});
     });
@@ -366,14 +269,13 @@
       try { localStorage.setItem(STORAGE_SESSION, String(j.session_id)); } catch (e) {}
     }
     // Only surface if user is on that session or no session filter
+    notifyJobFinished(j);
     if (j.session_id && state.sessionId && j.session_id !== state.sessionId) {
-      updateJobsBadge();
+      if (!Object.keys(state.activeJobs).some(function (k) { return String(k) !== String(j.id); })) releaseComposer();
       return;
     }
     removeThinking();
-    state.busy = false;
-    var sendBtn = el('mova-ai-send');
-    if (sendBtn) sendBtn.disabled = false;
+    releaseComposer();
     if (j.status === 'done') {
       appendMessage('assistant', j.reply || 'Done.', j.actions || [], j.provider || 'Mova AI');
       (j.actions || []).forEach(function (a) {
@@ -383,7 +285,22 @@
     } else if (j.status === 'failed') {
       appendMessage('assistant', j.error || 'Background job failed. Try again.', null, 'error');
     }
-    updateJobsBadge();
+  }
+
+  function releaseComposer() {
+    state.busy = false;
+    var sendBtn = el('mova-ai-send');
+    if (sendBtn) sendBtn.disabled = false;
+  }
+
+  // Lets hq-p5.js show its "task finished" toast without a jobs badge.
+  function notifyJobFinished(j) {
+    try {
+      var panel = el('mova-ai-panel');
+      document.dispatchEvent(new CustomEvent('mova-ai:job-finished', { detail: {
+        id: j.id, status: j.status, panelOpen: !!(panel && panel.classList.contains('is-open'))
+      } }));
+    } catch (e) {}
   }
 
   function decodeEntities(s) {
@@ -627,7 +544,6 @@
     var body = new URLSearchParams();
     body.set('_mova_csrf', csrfToken());
     body.set('message', text);
-    body.set('background', '1');
     if (sessionId) body.set('session_id', String(sessionId));
     if (clientKey) body.set('client_key', clientKey);
     body.set('route', ctx.route || '');
@@ -635,10 +551,7 @@
     body.set('layer', ctx.layer || '');
     if (ctx.entity_id) body.set('entity_id', String(ctx.entity_id));
     if (ctx.template_id) body.set('template_id', String(ctx.template_id));
-    var rawCheck = el('mova-ai-raw-mode');
-    var useRaw = state.rawMode;
-    if (rawCheck) useRaw = !!rawCheck.checked;
-    if (useRaw) body.set('mode', 'raw');
+    if (state.rawMode) body.set('mode', 'raw');
 
     return fetch('/hq/ai/jobs', {
       method: 'POST',
@@ -654,7 +567,6 @@
         if (data && data.job) {
           state.activeJobs[data.job.id] = data.job;
           if (data.job.status === 'queued') kickProcess(data.job.id);
-          updateJobsBadge();
           startJobPolling();
           return data.job;
         }
@@ -733,10 +645,19 @@
     div._movaTimer = setInterval(function () {
       i = (i + 1) % thinkingPhrases.length;
       var st = el('mova-ai-thinking-status');
-      if (st) st.textContent = thinkingPhrases[i];
+      // Server-side job progress wins over the rotating phrases once it arrives.
+      if (st) st.textContent = div._movaProgress || thinkingPhrases[i];
       var elap = el('mova-ai-elapsed');
       if (elap) elap.textContent = formatElapsed((Date.now() - started) / 1000);
     }, 1000);
+  }
+
+  function setThinkingProgress(text) {
+    var t = el('mova-ai-thinking');
+    if (!t || !text) return;
+    t._movaProgress = String(text);
+    var st = el('mova-ai-thinking-status');
+    if (st) st.textContent = t._movaProgress;
   }
 
   function removeThinking() {
@@ -747,13 +668,12 @@
     }
   }
 
-  function applyDesignAction(action, btn) {
-    if (!action || !action.payload) return;
-    if (btn) btn.disabled = true;
+  function postAction(action, extra) {
     var body = new URLSearchParams();
     body.set('_mova_csrf', csrfToken());
     body.set('action_json', JSON.stringify(action));
-    fetch('/hq/ai/action', {
+    Object.keys(extra || {}).forEach(function (k) { body.set(k, extra[k]); });
+    return fetch('/hq/ai/action', {
       method: 'POST',
       credentials: 'same-origin',
       headers: {
@@ -761,32 +681,97 @@
         'X-CSRF-TOKEN': csrfToken()
       },
       body: body.toString()
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (data.ok) {
+    }).then(function (r) {
+      return r.json().catch(function () { return { ok: false, error: 'HTTP ' + r.status }; });
+    });
+  }
+
+  /**
+   * Design, theme and structural changes never run silently: show what will change
+   * (from → to, swatches, warning) and only then POST with confirmed=1.
+   */
+  function confirmAndApply(action, btn) {
+    if (!action || !action.type) return;
+    var clean = { type: action.type, label: action.label || '', payload: action.payload || {} };
+    if (btn) btn.disabled = true;
+    var getPreview = action.preview
+      ? Promise.resolve({ preview: action.preview })
+      : postAction(clean, { preview: '1' });
+    getPreview
+      .then(function (d) { openConfirm(clean, (d && d.preview) || { title: clean.label || 'Apply change', lines: [] }, btn); })
+      .catch(function () { openConfirm(clean, { title: clean.label || 'Apply change', lines: [] }, btn); });
+  }
+
+  function openConfirm(action, preview, btn) {
+    var old = document.getElementById('mova-ai-confirm');
+    if (old) old.remove();
+    var wrap = document.createElement('div');
+    wrap.id = 'mova-ai-confirm';
+    wrap.className = 'mova-ai-confirm';
+    wrap.setAttribute('role', 'dialog');
+    wrap.setAttribute('aria-modal', 'true');
+    var rows = (preview.lines || []).map(function (l) {
+      var sw = function (c) {
+        return l.swatch && /^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? '<span class="mova-ai-swatch" style="background:' + c + '"></span>' : '';
+      };
+      var from = l.from !== undefined && l.from !== '' ? sw(l.from) + '<code>' + escapeHtml(String(l.from)) + '</code>' : '';
+      var to = sw(l.to) + '<code>' + escapeHtml(String(l.to === undefined ? '' : l.to)) + '</code>';
+      return '<tr><th>' + escapeHtml(l.label || '') + '</th><td>' + from + '</td><td class="mova-ai-arrow">' + (from ? '→' : '') + '</td><td>' + to + '</td></tr>';
+    }).join('');
+    wrap.innerHTML =
+      '<div class="mova-ai-confirm-card">' +
+        '<div class="mova-ai-confirm-head"><i class="fa-solid fa-shield-halved"></i> Confirm change</div>' +
+        '<h4>' + escapeHtml(preview.title || action.label || 'Apply change') + '</h4>' +
+        (rows ? '<table class="mova-ai-confirm-table"><tbody>' + rows + '</tbody></table>' : '') +
+        (preview.warning ? '<p class="mova-ai-confirm-warn"><i class="fa-solid fa-triangle-exclamation"></i> ' + escapeHtml(preview.warning) + '</p>' : '') +
+        '<div class="mova-ai-confirm-btns">' +
+          '<button type="button" class="hq-btn hq-btn--ghost" data-cancel>Cancel</button>' +
+          '<button type="button" class="hq-btn hq-btn--primary" data-ok><i class="fa-solid fa-check"></i> Apply</button>' +
+        '</div>' +
+      '</div>';
+    (el('mova-ai-panel') || document.body).appendChild(wrap);
+    var okBtn = wrap.querySelector('[data-ok]');
+    function close() { wrap.remove(); if (btn) btn.disabled = false; }
+    wrap.querySelector('[data-cancel]').addEventListener('click', function () {
+      close();
+      appendMessage('assistant', 'Okay — nothing was changed.', null, null);
+    });
+    wrap.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+    okBtn.focus();
+    okBtn.addEventListener('click', function () {
+      okBtn.disabled = true;
+      okBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Applying…';
+      postAction(action, { confirmed: '1' })
+        .then(function (data) {
+          wrap.remove();
+          if (!data.ok) {
+            appendMessage('assistant', data.error || 'Could not apply the change.', null, null);
+            return;
+          }
           var result = data.result || {};
           if (result.css_vars) applyCssVars(result.css_vars);
-          var onStyle = (window.location.pathname || '').indexOf('/hq/style') === 0;
-          appendMessage(
-            'assistant',
-            onStyle
-              ? 'Colors applied live — no reload needed.'
-              : 'Colors applied without a full reload. Open Style only if you want the form fields.',
-            onStyle ? null : [{ type: 'navigate', label: 'Open Style (optional)', path: result.path || '/hq/style' }],
-            null
-          );
-        } else {
-          appendMessage('assistant', data.error || 'Could not apply design changes.', null, null);
-        }
-      })
-      .catch(function () {
-        appendMessage('assistant', 'Network error applying design changes.', null, null);
-      })
-      .finally(function () {
-        if (btn) btn.disabled = false;
-      });
+          if (action.type === 'update_design_tokens') {
+            var onStyle = (window.location.pathname || '').indexOf('/hq/style') === 0;
+            appendMessage('assistant', 'Colors applied live — no reload needed.',
+              onStyle ? null : [{ type: 'navigate', label: 'Open Style (optional)', path: result.path || '/hq/style' }], null);
+          } else if (action.type === 'switch_theme') {
+            appendMessage('assistant', 'Theme switched to “' + (result.theme || (action.payload || {}).theme || '') + '”.',
+              [{ type: 'navigate', label: 'Open Themes', path: result.path || '/hq/themes' }, { type: 'navigate', label: 'View site', path: '/' }], null);
+          } else {
+            appendMessage('assistant', result.message || 'Change applied. A revision was saved.',
+              result.path ? [{ type: 'navigate', label: 'Open', path: result.path }] : null, null);
+          }
+        })
+        .catch(function () {
+          wrap.remove();
+          appendMessage('assistant', 'Network error applying the change.', null, null);
+        })
+        .finally(function () { if (btn) btn.disabled = false; });
+    });
   }
+
+  // Back-compat name used elsewhere in the panel.
+  function applyDesignAction(action, btn) { confirmAndApply(action, btn); }
 
   function copyText(text, btn) {
     var done = function () {
@@ -878,14 +863,16 @@
             '<i class="fa-solid fa-arrow-up-right-from-square"></i> ' +
             escapeHtml(a.label || 'Open');
           act.appendChild(link);
-        } else if (a.type === 'update_design_tokens') {
+        } else if (a.type === 'update_design_tokens' || a.type === 'switch_theme' || (a.confirm && a.type === 'update_content')) {
           var btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'mova-ai-apply';
-          btn.innerHTML =
-            '<i class="fa-solid fa-palette"></i> ' + escapeHtml(a.label || 'Apply colors');
+          var icon = a.type === 'update_design_tokens' ? 'fa-palette' : (a.type === 'switch_theme' ? 'fa-swatchbook' : 'fa-pen-to-square');
+          var dflt = a.type === 'update_design_tokens' ? 'Apply colors' : (a.type === 'switch_theme' ? 'Switch theme' : 'Review & apply');
+          btn.innerHTML = '<i class="fa-solid ' + icon + '"></i> ' + escapeHtml(a.label || dflt) +
+            ' <span class="mova-ai-review-tag">review</span>';
           btn.addEventListener('click', function () {
-            applyDesignAction(a, btn);
+            confirmAndApply(a, btn);
           });
           act.appendChild(btn);
         } else if (a.type === 'insert_code' && a.payload && a.payload.code) {
@@ -969,7 +956,7 @@
           btn.className = 'mova-ai-session-item';
           btn.innerHTML =
             '<span class="mova-ai-session-title">' + escapeHtml(s.title || 'Chat') + '</span>' +
-            '<time>' + escapeHtml((s.updated_at || '').slice(0, 16).replace('T', ' ')) + '</time>';
+            (window.MovaTime ? MovaTime.html(s.updated_at, 'rel', '') : '<time>' + escapeHtml((s.updated_at || '').slice(0, 16).replace('T', ' ')) + '</time>');
           btn.addEventListener('click', function () {
             loadSession(s.id);
           });
@@ -1047,6 +1034,8 @@
     if (ta) ta.focus();
   }
 
+  // Every HQ panel request runs as a background job (worker → cron → loopback poke →
+  // browser poll / shutdown fallback), so long answers survive navigation on shared hosting.
   function send() {
     var ta = el('mova-ai-input');
     var btn = el('mova-ai-send');
@@ -1055,115 +1044,59 @@
     if (!text) return;
 
     showSessionsView(false);
-    showJobsView(false);
     lastUserMessage = text;
     appendMessage('user', text, null, null);
     ta.value = '';
 
     var ctx = pageContext();
-    var bgCheck = el('mova-ai-bg-mode');
-    var useBg = state.bgMode;
-    if (bgCheck) useBg = !!bgCheck.checked;
-    // Auto-background for coding-looking prompts
-    var looksCode = /\b(html|css|javascript|code|snippet|pricelist|price list|template:)\b/i.test(text) || text.indexOf('```') !== -1 || !!state.templateId;
-    if (looksCode) useBg = true;
+    var looksCode = !state.rawMode && (/\b(html|css|javascript|code|snippet|pricelist|price list|template:)\b/i.test(text) || text.indexOf('```') !== -1 || !!state.templateId);
 
-    if (useBg) {
-      state.busy = false;
-      if (btn) btn.disabled = false;
-      showThinking();
-      var thinkingLabel = el('mova-ai-thinking');
-      if (thinkingLabel) {
-        var st = el('mova-ai-thinking-status');
-        if (st) st.textContent = looksCode ? 'Queued coding job in background…' : 'Running in background…';
-      }
-
-      if (!navigator.onLine) {
-        enqueueOffline(text, ctx);
-        removeThinking();
-        appendMessage('assistant', 'You are offline. Prompt saved to the background queue and will run when you are back online.', null, 'offline');
-        updateJobsBadge();
-        return;
-      }
-
-      submitBackgroundJob(text, state.sessionId, ctx, null)
-        .then(function (job) {
-          var st = el('mova-ai-thinking-status');
-          if (st) st.textContent = (job.progress || 'Working…') + ' — safe to keep browsing';
-          // Keep light thinking until first progress poll finishes job
-          startJobPolling();
-        })
-        .catch(function () {
-          removeThinking();
-          // Fallback to sync chat
-          sendSync(text, ctx);
-        });
+    if (!navigator.onLine) {
+      enqueueOffline(text, ctx);
+      appendMessage('assistant', 'You are offline. Prompt saved and will run in the background when you are back online.', null, 'offline');
       return;
     }
 
-    sendSync(text, ctx);
-  }
-
-  function sendSync(text, ctx) {
-    var btn = el('mova-ai-send');
     state.busy = true;
     if (btn) btn.disabled = true;
     showThinking();
+    setThinkingProgress(state.rawMode ? 'Raw chat · queued…' : (looksCode ? 'Queued coding job…' : 'Queued…'));
 
-    var body = new URLSearchParams();
-    body.set('_mova_csrf', csrfToken());
-    body.set('message', text);
-    if (state.sessionId) body.set('session_id', String(state.sessionId));
-    ctx = ctx || pageContext();
-    body.set('route', ctx.route);
-    body.set('area', ctx.area);
-    body.set('layer', ctx.layer);
-    if (ctx.entity_id) body.set('entity_id', String(ctx.entity_id));
-    if (ctx.template_id) body.set('template_id', String(ctx.template_id));
-    var rawCheck = el('mova-ai-raw-mode');
-    var useRaw = state.rawMode;
-    if (rawCheck) useRaw = !!rawCheck.checked;
-    if (useRaw) body.set('mode', 'raw');
-
-    fetch('/hq/ai/chat', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'X-CSRF-TOKEN': csrfToken()
-      },
-      body: body.toString()
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        removeThinking();
-        if (data.session_id) {
-          state.sessionId = data.session_id;
-          try {
-            localStorage.setItem(STORAGE_SESSION, String(data.session_id));
-          } catch (e) {}
+    submitBackgroundJob(text, state.sessionId, ctx, null)
+      .then(function (job) {
+        if (job && job.session_id && !state.sessionId) {
+          state.sessionId = job.session_id;
+          try { localStorage.setItem(STORAGE_SESSION, String(job.session_id)); } catch (e) {}
         }
-        var acts = data.actions || [];
-        acts.forEach(function (a) {
-          if (a && a.type === 'navigate' && a.soft) softFillEditor(a);
-          if (a && a.type === 'insert_code') applyInsertCode(a);
-        });
-        appendMessage(
-          'assistant',
-          data.reply || data.error || 'No response',
-          acts,
-          data.provider || null
-        );
+        setThinkingProgress((job.progress || 'Working…') + ' · safe to keep browsing');
+        startJobPolling();
       })
-      .catch(function () {
+      .catch(function (err) {
         removeThinking();
-        appendMessage('assistant', 'Network error talking to Mova AI.', null, null);
-      })
-      .finally(function () {
-        removeThinking();
-        state.busy = false;
-        if (btn) btn.disabled = false;
+        releaseComposer();
+        appendMessage('assistant', (err && err.message && err.message !== 'Job failed') ? err.message : 'Could not start the AI job. Check your connection and try again.', null, 'error');
       });
+  }
+
+  function setRaw(on, persist) {
+    state.rawMode = !!on;
+    var sw = el('mova-ai-raw-mode');
+    if (sw) sw.setAttribute('aria-checked', state.rawMode ? 'true' : 'false');
+    var panel = el('mova-ai-panel');
+    if (panel) panel.classList.toggle('is-raw', state.rawMode);
+    if (persist) {
+      try { localStorage.setItem(rawStorageKey(), state.rawMode ? '1' : '0'); } catch (e) {}
+    }
+  }
+
+  function bindRawSwitch() {
+    var sw = el('mova-ai-raw-mode');
+    if (!sw) return;
+    var saved = null;
+    try { saved = localStorage.getItem(rawStorageKey()); } catch (e) {}
+    setRaw(saved === '1', false);
+    sw.addEventListener('click', function () { setRaw(!state.rawMode, true); });
+    // role=switch: Space/Enter already click a <button>; nothing extra needed.
   }
 
   function bind() {
@@ -1184,42 +1117,11 @@
         if (show) loadSessions();
       });
     }
-    var jobsToggle = el('mova-ai-jobs-toggle');
-    if (jobsToggle) {
-      jobsToggle.addEventListener('click', function () {
-        var show = state.view !== 'jobs';
-        showJobsView(show);
-      });
-    }
-    var jobsRefresh = el('mova-ai-jobs-refresh');
-    if (jobsRefresh) {
-      jobsRefresh.addEventListener('click', refreshJobsList);
-    }
-    var bgCheck = el('mova-ai-bg-mode');
-    if (bgCheck) {
-      try {
-        var saved = localStorage.getItem(STORAGE_BG_MODE);
-        if (saved === '0') bgCheck.checked = false;
-        if (saved === '1') bgCheck.checked = true;
-      } catch (e) {}
-      state.bgMode = !!bgCheck.checked;
-      bgCheck.addEventListener('change', function () {
-        state.bgMode = !!bgCheck.checked;
-        try { localStorage.setItem(STORAGE_BG_MODE, state.bgMode ? '1' : '0'); } catch (e2) {}
-      });
-    }
-    var rawCheck = el('mova-ai-raw-mode');
-    if (rawCheck) {
-      try {
-        var savedRaw = localStorage.getItem(STORAGE_RAW_MODE);
-        if (savedRaw === '1') rawCheck.checked = true;
-        if (savedRaw === '0') rawCheck.checked = false;
-      } catch (e) {}
-      state.rawMode = !!rawCheck.checked;
-      rawCheck.addEventListener('change', function () {
-        state.rawMode = !!rawCheck.checked;
-        try { localStorage.setItem(STORAGE_RAW_MODE, state.rawMode ? '1' : '0'); } catch (e2) {}
-      });
+    bindRawSwitch();
+    var hint = el('mova-ai-hint');
+    if (hint && /Mac|iPhone|iPad|iPod/i.test((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '')) {
+      var mod = hint.querySelector('[data-kbd-mod]');
+      if (mod) mod.textContent = '\u2318J';
     }
     window.addEventListener('online', function () { flushOfflineQueue(); });
     startJobPolling();
@@ -1231,7 +1133,6 @@
           state.activeJobs[j.id] = j;
           if (j.status === 'queued') kickProcess(j.id);
         });
-        updateJobsBadge();
       })
       .catch(function () {});
     flushOfflineQueue();
@@ -1295,7 +1196,6 @@
     g.hidden = !open;
     if (open) {
       showSessionsView(false);
-      showJobsView(false);
     }
   }
 
@@ -1310,7 +1210,7 @@
     var box = el('mova-ai-guide-templates');
     var catBox = el('mova-ai-guide-categories');
     if (!box) return;
-    box.innerHTML = '<p class="mova-ai-jobs-loading">Loading templates…</p>';
+    box.innerHTML = '<p class="mova-ai-jobs-loading">Loading sections…</p>';
     var done = function (list) {
       guideCache = list || [];
       var cats = {};
@@ -1333,11 +1233,11 @@
       }
       var filtered = !category ? guideCache : guideCache.filter(function (t) { return t.category === category; });
       if (!filtered.length) {
-        box.innerHTML = '<p class="mova-ai-jobs-empty">No templates in this category.</p>';
+        box.innerHTML = '<p class="mova-ai-jobs-empty">No sections in this category.</p>';
         return;
       }
       box.innerHTML = filtered.map(function (t) {
-        var img = t.preview ? '<img src="' + escapeHtml(t.preview) + '" alt="">' : '<span style="width:56px;height:34px;background:#e2e8f0;border-radius:4px;display:inline-block"></span>';
+        var img = t.preview ? '<img src="' + escapeHtml(t.thumb || t.preview) + '" alt="" loading="lazy">' : '<span style="width:56px;height:34px;background:#e2e8f0;border-radius:4px;display:inline-block"></span>';
         return '<button type="button" class="mova-ai-guide-tpl" data-tpl-id="' + escapeHtml(t.id) + '">' +
           img +
           '<span class="mova-ai-guide-tpl-copy"><strong>' + escapeHtml(t.name) + '</strong><span>' + escapeHtml(t.description || t.id) + '</span></span></button>';
@@ -1359,7 +1259,7 @@
       .then(function (r) { return r.json(); })
       .then(function (data) { done((data && data.templates) || []); })
       .catch(function () {
-        box.innerHTML = '<p class="mova-ai-jobs-empty">Could not load templates.</p>';
+        box.innerHTML = '<p class="mova-ai-jobs-empty">Could not load sections.</p>';
       });
   }
 
@@ -1430,7 +1330,7 @@
           opts.push(b.getAttribute('data-guide-opt'));
         });
         var msg = 'template:' + state.templateId + '\n\n';
-        msg += brief || 'Adapt this template for my site. Keep structure and classes.';
+        msg += brief || 'Adapt this section for my site. Keep structure and classes.';
         if (opts.indexOf('keep_colors') !== -1) msg += '\nUse existing site color variables.';
         if (opts.indexOf('featured_middle') !== -1) msg += '\nKeep the middle plan featured.';
         var ta = el('mova-ai-input');

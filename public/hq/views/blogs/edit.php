@@ -152,10 +152,10 @@ $publicPath = $isDefault || $slug === 'blog' ? '/blog' : '/blog/' . htmlspecialc
         </div>
 
         <div class="form-group" style="margin-top:1.25rem">
-          <label>Template</label>
+          <label id="b-tpl-label">Post layout</label>
           <p class="field-hint" style="margin-top:0">Pick a preset or design your own. Download samples to edit offline.</p>
           <input type="hidden" name="template_mode" id="b-tpl-mode" value="<?= htmlspecialchars(in_array($tplMode, ['default','modern','minimal','custom'], true) ? $tplMode : 'default') ?>">
-          <div class="blog-tpl-picks" id="blog-tpl-picks">
+          <div class="blog-tpl-picks" id="blog-tpl-picks" role="group" aria-labelledby="b-tpl-label">
             <button type="button" class="blog-tpl-card<?= ($tplMode==='default' || $tplMode==='') ? ' is-active' : '' ?>" data-mode="default" title="Default">
               <div class="blog-tpl-mock blog-tpl-mock-default" aria-hidden="true">
                 <div class="btm-row"><span class="btm-cat"></span></div>

@@ -128,6 +128,17 @@ final class KitRepository
             }
         }
 
+        // Real screenshot previews (bin/capture.php kits) live in public/assets/kits/<id>/.
+        $pub = dirname(__DIR__, 3) . '/public/assets/kits/';
+        foreach ($items as &$it) {
+            $id = (string) ($it['id'] ?? '');
+            foreach (['preview_url' => 'preview.png', 'preview_mobile_url' => 'preview-mobile.png'] as $k => $f) {
+                $file = $pub . $id . '/' . $f;
+                $it[$k] = ($id !== '' && is_file($file)) ? '/assets/kits/' . rawurlencode($id) . '/' . $f . '?v=' . filemtime($file) : '';
+            }
+        }
+        unset($it);
+
         if ($pack !== null && $pack !== '') {
             $want = self::normalizePack($pack);
             $items = array_values(array_filter($items, static function ($i) use ($want) {
@@ -151,6 +162,9 @@ final class KitRepository
     /** @return array<string,mixed>|null */
     public static function load(string $id): ?array
     {
+        if (!preg_match('/^[a-z0-9][a-z0-9_-]{0,63}$/i', $id)) {
+            return null;
+        }
         $root = self::kitsRoot();
         $path = null;
         foreach (self::list() as $item) {
@@ -172,6 +186,12 @@ final class KitRepository
         }
         $kit['_path'] = $path;
         $kit['pages_resolved'] = [];
+        if ((int) ($kit['schema'] ?? 1) >= 2) {
+            // v2: pages are section specs rendered by KitRenderer; no files, no raw CSS/JS.
+            $kit['css_combined'] = '';
+            $kit['js_combined'] = '';
+            return $kit;
+        }
         foreach ($kit['pages'] ?? [] as $page) {
             $file = $path . '/' . ($page['file'] ?? '');
             $html = is_file($file) ? (string) file_get_contents($file) : '';

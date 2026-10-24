@@ -1,0 +1,41 @@
+{
+    "name": "CTA band",
+    "category": "cta",
+    "tags": [
+        "cta",
+        "gradient",
+        "band",
+        "conversion"
+    ],
+    "description": "Full-width gradient call-to-action band.",
+    "preview": "/assets/templates/previews/cta-band.png",
+    "type": "cta",
+    "slots": [
+        "eyebrow",
+        "title",
+        "lead",
+        "items",
+        "buttons",
+        "images"
+    ],
+    "constraints": [
+        "Keep the root <section class=\"mx mx-…\"> and inner <div class=\"mx-in\"> wrappers.",
+        "Colours, fonts and radius come from theme CSS variables — do not hard-code colours.",
+        "Keep data-reveal attributes; motion is disabled automatically for reduced-motion users.",
+        "Use inline SVG/gradient art or uploaded images only — no external image hosts."
+    ],
+    "spec": {
+        "type": "cta",
+        "variant": "band",
+        "title": "Ready to get started?",
+        "lead": "Join thousands of happy customers today. It only takes a minute.",
+        "primary": {
+            "label": "Get started",
+            "href": "/contact"
+        },
+        "secondary": {
+            "label": "Talk to us",
+            "href": "/contact"
+        }
+    }
+}

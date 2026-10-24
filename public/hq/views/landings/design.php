@@ -15,7 +15,7 @@
   <header class="hq-landing-header">
     <p class="hq-landing-kicker"><i class="fa-solid fa-palette"></i> Design</p>
     <h1 class="hq-landing-title">Design workspace</h1>
-    <p class="hq-landing-desc">Shape how your site looks and feels — templates, brand, style tokens, layout, components, elements, and shared variables.</p>
+    <p class="hq-landing-desc">Shape how your site looks and feels — sections, brand, style tokens, layout, components, elements, and shared variables.</p>
   </header>
 
   <div class="hq-landing-grid">
@@ -23,8 +23,8 @@
       <div class="hq-landing-card-inner">
         <div class="hq-landing-icon is-mix"><i class="fa-solid fa-table-cells-large"></i></div>
         <div class="hq-landing-card-body">
-          <strong>Templates</strong>
-          <span>Pricing & layout seeds — adapt with AI</span>
+          <strong>Sections</strong>
+          <span>Ready-made sections — pricing, heroes, FAQs — adapt with AI</span>
         </div>
       </div>
       <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>

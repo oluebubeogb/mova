@@ -37,8 +37,8 @@ $renderSystemSwatch = static function (string $key, string $label, string $val, 
     ?>
     <div class="token-swatch">
         <span class="token-swatch-label"><?= htmlspecialchars($label) ?></span>
-        <input type="color" class="token-color-picker" data-hex-target="<?= htmlspecialchars($id) ?>" value="<?= htmlspecialchars($pickerVal) ?>">
-        <input type="text" class="token-hex-input" name="<?= htmlspecialchars($name) ?>" id="<?= htmlspecialchars($id) ?>"
+        <input type="color" class="token-color-picker" aria-label="<?= htmlspecialchars($label) ?> colour picker" data-hex-target="<?= htmlspecialchars($id) ?>" value="<?= htmlspecialchars($pickerVal) ?>">
+        <input type="text" aria-label="<?= htmlspecialchars($label) ?> hex value" class="token-hex-input" name="<?= htmlspecialchars($name) ?>" id="<?= htmlspecialchars($id) ?>"
                value="<?= htmlspecialchars($val) ?>" pattern="#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})"
                placeholder="#000 or #000000" title="HTML hex (#RGB or #RRGGBB)" autocomplete="off">
     </div>
@@ -91,8 +91,8 @@ $renderSystemSwatch = static function (string $key, string $label, string $val, 
                             <span class="token-swatch-label is-editable" data-editable-name title="Double-click to rename"><?= htmlspecialchars($label) ?></span>
                             <input type="hidden" name="custom_slug[]" value="<?= htmlspecialchars($slug) ?>" class="custom-slug-input">
                             <input type="hidden" name="custom_label[]" value="<?= htmlspecialchars($label) ?>" class="custom-label-input">
-                            <input type="color" class="token-color-picker" data-hex-target="<?= htmlspecialchars($id) ?>" value="<?= htmlspecialchars($pickerVal) ?>">
-                            <input type="text" class="token-hex-input custom-light-hex" name="custom_light[]" id="<?= htmlspecialchars($id) ?>"
+                            <input type="color" class="token-color-picker" aria-label="<?= htmlspecialchars($label) ?> colour picker" data-hex-target="<?= htmlspecialchars($id) ?>" value="<?= htmlspecialchars($pickerVal) ?>">
+                            <input type="text" aria-label="<?= htmlspecialchars($label) ?> hex value" class="token-hex-input custom-light-hex" name="custom_light[]" id="<?= htmlspecialchars($id) ?>"
                                    value="<?= htmlspecialchars($val) ?>" pattern="#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})"
                                    placeholder="#ffffff" autocomplete="off">
                         </div>
@@ -102,8 +102,8 @@ $renderSystemSwatch = static function (string $key, string $label, string $val, 
                         <span class="token-swatch-label is-editable" data-editable-name title="Double-click to rename">Custom</span>
                         <input type="hidden" name="custom_slug[]" value="" class="custom-slug-input" disabled>
                         <input type="hidden" name="custom_label[]" value="Custom" class="custom-label-input" disabled>
-                        <input type="color" class="token-color-picker" data-hex-target="color_custom_blank_light" value="#ffffff">
-                        <input type="text" class="token-hex-input custom-light-hex" name="custom_light[]" id="color_custom_blank_light"
+                        <input type="color" class="token-color-picker" aria-label="Custom colour picker" data-hex-target="color_custom_blank_light" value="#ffffff">
+                        <input type="text" aria-label="Custom hex value" class="token-hex-input custom-light-hex" name="custom_light[]" id="color_custom_blank_light"
                                value="#ffffff" pattern="#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})" placeholder="#ffffff" autocomplete="off" disabled>
                         <span class="token-swatch-hint">Double-click name to claim</span>
                     </div>
@@ -126,8 +126,8 @@ $renderSystemSwatch = static function (string $key, string $label, string $val, 
                         <div class="token-swatch is-custom is-committed" data-custom-index="<?= (int) $i ?>">
                             <span class="token-swatch-label" data-synced-label="<?= htmlspecialchars($slug) ?>"><?= htmlspecialchars($label) ?></span>
                             <input type="hidden" name="custom_dark_slug[]" value="<?= htmlspecialchars($slug) ?>">
-                            <input type="color" class="token-color-picker" data-hex-target="<?= htmlspecialchars($id) ?>" value="<?= htmlspecialchars($pickerVal) ?>">
-                            <input type="text" class="token-hex-input custom-dark-hex" name="custom_dark[]" id="<?= htmlspecialchars($id) ?>"
+                            <input type="color" class="token-color-picker" aria-label="<?= htmlspecialchars($label) ?> colour picker" data-hex-target="<?= htmlspecialchars($id) ?>" value="<?= htmlspecialchars($pickerVal) ?>">
+                            <input type="text" aria-label="<?= htmlspecialchars($label) ?> hex value" class="token-hex-input custom-dark-hex" name="custom_dark[]" id="<?= htmlspecialchars($id) ?>"
                                    value="<?= htmlspecialchars($val) ?>" pattern="#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})"
                                    placeholder="#ffffff" autocomplete="off">
                         </div>
@@ -135,8 +135,8 @@ $renderSystemSwatch = static function (string $key, string $label, string $val, 
                     <div class="token-swatch is-custom is-blank" id="dark-custom-blank" data-custom-blank="1">
                         <span class="token-swatch-label" data-synced-label="">Custom</span>
                         <input type="hidden" name="custom_dark_slug[]" value="" disabled>
-                        <input type="color" class="token-color-picker" data-hex-target="color_custom_blank_dark" value="#ffffff">
-                        <input type="text" class="token-hex-input custom-dark-hex" name="custom_dark[]" id="color_custom_blank_dark"
+                        <input type="color" class="token-color-picker" aria-label="Custom colour picker" data-hex-target="color_custom_blank_dark" value="#ffffff">
+                        <input type="text" aria-label="Custom hex value" class="token-hex-input custom-dark-hex" name="custom_dark[]" id="color_custom_blank_dark"
                                value="#ffffff" pattern="#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})" placeholder="#ffffff" autocomplete="off" disabled>
                         <span class="token-swatch-hint">Rename on Light colors</span>
                     </div>
@@ -264,8 +264,8 @@ $renderSystemSwatch = static function (string $key, string $label, string $val, 
       '<span class="token-swatch-label is-editable" data-editable-name title="Double-click to rename"></span>' +
       '<input type="hidden" name="custom_slug[]" value="" class="custom-slug-input">' +
       '<input type="hidden" name="custom_label[]" value="" class="custom-label-input">' +
-      '<input type="color" class="token-color-picker" data-hex-target="' + lightId + '" value="' + lightVal + '">' +
-      '<input type="text" class="token-hex-input custom-light-hex" name="custom_light[]" id="' + lightId + '" value="' + lightVal + '" pattern="#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})" placeholder="#ffffff" autocomplete="off">';
+      '<input type="color" class="token-color-picker" aria-label="Custom colour picker" data-hex-target="' + lightId + '" value="' + lightVal + '">' +
+      '<input type="text" aria-label="Custom hex value" class="token-hex-input custom-light-hex" name="custom_light[]" id="' + lightId + '" value="' + lightVal + '" pattern="#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})" placeholder="#ffffff" autocomplete="off">';
     lightCard.querySelector('[data-editable-name]').textContent = label;
     lightCard.querySelector('.custom-slug-input').value = slug;
     lightCard.querySelector('.custom-label-input').value = label;
@@ -280,8 +280,8 @@ $renderSystemSwatch = static function (string $key, string $label, string $val, 
     darkCard.innerHTML =
       '<span class="token-swatch-label" data-synced-label=""></span>' +
       '<input type="hidden" name="custom_dark_slug[]" value="">' +
-      '<input type="color" class="token-color-picker" data-hex-target="' + darkId + '" value="#ffffff">' +
-      '<input type="text" class="token-hex-input custom-dark-hex" name="custom_dark[]" id="' + darkId + '" value="#ffffff" pattern="#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})" placeholder="#ffffff" autocomplete="off">';
+      '<input type="color" class="token-color-picker" aria-label="Custom colour picker" data-hex-target="' + darkId + '" value="#ffffff">' +
+      '<input type="text" aria-label="Custom hex value" class="token-hex-input custom-dark-hex" name="custom_dark[]" id="' + darkId + '" value="#ffffff" pattern="#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})" placeholder="#ffffff" autocomplete="off">';
     darkCard.querySelector('[data-synced-label]').textContent = label;
     darkCard.querySelector('[data-synced-label]').setAttribute('data-synced-label', slug);
     darkCard.querySelector('input[name="custom_dark_slug[]"]').value = slug;

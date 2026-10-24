@@ -1,9 +1,3 @@
 <?php
-/** Lengthy — 404 */
-?>
-<section class="error-page">
-  <p class="error-code">404</p>
-  <h1>Page not found</h1>
-  <p>This content doesn’t exist or isn’t published yet.</p>
-  <p><a href="/">← Back home</a> · <a href="/search">Search</a></p>
-</section>
+/** 404 view — shared implementation (resources/theme-parts/404.php). */
+include \Mova\Theme\SiteFrame::partsPath() . '/404.php';

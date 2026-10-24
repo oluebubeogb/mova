@@ -21,7 +21,7 @@ class ApiKeyService
     {
         $raw = 'mova_' . bin2hex(random_bytes(24));
         $prefix = substr($raw, 0, 12);
-        $hash = password_hash($raw, PASSWORD_ARGON2ID);
+        $hash = password_hash($raw, \Mova\Auth\Auth::passwordAlgo());
 
         $id = Database::insert('api_keys', [
             'name'       => trim($name) ?: 'API Key',
@@ -80,6 +80,20 @@ class ApiKeyService
         }
 
         return null;
+    }
+
+    /**
+     * Alias of authenticate() — validates a raw key and returns the key row (with decoded scopes) or null.
+     */
+    public function validate(?string $token): ?array
+    {
+        return $this->authenticate($token);
+    }
+
+    /** Scopes a key may be issued with (REST API v1). */
+    public static function availableScopes(): array
+    {
+        return \Mova\Api\RestApi::SCOPES;
     }
 
     public function hasScope(array $key, string $scope): bool

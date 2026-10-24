@@ -18,6 +18,7 @@ $router->get('/categories', function () {
 
 $router->post('/categories', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('manage_content')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->status(403)->body('CSRF');
     }
@@ -54,6 +55,7 @@ $router->get('/tags', function () {
 
 $router->post('/tags', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('manage_content')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->status(403)->body('CSRF');
     }

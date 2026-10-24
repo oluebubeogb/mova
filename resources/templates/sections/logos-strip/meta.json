@@ -1,0 +1,57 @@
+{
+    "name": "Logo strip",
+    "category": "logos",
+    "tags": [
+        "logos",
+        "partners",
+        "marquee",
+        "trust"
+    ],
+    "description": "Auto-scrolling partner strip (pauses for reduced motion).",
+    "preview": "/assets/templates/previews/logos-strip.png",
+    "type": "logos",
+    "slots": [
+        "eyebrow",
+        "title",
+        "lead",
+        "items",
+        "buttons",
+        "images"
+    ],
+    "constraints": [
+        "Keep the root <section class=\"mx mx-…\"> and inner <div class=\"mx-in\"> wrappers.",
+        "Colours, fonts and radius come from theme CSS variables — do not hard-code colours.",
+        "Keep data-reveal attributes; motion is disabled automatically for reduced-motion users.",
+        "Use inline SVG/gradient art or uploaded images only — no external image hosts."
+    ],
+    "spec": {
+        "type": "logos",
+        "title": "Trusted by forward-thinking teams",
+        "items": [
+            {
+                "name": "Northwind"
+            },
+            {
+                "name": "Lumen"
+            },
+            {
+                "name": "Evergreen"
+            },
+            {
+                "name": "Polaris"
+            },
+            {
+                "name": "Voltage"
+            },
+            {
+                "name": "Harbor"
+            },
+            {
+                "name": "Summit"
+            },
+            {
+                "name": "Aurora"
+            }
+        ]
+    }
+}

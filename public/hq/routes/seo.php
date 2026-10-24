@@ -58,6 +58,7 @@ $router->get('/seo/media', function (Request $req) {
 
 $router->post('/seo/media/export', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('manage_content')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->status(403)->body('Forbidden');
     }
@@ -91,6 +92,7 @@ $router->post('/seo/media/export', function (Request $req) {
 
 $router->post('/seo/media/import', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('manage_content')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->header('Content-Type', 'application/json')->status(403)
             ->body(json_encode(['success' => false, 'error' => 'Forbidden']));
@@ -194,6 +196,7 @@ $router->post('/seo/media/import', function (Request $req) {
 
 $router->post('/seo/media/{id}', function (Request $req, array $params) {
     requireAuth();
+    if ($__deny = requirePerm('manage_content')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->header('Content-Type', 'application/json')->status(403)
             ->body(json_encode(['success' => false, 'error' => 'Forbidden']));
@@ -286,6 +289,7 @@ $router->get('/seo/content', function (Request $req) {
 
 $router->post('/seo/content/export', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('manage_content')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->status(403)->body('Forbidden');
     }
@@ -322,6 +326,7 @@ $router->post('/seo/content/export', function (Request $req) {
 
 $router->post('/seo/content/import', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('manage_content')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->header('Content-Type', 'application/json')->status(403)
             ->body(json_encode(['success' => false, 'error' => 'Forbidden']));
@@ -419,6 +424,7 @@ $router->post('/seo/content/import', function (Request $req) {
 
 $router->post('/seo/content/{id}', function (Request $req, array $params) {
     requireAuth();
+    if ($__deny = requirePerm('manage_content')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->header('Content-Type', 'application/json')->status(403)
             ->body(json_encode(['success' => false, 'error' => 'Forbidden']));

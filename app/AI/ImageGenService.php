@@ -15,10 +15,13 @@ use Mova\Media\MediaService;
 
 class ImageGenService
 {
-    private const PLATFORM_API_URL  = 'https://movaai.collab.name.ng/v1';
-    private const PLATFORM_API_KEY  = 'mova-ai-key';
-    private const PLATFORM_MODEL    = 'mova-img';
-    private const PLATFORM_PROVIDER = 'Mova Image';
+    private const PLATFORM_API_URL  = AiConfig::DEFAULT_API_URL;
+    private const PLATFORM_MODEL    = AiConfig::DEFAULT_IMG_MODEL;
+    private const PLATFORM_PROVIDER = AiConfig::DEFAULT_IMG_PROVIDER;
+
+    /** Usage-ledger bookkeeping for the job in flight. */
+    private float $jobT0 = 0.0;
+    private string $jobModel = '';
 
     /** @var array<string,array{w:int,h:int,label:string}> */
     public const ASPECTS = [
@@ -285,11 +288,18 @@ class ImageGenService
             $payload['negative_prompt'] = trim($negativePrompt);
         }
 
-        $raw = $this->httpPostJson($base . '/images/jobs', $key, json_encode($payload), 60);
-        $data = json_decode($raw, true);
-        if (!is_array($data) || empty($data['id'])) {
-            $snippet = mb_substr(preg_replace('/\s+/', ' ', $raw) ?? '', 0, 200);
-            throw new \RuntimeException('Invalid start response from image gateway. ' . $snippet);
+        $this->jobT0 = microtime(true);
+        $this->jobModel = $model;
+        try {
+            $raw = $this->httpPostJson($base . '/images/jobs', $key, json_encode($payload), 60);
+            $data = json_decode($raw, true);
+            if (!is_array($data) || empty($data['id'])) {
+                $snippet = mb_substr(preg_replace('/\s+/', ' ', $raw) ?? '', 0, 200);
+                throw new \RuntimeException('Invalid start response from image gateway. ' . $snippet);
+            }
+        } catch (\Throwable $e) {
+            $this->logUsage('error', null, $e->getMessage());
+            throw $e;
         }
         return $data;
     }
@@ -322,7 +332,14 @@ class ImageGenService
             }
 
             if ($lastStatus === 'COMPLETED') {
-                return $this->extractImage($status);
+                try {
+                    $img = $this->extractImage($status);
+                } catch (\Throwable $e) {
+                    $this->logUsage('error', $status, $e->getMessage(), $jobId);
+                    throw $e;
+                }
+                $this->logUsage('ok', $status, null, $jobId);
+                return $img;
             }
 
             if (in_array($lastStatus, ['FAILED', 'CANCELLED', 'CANCELED'], true)) {
@@ -330,10 +347,12 @@ class ImageGenService
                 if (is_array($err)) {
                     $err = json_encode($err);
                 }
+                $this->logUsage('error', $status, 'Image job failed: ' . $err, $jobId);
                 throw new \RuntimeException('Image job failed: ' . $err);
             }
         }
 
+        $this->logUsage('error', null, 'timeout after ' . $maxWaitSeconds . 's', $jobId);
         throw new \RuntimeException(
             'Image job still running after ' . $maxWaitSeconds . 's (last: ' . $lastStatus
             . '). Gateway job: ' . $jobId . '. It may still finish on the provider.'
@@ -404,20 +423,9 @@ class ImageGenService
         if (!preg_match('#^https?://#i', $url)) {
             throw new \RuntimeException('Invalid image URL from gateway');
         }
-        $ctx = stream_context_create([
-            'http' => [
-                'method' => 'GET',
-                'timeout' => 120,
-                'ignore_errors' => true,
-                'header' => "Accept: image/*,*/*\r\n",
-            ],
-            'ssl' => [
-                'verify_peer' => true,
-                'verify_peer_name' => true,
-            ],
-        ]);
-        $binary = @file_get_contents($url, false, $ctx);
-        if ($binary === false || $binary === '') {
+        $res = AiHttp::request('GET', $url, ['Accept: image/*,*/*'], null, 120);
+        $binary = $res['body'];
+        if ($binary === false || $binary === '' || ($res['status'] >= 400)) {
             throw new \RuntimeException('Failed to download generated image');
         }
         // Detect mime from magic if possible
@@ -436,100 +444,55 @@ class ImageGenService
 
     private function httpPostJson(string $url, string $key, string $payload, int $timeoutSeconds): string
     {
-        $ctx = stream_context_create([
-            'http' => [
-                'method' => 'POST',
-                'header' => implode("\r\n", [
-                    'Content-Type: application/json',
-                    'Authorization: Bearer ' . $key,
-                    'Accept: application/json',
-                ]),
-                'content' => $payload,
-                'timeout' => $timeoutSeconds,
-                'ignore_errors' => true,
-            ],
-            'ssl' => [
-                'verify_peer' => true,
-                'verify_peer_name' => true,
-            ],
-        ]);
-        $raw = @file_get_contents($url, false, $ctx);
-        if ($raw === false) {
+        $res = AiHttp::request('POST', $url, array_merge([
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . $key,
+            'Accept: application/json',
+        ], AiConfig::requestHeaders('image')), $payload, $timeoutSeconds);
+        if ($res['body'] === false) {
             throw new \RuntimeException('Could not reach image gateway at ' . $url);
         }
-        return $raw;
+        return $res['body'];
     }
 
     private function httpGetJson(string $url, string $key, int $timeoutSeconds): string
     {
-        $ctx = stream_context_create([
-            'http' => [
-                'method' => 'GET',
-                'header' => implode("\r\n", [
-                    'Authorization: Bearer ' . $key,
-                    'Accept: application/json',
-                ]),
-                'timeout' => $timeoutSeconds,
-                'ignore_errors' => true,
-            ],
-            'ssl' => [
-                'verify_peer' => true,
-                'verify_peer_name' => true,
-            ],
-        ]);
-        $raw = @file_get_contents($url, false, $ctx);
-        if ($raw === false) {
+        $res = AiHttp::request('GET', $url, array_merge([
+            'Authorization: Bearer ' . $key,
+            'Accept: application/json',
+        ], AiConfig::requestHeaders('image')), null, $timeoutSeconds);
+        if ($res['body'] === false) {
             throw new \RuntimeException('Could not poll image gateway');
         }
-        return $raw;
+        return $res['body'];
+    }
+
+    /**
+     * @param array<string,mixed>|null $status
+     */
+    private function logUsage(string $state, ?array $status, ?string $error = null, ?string $jobId = null): void
+    {
+        $usage = AiUsage::usageFrom($status);
+        AiUsage::record($usage + [
+            'feature' => 'image',
+            'kind' => 'image',
+            'model' => $this->jobModel !== '' ? $this->jobModel : $this->resolve('ai_img_model', self::PLATFORM_MODEL),
+            'endpoint' => $this->resolve('ai_img_api_url', self::PLATFORM_API_URL),
+            'latency_ms' => $this->jobT0 > 0 ? (int) round((microtime(true) - $this->jobT0) * 1000) : 0,
+            'status' => $state,
+            'error' => $error,
+            'job_id' => $jobId,
+        ]);
     }
 
     private function resolve(string $key, string $platformDefault = ''): string
     {
-        $fromDb = $this->settingRaw($key);
-        if ($fromDb !== '') {
-            return $fromDb;
-        }
-        // Fall back to chat URL/key only for base URL if img-specific empty — model stays platform default
-        if ($key === 'ai_img_api_url') {
-            $chatUrl = $this->settingRaw('ai_api_url');
-            if ($chatUrl !== '') {
-                return rtrim($chatUrl, '/');
-            }
-            $fromConfig = (string) Bootstrap::config('ai.ai_api_url', '');
-            if ($fromConfig !== '') {
-                return rtrim($fromConfig, '/');
-            }
-        }
-        if ($key === 'ai_img_api_key') {
-            $chatKey = $this->settingRaw('ai_api_key');
-            if ($chatKey !== '') {
-                return $chatKey;
-            }
-        }
-        return $platformDefault;
+        $v = AiConfig::get($key);
+        return $v !== '' ? $v : $platformDefault;
     }
 
     private function resolveApiKey(): string
     {
-        $k = $this->resolve('ai_img_api_key', self::PLATFORM_API_KEY);
-        return $k !== '' ? $k : self::PLATFORM_API_KEY;
-    }
-
-    private function settingRaw(string $key): string
-    {
-        static $cache = null;
-        if ($cache === null) {
-            $cache = [];
-            try {
-                $rows = Database::fetchAll('SELECT setting_key, setting_value FROM settings');
-                foreach ($rows as $r) {
-                    $cache[$r['setting_key']] = (string) $r['setting_value'];
-                }
-            } catch (\Throwable $e) {
-                $cache = [];
-            }
-        }
-        return isset($cache[$key]) ? trim((string) $cache[$key]) : '';
+        return AiConfig::get('ai_img_api_key');
     }
 }

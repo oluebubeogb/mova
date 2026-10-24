@@ -155,7 +155,7 @@ if (!in_array($layer, ['settings', 'design', 'knowledge'], true)) {
               ?>
               <span class="<?= $stClass ?>"><?= htmlspecialchars($st) ?></span>
             </td>
-            <td><?= htmlspecialchars(substr((string)($s['updated_at'] ?? ''), 0, 16)) ?></td>
+            <td><?= hqTimeTag($s['updated_at'] ?? null, 'both') ?></td>
             <td>
               <form method="post" style="display:inline" onsubmit="return confirm('Remove this source?');">
                 <?= Csrf::field() ?>

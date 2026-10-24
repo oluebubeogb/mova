@@ -1,0 +1,56 @@
+{
+    "name": "Gradient hero",
+    "category": "hero",
+    "tags": [
+        "hero",
+        "gradient",
+        "stats",
+        "bold"
+    ],
+    "description": "Bold brand-gradient hero with eyebrow pill, two actions and a stat row.",
+    "preview": "/assets/templates/previews/hero-gradient.png",
+    "type": "hero",
+    "slots": [
+        "eyebrow",
+        "title",
+        "lead",
+        "items",
+        "buttons",
+        "images"
+    ],
+    "constraints": [
+        "Keep the root <section class=\"mx mx-…\"> and inner <div class=\"mx-in\"> wrappers.",
+        "Colours, fonts and radius come from theme CSS variables — do not hard-code colours.",
+        "Keep data-reveal attributes; motion is disabled automatically for reduced-motion users.",
+        "Use inline SVG/gradient art or uploaded images only — no external image hosts."
+    ],
+    "spec": {
+        "type": "hero",
+        "variant": "gradient",
+        "eyebrow": "New for 2026",
+        "title": "Build something <em>people remember</em>",
+        "lead": "A calm, fast and beautiful home for your brand — designed to convert visitors into customers from the first scroll.",
+        "primary": {
+            "label": "Get started",
+            "href": "/contact"
+        },
+        "secondary": {
+            "label": "See how it works",
+            "href": "#how"
+        },
+        "stats": [
+            {
+                "value": "12k+",
+                "label": "Happy customers"
+            },
+            {
+                "value": "4.9/5",
+                "label": "Average rating"
+            },
+            {
+                "value": "24/7",
+                "label": "Support"
+            }
+        ]
+    }
+}

@@ -31,7 +31,7 @@
                         <td><?= htmlspecialchars($u['email']) ?></td>
                         <td><span class="badge"><?= htmlspecialchars($roles[$u['role']] ?? $u['role']) ?></span></td>
                         <td><?= htmlspecialchars($u['status']) ?></td>
-                        <td><?= $u['last_login_at'] ? date('M j, Y', strtotime($u['last_login_at'])) : '—' ?></td>
+                        <td><?= $u['last_login_at'] ? hqTimeTag($u['last_login_at'], 'both') : 'Never' ?></td>
                         <td><a href="/hq/people/edit/<?= (int) $u['id'] ?>">Edit</a></td>
                     </tr>
                 <?php endforeach; ?>

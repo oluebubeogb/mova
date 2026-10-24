@@ -103,6 +103,27 @@ class AiChatService
 
         $this->addMessage($sessionId, 'user', $message, null);
 
+        $history = $this->listMessages($sessionId, $userId, 24);
+
+        // RAW mode (panel switch): plain model chat. No tools, HqMap, site context or Mova persona.
+        $mode = strtolower(trim((string) ($options['mode'] ?? $pageContext['mode'] ?? '')));
+        if ($mode === 'raw' || $mode === 'original' || $mode === 'general') {
+            $llm = $this->callLlmRaw($message, $history, $options);
+            $reply = $llm['reply'] ?? '';
+            $actions = [];
+            $provider = $llm['provider'] ?? 'heuristic';
+            $meta = json_encode(['actions' => [], 'provider' => $provider, 'mode' => 'raw'], AiText::JSON_FLAGS);
+            $this->addMessage($sessionId, 'assistant', $reply, $meta);
+            return [
+                'ok' => true,
+                'session_id' => $sessionId,
+                'reply' => $reply,
+                'actions' => [],
+                'provider' => $provider,
+                'mode' => 'raw',
+            ];
+        }
+
         // Local HQ map match (works even if LLM is down)
         $matches = HqMap::search($message, 5);
         $localActions = [];
@@ -115,27 +136,6 @@ class AiChatService
                     'id' => $m['id'],
                 ];
             }
-        }
-
-        $history = $this->listMessages($sessionId, $userId, 24);
-
-        // Raw / original mode: undoctored model output (no Mova JSON schema, no CMS actions).
-        $mode = strtolower(trim((string) ($options['mode'] ?? $pageContext['mode'] ?? '')));
-        if ($mode === 'raw' || $mode === 'original' || $mode === 'general') {
-            $llm = $this->callLlmRaw($message, $history, $options);
-            $reply = $llm['reply'] ?? '';
-            $actions = [];
-            $provider = $llm['provider'] ?? 'heuristic';
-            $meta = json_encode(['actions' => [], 'provider' => $provider, 'mode' => 'raw'], JSON_UNESCAPED_UNICODE);
-            $this->addMessage($sessionId, 'assistant', $reply, $meta);
-            return [
-                'ok' => true,
-                'session_id' => $sessionId,
-                'reply' => $reply,
-                'actions' => [],
-                'provider' => $provider,
-                'mode' => 'raw',
-            ];
         }
 
         $llm = $this->callLlm($message, $history, $pageContext, $matches, $options);
@@ -234,6 +234,15 @@ class AiChatService
         $finalActions = [];
         foreach ($actions as $action) {
             $type = (string) ($action['type'] ?? '');
+            if ($type === 'update_content' && $executor->needsConfirm($action)) {
+                // Replacing a body / editing a published page: ask first.
+                $action['confirm'] = true;
+                $action['preview'] = $executor->preview($action);
+                $action['label'] = 'Review & apply: ' . ($action['preview']['title'] ?? 'content change');
+                $finalActions[] = $action;
+                $reply .= ($reply !== '' ? "\n\n" : '') . 'I prepared the change but did **not** apply it yet — review and confirm below.';
+                continue;
+            }
             if ($type === 'create_content' || $type === 'update_content') {
                 $exec = $executor->execute($action, $userId);
                 if (!empty($exec['ok']) && !empty($exec['result']['path'])) {
@@ -266,10 +275,11 @@ class AiChatService
                 }
                 continue;
             }
-            if ($type === 'update_design_tokens') {
-                // Require explicit Apply in the UI
+            if ($type === 'update_design_tokens' || $type === 'switch_theme') {
+                // Design / theme changes are never auto-run: the UI shows a confirm dialog with a preview.
                 $action['confirm'] = true;
-                $action['label'] = $action['label'] ?? 'Apply color changes';
+                $action['preview'] = $executor->preview($action);
+                $action['label'] = $action['label'] ?? ($type === 'switch_theme' ? 'Switch theme' : 'Apply color changes');
                 $finalActions[] = $action;
                 continue;
             }
@@ -292,7 +302,7 @@ class AiChatService
             $reply = 'I can navigate HQ, create draft pages, and suggest design colors. Try: “Create an About Us page” or “Set primary color to #0ea5e9”.';
         }
 
-        $meta = json_encode(['actions' => $actions, 'provider' => $provider], JSON_UNESCAPED_UNICODE);
+        $meta = json_encode(['actions' => $actions, 'provider' => $provider], AiText::JSON_FLAGS);
         $this->addMessage($sessionId, 'assistant', $reply, $meta);
 
         Database::query(
@@ -334,10 +344,8 @@ class AiChatService
      */
     private function callLlmRaw(string $message, array $history, array $options = []): array
     {
-        $system = "You are a helpful, capable assistant. Answer the user's request fully and directly.\n"
-            . "Do NOT wrap your entire response in a JSON object. Do NOT invent CMS actions, navigate paths, or Mova-specific schemas.\n"
-            . "When the user asks for code (HTML, CSS, JS, etc.), provide complete, runnable source in markdown fenced code blocks.\n"
-            . "Be clear, accurate, and production-quality. Prefer complete solutions over stubs.";
+        // RAW: a minimal, neutral persona only — no tools, no HqMap, no site/page context.
+        $system = "You are a helpful assistant. Answer directly and accurately. Use Markdown when it helps, with fenced code blocks for code.";
 
         $messages = [['role' => 'system', 'content' => $system]];
         foreach (array_slice($history, -16) as $row) {
@@ -547,7 +555,7 @@ class AiChatService
             . "{$paletteHelp} {$contentHelp} {$qualityHelp} {$modesHelp} {$codingHelp} "
             . "When the user should open a screen, include navigate actions.\n\n"
             . $templateHelp
-            . HqMap::asPromptBlock(35) . "\n\n"
+            . HqMap::asPromptBlock(60) . "\n\n"
             . "Current page: route={$route} area={$area} layer={$layer} entityId={$entityId}"
             . ($templateId ? " templateId={$templateId}" : '') . "\n"
             . "Top map matches for this message:\n" . ($matchLines ? implode("\n", $matchLines) : "(none)") . "\n\n"
@@ -557,6 +565,7 @@ class AiChatService
             . '{"type":"create_content","label":"Create draft","payload":{"title":"…","type":"page","body":"<article>…</article>","excerpt":"…","meta":{"seo_title":"…","meta_description":"…"}}}, '
             . '{"type":"update_content","label":"Update draft","payload":{"id":' . max($entityId, 0) . ',"mode":"append|replace","body":"…","excerpt":"…","meta":{"seo_title":"…","meta_description":"…"}}}, '
             . '{"type":"update_design_tokens","label":"Apply colors","payload":{"colors":{"primary":"#2563eb","accent":"#7c3aed"}}}, '
+            . '{"type":"switch_theme","label":"Switch theme","payload":{"theme":"theme-slug"}}, '
             . '{"type":"insert_code","label":"Insert into body","payload":{"target":"body","mode":"append","language":"html","code":"…"}} '
             . "]}\n"
             . "Use 0–4 actions. navigate paths must start with /hq. Only use palette keys listed above. "
@@ -601,6 +610,13 @@ class AiChatService
                 $maxTokens = ($longRunning || $isCoding) ? 5000 : 2400;
                 $timeout = ($longRunning || $isCoding) ? 300 : 90;
             }
+            // Native tool calling when the gateway forwards OpenAI tools (short, non-coding turns).
+            if (!$longRunning && !$isCoding && !$templateId && AiCapabilities::useNativeTools()) {
+                $native = $this->callWithTools($messages, $entityId);
+                if ($native !== null) {
+                    return $native;
+                }
+            }
             // Long / coding jobs: async submit+poll so proxy timeouts cannot kill a 1–5 min RunPod delay.
             if ($longRunning || $isCoding) {
                 $raw = $this->assist->chatRawAsync($messages, $maxTokens, max(600, $timeout * 3), null);
@@ -625,7 +641,7 @@ class AiChatService
                 ];
             }
             return [
-                'reply' => self::stripLeakedJson(trim($raw)),
+                'reply' => self::stripLeakedJson(AiText::clean(trim($raw))),
                 'actions' => $this->actionsFromMatches($mapMatches),
                 'provider' => $this->assist->providerLabel(),
             ];
@@ -645,6 +661,99 @@ class AiChatService
             $fallback['error'] = $e->getMessage();
             return $fallback;
         }
+    }
+
+    /**
+     * OpenAI tool specs mirroring the JSON text-protocol action types.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public static function toolSpecs(int $entityId = 0): array
+    {
+        $fn = static fn (string $name, string $desc, array $props, array $req) => [
+            'type' => 'function',
+            'function' => ['name' => $name, 'description' => $desc, 'parameters' => ['type' => 'object', 'properties' => $props, 'required' => $req]],
+        ];
+        $hex = ['type' => 'string', 'description' => 'Hex colour like #2563eb'];
+        $colors = [];
+        foreach (['primary', 'secondary', 'accent', 'background', 'surface', 'text', 'muted', 'border'] as $k) {
+            $colors[$k] = $hex;
+        }
+        $meta = ['type' => 'object', 'properties' => ['seo_title' => ['type' => 'string'], 'meta_description' => ['type' => 'string']]];
+        $themes = [];
+        try {
+            $themes = array_column((new \Mova\Theme\ThemeManager())->all(), 'slug');
+        } catch (\Throwable $e) {
+        }
+        return [
+            $fn('navigate', 'Suggest an HQ screen to open. Path must start with /hq and come from the HQ map.', ['label' => ['type' => 'string'], 'path' => ['type' => 'string']], ['path']),
+            $fn('create_content', 'Create a NEW draft page or post (never published). Body must be complete semantic HTML.', [
+                'title' => ['type' => 'string'], 'type' => ['type' => 'string', 'enum' => ['page', 'post']],
+                'body' => ['type' => 'string'], 'excerpt' => ['type' => 'string'], 'meta' => $meta,
+            ], ['title', 'body']),
+            $fn('update_content', 'Append to or replace the body of the content the user is editing' . ($entityId > 0 ? " (id {$entityId})" : '') . '. Replacing needs user confirmation.', [
+                'id' => ['type' => 'integer'], 'mode' => ['type' => 'string', 'enum' => ['append', 'replace']],
+                'title' => ['type' => 'string'], 'body' => ['type' => 'string'], 'excerpt' => ['type' => 'string'], 'meta' => $meta,
+            ], ['id', 'body']),
+            $fn('update_design_tokens', 'Propose new site colours. The user must confirm before anything changes.', [
+                'colors' => ['type' => 'object', 'properties' => $colors], 'colors_dark' => ['type' => 'object', 'properties' => $colors],
+            ], ['colors']),
+            $fn('switch_theme', 'Propose switching the active site theme. The user must confirm.', ['theme' => ['type' => 'string', 'enum' => $themes ?: ['default']]], ['theme']),
+        ];
+    }
+
+    /**
+     * One native tool-calling round. Returns null to fall back to the JSON text protocol.
+     *
+     * @param list<array<string,mixed>> $messages
+     * @return array{reply:string,actions:list<array>,provider:string}|null
+     */
+    private function callWithTools(array $messages, int $entityId): ?array
+    {
+        $sys = (string) ($messages[0]['content'] ?? '');
+        $cut = strpos($sys, 'Respond with ONLY valid JSON');
+        if ($cut !== false) {
+            $sys = substr($sys, 0, $cut);
+        }
+        $messages[0] = ['role' => 'system', 'content' => $sys
+            . "TOOLS: act by calling the provided tools (navigate, create_content, update_content, update_design_tokens, switch_theme). "
+            . "Reply to the user in short markdown. Do not output JSON in the reply."];
+        try {
+            $res = $this->assist->chatTools($messages, self::toolSpecs($entityId), 2400, 120);
+        } catch (\Throwable $e) {
+            if (preg_match('/HTTP 4\d\d|tool|unsupported|not support/i', $e->getMessage())) {
+                AiCapabilities::markToolsFailed();
+            }
+            return null;
+        }
+        $actions = [];
+        foreach ($res['tool_calls'] as $tc) {
+            $args = $tc['arguments'];
+            switch ($tc['name']) {
+                case 'navigate':
+                    if (str_starts_with((string) ($args['path'] ?? ''), '/hq')) {
+                        $actions[] = ['type' => 'navigate', 'label' => (string) ($args['label'] ?? 'Open'), 'path' => (string) $args['path']];
+                    }
+                    break;
+                case 'create_content':
+                case 'update_content':
+                case 'update_design_tokens':
+                case 'switch_theme':
+                    if ($tc['name'] === 'update_content' && empty($args['id']) && $entityId > 0) {
+                        $args['id'] = $entityId;
+                    }
+                    $actions[] = ['type' => $tc['name'], 'label' => '', 'payload' => $args, 'via' => 'tool'];
+                    break;
+            }
+        }
+        // Same validation/normalisation as the JSON text protocol.
+        $parsed = $this->parseJsonReply((string) json_encode(['reply' => $res['content'] !== '' ? $res['content'] : ' ', 'actions' => $actions], AiText::JSON_FLAGS));
+        $reply = trim(self::stripLeakedJson((string) ($parsed['reply'] ?? '')));
+        $actions = (array) ($parsed['actions'] ?? []);
+        if ($reply === '' && $actions === []) {
+            return null;
+        }
+        return ['reply' => $reply, 'actions' => $actions, 'provider' => $this->assist->providerLabel() . ' · tools'];
     }
 
     /**
@@ -704,11 +813,10 @@ class AiChatService
         }
         $data = json_decode($raw, true);
         if (!is_array($data)) {
-            // Common model failures: trailing commas, smart quotes, unescaped control chars
-            $fixed = $raw;
-            $fixed = str_replace(["\u201c", "\u201d", "\u2018", "\u2019", "“", "”", "‘", "’"], ['"', '"', "'", "'", '"', '"', "'", "'"], $fixed);
-            $fixed = preg_replace('/,\s*([}\]])/', '$1', $fixed) ?? $fixed;
-            $data = json_decode($fixed, true);
+            // Common model failures: trailing commas, smart-quote delimiters, raw newlines/tabs in
+            // strings, invalid escapes. AiText::repairJson fixes those structurally and leaves string
+            // contents (including \uXXXX escapes and real curly quotes) for json_decode to decode.
+            $data = json_decode(AiText::repairJson($raw), true);
         }
         if (!is_array($data)) {
             // Last resort: recover create_content from a broken JSON blob
@@ -718,7 +826,7 @@ class AiChatService
             }
             return null;
         }
-        $reply = trim((string) ($data['reply'] ?? ''));
+        $reply = AiText::clean(trim((string) ($data['reply'] ?? '')));
         $actions = [];
         foreach ($data['actions'] ?? [] as $a) {
             if (!is_array($a)) {
@@ -736,7 +844,7 @@ class AiChatService
                     ];
                 }
             } elseif ($type === 'create_content') {
-                $payload = is_array($a['payload'] ?? null) ? $a['payload'] : [];
+                $payload = AiText::cleanDeep(is_array($a['payload'] ?? null) ? $a['payload'] : []);
                 if (trim((string) ($payload['title'] ?? '')) !== '') {
                     $actions[] = [
                         'type' => 'create_content',
@@ -745,7 +853,7 @@ class AiChatService
                     ];
                 }
             } elseif ($type === 'update_content') {
-                $payload = is_array($a['payload'] ?? null) ? $a['payload'] : [];
+                $payload = AiText::cleanDeep(is_array($a['payload'] ?? null) ? $a['payload'] : []);
                 if ((int) ($payload['id'] ?? 0) > 0 && trim((string) ($payload['body'] ?? '')) !== '') {
                     $actions[] = [
                         'type' => 'update_content',
@@ -764,6 +872,23 @@ class AiChatService
                         'confirm' => true,
                     ];
                 }
+            } elseif ($type === 'switch_theme') {
+                $payload = is_array($a['payload'] ?? null) ? $a['payload'] : [];
+                $slug = preg_replace('/[^a-z0-9_\-]/i', '', (string) ($payload['theme'] ?? '')) ?? '';
+                try {
+                    $tm = new \Mova\Theme\ThemeManager();
+                    // Only offer installed themes, and never "switch" to the one already active.
+                    if (!in_array($slug, array_column($tm->all(), 'slug'), true)) {
+                        $slug = '';
+                    } elseif ($slug === $tm->activeSlug()) {
+                        $reply = rtrim($reply) . "\n\n“{$slug}” is already the active theme — nothing to switch.";
+                        $slug = '';
+                    }
+                } catch (\Throwable $e) {
+                }
+                if ($slug !== '') {
+                    $actions[] = ['type' => 'switch_theme', 'label' => $label !== '' ? $label : 'Switch theme to ' . $slug, 'payload' => ['theme' => $slug], 'confirm' => true];
+                }
             }
         }
         return ['reply' => $reply, 'actions' => array_slice($actions, 0, 6)];
@@ -780,23 +905,23 @@ class AiChatService
     {
         $reply = '';
         if (preg_match('/"reply"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"/s', $raw, $m)) {
-            $reply = stripcslashes($m[1]);
+            $reply = AiText::jsonUnescape($m[1]);
         } elseif (preg_match('/"reply"\\s*:\\s*"(.*?)"\\s*,\\s*"actions"/s', $raw, $m)) {
-            $reply = stripcslashes($m[1]);
+            $reply = AiText::jsonUnescape($m[1]);
         }
 
         $title = '';
         if (preg_match('/"title"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"/', $raw, $m)) {
-            $title = stripcslashes($m[1]);
+            $title = AiText::jsonUnescape($m[1]);
         }
         $title = $this->cleanTitleCandidate($title);
 
         $body = '';
         // Greedy body capture between "body":" and the next ","excerpt" or ","meta"
         if (preg_match('/"body"\\s*:\\s*"(.*?)"\\s*,\\s*"(?:excerpt|meta|type)"/s', $raw, $m)) {
-            $body = stripcslashes($m[1]);
+            $body = AiText::jsonUnescape($m[1]);
         } elseif (preg_match('/"body"\\s*:\\s*"(.*?)"/s', $raw, $m)) {
-            $body = stripcslashes($m[1]);
+            $body = AiText::jsonUnescape($m[1]);
         }
         // Prefer fenced HTML in the raw stream if body still empty
         if ($this->isStubBody($body)) {
@@ -808,15 +933,15 @@ class AiChatService
 
         $excerpt = '';
         if (preg_match('/"excerpt"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"/', $raw, $m)) {
-            $excerpt = stripcslashes($m[1]);
+            $excerpt = AiText::jsonUnescape($m[1]);
         }
         $seoTitle = '';
         if (preg_match('/"seo_title"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"/', $raw, $m)) {
-            $seoTitle = stripcslashes($m[1]);
+            $seoTitle = AiText::jsonUnescape($m[1]);
         }
         $metaDesc = '';
         if (preg_match('/"meta_description"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"/', $raw, $m)) {
-            $metaDesc = stripcslashes($m[1]);
+            $metaDesc = AiText::jsonUnescape($m[1]);
         }
 
         $typeHint = 'page';
@@ -886,7 +1011,7 @@ class AiChatService
         if ($reply === '') {
             $reply = 'Recovered draft «' . $title . '» from a partial model response.';
         }
-        return ['reply' => $reply, 'actions' => $actions];
+        return ['reply' => AiText::clean($reply), 'actions' => AiText::cleanDeep($actions)];
     }
 
     /** @param list<array<string,mixed>> $actions */

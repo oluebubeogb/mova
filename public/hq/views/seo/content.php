@@ -57,7 +57,7 @@ $q = $q ?? '';
   overflow: auto;
   border: 1px solid var(--hq-border, #e5e7eb);
   border-radius: 10px;
-  background: #fff;
+  background: var(--hq-surface, #fff);
 }
 .seo-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; table-layout: fixed; }
 .seo-table th, .seo-table td {
@@ -66,8 +66,9 @@ $q = $q ?? '';
   text-align: left;
   vertical-align: middle;
 }
-.seo-table th { background: #f8fafc; font-weight: 600; white-space: nowrap; }
-.seo-table tr:hover td { background: #fafbfc; }
+.seo-table th { background: var(--hq-table-head, var(--hq-input-bg, #f8fafc)); color: var(--hq-muted); text-transform: uppercase; letter-spacing: .04em; font-size: .72rem; font-weight: 600; white-space: nowrap; }
+.seo-table tbody tr:nth-child(even) td { background: var(--hq-stripe, rgba(91,92,226,.025)); }
+.seo-table tbody tr:hover td { background: var(--hq-row-hover, rgba(91,92,226,.06)); }
 .seo-table col.col-mark { width: 2.4rem; }
 .seo-table col.col-id { width: 3.5rem; }
 .seo-table col.col-thumb { width: 3.6rem; }
@@ -109,7 +110,7 @@ $q = $q ?? '';
 .seo-edit textarea { min-height: 64px; resize: vertical; }
 .seo-hint { font-size: 0.75rem; color: #64748b; min-height: 1em; margin-top: 0.25rem; }
 .seo-id { font-variant-numeric: tabular-nums; color: #475569; }
-.seo-muted { color: #94a3b8; font-size: 0.8rem; }
+.seo-muted { color: var(--hq-muted, #64748b); font-size: 0.8rem; }
 .seo-status {
   font-size: 0.75rem; padding: 0.15rem 0.4rem; border-radius: 4px;
   background: #f1f5f9; color: #475569;
@@ -161,7 +162,7 @@ $q = $q ?? '';
             data-meta_description="<?= htmlspecialchars($r['meta_description'], ENT_QUOTES) ?>"
             data-excerpt="<?= htmlspecialchars($r['excerpt'], ENT_QUOTES) ?>"
             data-featured_image="<?= htmlspecialchars($r['featured_image'] ?? '', ENT_QUOTES) ?>">
-          <td><input type="checkbox" class="seo-mark" value="<?= (int) $r['id'] ?>"></td>
+          <td><input type="checkbox" class="seo-mark" value="<?= (int) $r['id'] ?>" aria-label="Mark row <?= (int) $r['id'] ?>"></td>
           <td class="seo-id"><?= (int) $r['id'] ?></td>
           <td><span class="seo-status"><?= htmlspecialchars($r['status']) ?></span></td>
           <td class="seo-links">
@@ -237,7 +238,10 @@ $q = $q ?? '';
         if (hintEl) hintEl.textContent = 'Saved';
         setTimeout(function () { if (hintEl && hintEl.textContent === 'Saved') hintEl.textContent = ''; }, 1500);
       })
-      .catch(function () { if (hintEl) hintEl.textContent = 'Er  var mediaPickerTarget = null; // { id, slot, hint }
+      .catch(function () { if (hintEl) hintEl.textContent = 'Error'; });
+  }
+
+  var mediaPickerTarget = null; // { id, slot, hint }
 
   function openMediaPicker(id, slot, hint) {
     mediaPickerTarget = { id: id, slot: slot, hint: hint };
@@ -376,8 +380,6 @@ $q = $q ?? '';
       timers[id + field] = setTimeout(function () {
         saveField(id, field, input.value, hint);
       }, 450);
-    });
-  });0);
     });
   });
 

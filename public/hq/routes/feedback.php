@@ -89,6 +89,7 @@ $router->get('/feedback/forms/edit/{id}', function (Request $req, array $params)
 
 $router->post('/feedback/forms/save', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('manage_content')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->status(403)->body('Forbidden');
     }
@@ -126,6 +127,7 @@ $router->post('/feedback/forms/save', function (Request $req) {
 
 $router->post('/feedback/entry/delete/{id}', function (Request $req, array $params) {
     requireAuth();
+    if ($__deny = requirePerm('manage_content')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->status(403)->body('Forbidden');
     }
@@ -136,6 +138,7 @@ $router->post('/feedback/entry/delete/{id}', function (Request $req, array $para
 
 $router->post('/feedback/entries/bulk', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('manage_content')) { return $__deny; }
     if (!Csrf::validate($req->input('_csrf') ?: $req->input('_mova_csrf'))) {
         return (new Response())->header('Content-Type', 'application/json')->status(403)
             ->body(json_encode(['success' => false]));

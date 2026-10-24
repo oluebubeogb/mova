@@ -38,10 +38,20 @@ $pageTitle = $titles[$provider] ?? 'Integrations';
         <?php foreach ($int['fields'] as $field): ?>
             <div class="form-group">
                 <label><?= htmlspecialchars(ucwords(str_replace('_', ' ', $field))) ?></label>
-                <input type="<?= str_contains($field, 'secret') || str_contains($field, 'key') || str_contains($field, 'token') ? 'password' : 'text' ?>"
+                <?php $isSecret = \Mova\Integration\IntegrationManager::isSecretField((string) $field);
+                      $stored = (string) ($int['config'][$field] ?? ''); ?>
+                <?php if ($isSecret): ?>
+                <input type="password"
                        name="config[<?= htmlspecialchars($field) ?>]"
-                       value="<?= htmlspecialchars($int['config'][$field] ?? '') ?>"
+                       value=""
+                       placeholder="<?= $stored !== '' ? htmlspecialchars(\Mova\AI\AiConfig::mask($stored)) . ' — leave blank to keep' : '' ?>"
+                       autocomplete="new-password">
+                <?php else: ?>
+                <input type="text"
+                       name="config[<?= htmlspecialchars($field) ?>]"
+                       value="<?= htmlspecialchars($stored) ?>"
                        autocomplete="off">
+                <?php endif; ?>
             </div>
         <?php endforeach; ?>
         <button type="submit" class="btn-primary">Save</button>

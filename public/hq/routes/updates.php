@@ -22,6 +22,10 @@ $router->get('/updates', function () {
 
 $router->post('/updates/identity', function () {
     requireAuth();
+    if ($__deny = requirePerm('manage_settings')) { return $__deny; }
+    if (!\Mova\Security\Csrf::validate()) {
+        return (new Response())->status(403)->body('CSRF');
+    }
     $identity = new IdentityService();
     $name = trim((string) ($_POST['site_name'] ?? ''));
     $opts = ['touch_updated' => true];

@@ -2,6 +2,10 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
+    # Pass the Authorization header through to PHP (needed for REST API Bearer keys on CGI/FastCGI hosts)
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
     # Force HTTPS (comment these 3 lines out if SSL is not active yet)
     RewriteCond %{HTTPS} !=on
     RewriteCond %{HTTP:X-Forwarded-Proto} !=https
@@ -27,6 +31,12 @@
     Header always set Strict-Transport-Security "max-age=15552000; includeSubDomains" env=HTTPS
     SetEnvIf X-Forwarded-Proto "https" HTTPS=on
     Header always set Strict-Transport-Security "max-age=15552000; includeSubDomains" env=HTTPS
+</IfModule>
+
+# PWA: /manifest.webmanifest, /sw.js, /pwa-offline and /pwa-icon-* have no file on disk, so the
+# front controller above serves them (with the right Content-Type and no-cache for /sw.js).
+<IfModule mod_mime.c>
+    AddType application/manifest+json .webmanifest
 </IfModule>
 
 DirectoryIndex index.php index.html

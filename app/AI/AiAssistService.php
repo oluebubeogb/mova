@@ -3,7 +3,8 @@
  * Mova AI — built-in AI assist for content, SEO, and design.
  * OpenAI-compatible client against the Mova AI gateway (or any custom provider).
  *
- * Resolution: non-empty HQ Settings → config.php → platform defaults.
+ * Resolution: see AiConfig (HQ Settings → env → config.php → gateway defaults).
+ * Every call sends X-Mova-Site headers and is logged to ai_usage (AiUsage).
  * Long work: chatRawAsync() → gateway POST /v1/jobs + poll GET /v1/jobs/{id}
  * so PHP workers can wait for RunPod without one fragile multi-minute HTTP call.
  */
@@ -15,11 +16,26 @@ use Mova\Core\Database;
 
 class AiAssistService
 {
-    /** Public platform gateway (not the RunPod secret — that lives only on the gateway). */
-    private const PLATFORM_API_URL  = 'https://movaai.collab.name.ng/v1';
-    private const PLATFORM_API_KEY  = 'mova-ai-key';
-    private const PLATFORM_MODEL    = 'mova-ai';
-    private const PLATFORM_PROVIDER = 'Mova AI';
+    /** Public platform gateway (provider secrets live only on the gateway). */
+    private const PLATFORM_API_URL  = AiConfig::DEFAULT_API_URL;
+    private const PLATFORM_MODEL    = AiConfig::DEFAULT_MODEL;
+    private const PLATFORM_PROVIDER = AiConfig::DEFAULT_PROVIDER;
+
+    /** Feature label for usage logging (null → inferred from caller). */
+    private ?string $feature = null;
+
+    /** Attribute subsequent calls on this instance to a feature (usage ledger + X-Mova-Feature). */
+    public function forFeature(string $feature): self
+    {
+        $c = clone $this;
+        $c->feature = $feature;
+        return $c;
+    }
+
+    private function featureLabel(): string
+    {
+        return $this->feature ?? AiUsage::currentFeature();
+    }
 
     public function isConfigured(): bool
     {
@@ -44,8 +60,10 @@ class AiAssistService
 
         if ($this->isConfigured()) {
             try {
-                $result = $this->callProvider($action, $title, $body, $excerpt);
-                return ['ok' => true, 'result' => $result, 'provider' => $this->providerLabel()];
+                $result = ($this->feature === null ? $this->forFeature('assist.' . preg_replace('/[^a-z_]/', '', $action)) : $this)
+                    ->callProvider($action, $title, $body, $excerpt);
+                // Leaked "\u2019"-style escapes → real characters; U+2011/U+202F → "-"/" ".
+                return ['ok' => true, 'result' => AiText::clean((string) $result), 'provider' => $this->providerLabel()];
             } catch (\Throwable $e) {
                 $heuristic = $this->heuristic($action, $title, $body, $excerpt);
                 return [
@@ -92,8 +110,110 @@ class AiAssistService
             'max_tokens' => $maxTokens,
         ]);
 
-        $raw = $this->httpPostJson($endpoint, $key, $payload, $timeoutSeconds);
-        return $this->parseCompletionText($raw);
+        $feature = $this->featureLabel();
+        $t0 = microtime(true);
+        try {
+            $raw = $this->httpPostJson($endpoint, $key, $payload, $timeoutSeconds, $feature);
+            $text = $this->parseCompletionText($raw);
+        } catch (\Throwable $e) {
+            AiUsage::record([
+                'feature' => $feature, 'kind' => 'chat', 'model' => $model, 'endpoint' => $endpoint,
+                'latency_ms' => (int) round((microtime(true) - $t0) * 1000),
+                'status' => 'error', 'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+        $this->logSuccess('chat', $feature, $model, $endpoint, $t0, json_decode($raw, true), $messages, $text);
+        return $text;
+    }
+
+    /**
+     * Native OpenAI tool calling (sync). Returns the assistant message; tool_calls are normalised to
+     * [{id,name,arguments(array)}]. Throws on transport/HTTP errors so callers can fall back to the
+     * JSON text protocol.
+     *
+     * @param list<array<string,mixed>> $messages
+     * @param list<array<string,mixed>> $tools OpenAI "function" tool specs
+     * @return array{content:string,tool_calls:list<array{id:string,name:string,arguments:array}>}
+     */
+    public function chatTools(array $messages, array $tools, int $maxTokens = 1200, int $timeoutSeconds = 120, ?float $temperature = 0.3): array
+    {
+        $endpoint = rtrim($this->resolve('ai_api_url', self::PLATFORM_API_URL), '/') . '/chat/completions';
+        $model = $this->resolve('ai_model', self::PLATFORM_MODEL) ?: self::PLATFORM_MODEL;
+        $key = $this->resolveApiKey();
+        if ($key === '') {
+            throw new \RuntimeException('AI is not configured.');
+        }
+        $payload = json_encode([
+            'model' => $model,
+            'messages' => $messages,
+            'tools' => $tools,
+            'tool_choice' => 'auto',
+            'temperature' => max(0.0, min(1.2, (float) ($temperature ?? 0.3))),
+            'max_tokens' => $maxTokens,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $feature = $this->featureLabel();
+        $t0 = microtime(true);
+        try {
+            $raw = $this->httpPostJson($endpoint, $key, (string) $payload, max(15, min(600, $timeoutSeconds)), $feature);
+            $data = json_decode($raw, true);
+            if (!is_array($data) || !isset($data['choices'][0]['message'])) {
+                throw new \RuntimeException('Provider did not return a chat message' . (is_array($data) && isset($data['detail']) ? ': ' . (is_string($data['detail']) ? $data['detail'] : json_encode($data['detail'])) : '.'));
+            }
+        } catch (\Throwable $e) {
+            AiUsage::record([
+                'feature' => $feature, 'kind' => 'chat_tools', 'model' => $model, 'endpoint' => $endpoint,
+                'latency_ms' => (int) round((microtime(true) - $t0) * 1000), 'status' => 'error', 'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+        $msg = (array) $data['choices'][0]['message'];
+        $calls = [];
+        foreach ((array) ($msg['tool_calls'] ?? []) as $tc) {
+            if (!is_array($tc)) {
+                continue;
+            }
+            $fn = (array) ($tc['function'] ?? []);
+            $name = (string) ($fn['name'] ?? '');
+            if ($name === '') {
+                continue;
+            }
+            $args = $fn['arguments'] ?? [];
+            if (is_string($args)) {
+                $args = json_decode($args, true);
+            }
+            $calls[] = ['id' => (string) ($tc['id'] ?? ('call_' . bin2hex(random_bytes(4)))), 'name' => $name, 'arguments' => is_array($args) ? $args : []];
+        }
+        $content = trim((string) ($msg['content'] ?? ''));
+        $this->logSuccess('chat_tools', $feature, $model, $endpoint, $t0, $data, $messages, $content . json_encode($calls));
+        return ['content' => $content, 'tool_calls' => $calls];
+    }
+
+    /**
+     * @param list<array{role:string,content:string}> $messages
+     */
+    private function logSuccess(string $kind, string $feature, string $model, string $endpoint, float $t0, mixed $decoded, array $messages, string $text, ?string $jobId = null): void
+    {
+        $usage = AiUsage::usageFrom($decoded);
+        $estimated = AiUsage::gatewayEstimated($decoded);
+        if ($usage['total_tokens'] === null) {
+            $promptChars = '';
+            foreach ($messages as $m) {
+                $promptChars .= (string) ($m['content'] ?? '');
+            }
+            $usage = [
+                'prompt_tokens' => AiUsage::estimateTokens($promptChars),
+                'completion_tokens' => AiUsage::estimateTokens($text),
+                'total_tokens' => null,
+            ];
+            $usage['total_tokens'] = $usage['prompt_tokens'] + $usage['completion_tokens'];
+            $estimated = true;
+        }
+        AiUsage::record($usage + [
+            'feature' => $feature, 'kind' => $kind, 'model' => is_array($decoded) && !empty($decoded['model']) ? (string) $decoded['model'] : $model,
+            'endpoint' => $endpoint, 'latency_ms' => (int) round((microtime(true) - $t0) * 1000),
+            'status' => 'ok', 'estimated' => $estimated, 'job_id' => $jobId,
+        ]);
     }
 
     /**
@@ -127,18 +247,47 @@ class AiAssistService
             'max_tokens' => $maxTokens,
         ]);
 
+        $feature = $this->featureLabel();
+        $t0 = microtime(true);
+
         // 1) Start job (should return quickly)
-        $startRaw = $this->httpPostJson($base . '/jobs', $key, $payload, 60);
+        try {
+            $startRaw = $this->httpPostJson($base . '/jobs', $key, $payload, 60, $feature);
+        } catch (\Throwable $e) {
+            AiUsage::record([
+                'feature' => $feature, 'kind' => 'chat_async', 'model' => $model, 'endpoint' => $base,
+                'latency_ms' => (int) round((microtime(true) - $t0) * 1000), 'status' => 'error', 'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
         $start = json_decode($startRaw, true);
         if (!is_array($start) || empty($start['id'])) {
             // Fallback: gateway may be older — try sync once
-            return $this->chatRaw($messages, $maxTokens, min(300, $maxWaitSeconds), $temperature);
+            return ($this->feature === null ? $this->forFeature($feature) : $this)
+                ->chatRaw($messages, $maxTokens, min(300, $maxWaitSeconds), $temperature);
         }
+        try {
+            $text = $this->pollAsyncJob($base, $key, (string) $start['id'], (string) ($start['status'] ?? 'IN_QUEUE'), $maxWaitSeconds, $feature, $status);
+        } catch (\Throwable $e) {
+            AiUsage::record([
+                'feature' => $feature, 'kind' => 'chat_async', 'model' => $model, 'endpoint' => $base,
+                'latency_ms' => (int) round((microtime(true) - $t0) * 1000), 'status' => 'error',
+                'error' => $e->getMessage(), 'job_id' => (string) $start['id'],
+            ]);
+            throw $e;
+        }
+        $this->logSuccess('chat_async', $feature, $model, $base, $t0, $status, $messages, $text, (string) $start['id']);
+        return $text;
+    }
 
-        $jobId = (string) $start['id'];
+    /**
+     * Poll gateway /jobs/{id}; $finalStatus receives the decoded COMPLETED payload (for usage).
+     */
+    private function pollAsyncJob(string $base, string $key, string $jobId, string $lastStatus, int $maxWaitSeconds, string $feature, mixed &$finalStatus = null): string
+    {
+
         $deadline = time() + $maxWaitSeconds;
         $pollInterval = 3;
-        $lastStatus = (string) ($start['status'] ?? 'IN_QUEUE');
 
         // 2) Poll until completed / failed / deadline
         while (time() < $deadline) {
@@ -146,7 +295,7 @@ class AiAssistService
             // Back off slightly over time (3s → 8s)
             $pollInterval = min(8, $pollInterval + 1);
 
-            $statusRaw = $this->httpGetJson($base . '/jobs/' . rawurlencode($jobId), $key, 45);
+            $statusRaw = $this->httpGetJson($base . '/jobs/' . rawurlencode($jobId), $key, 45, $feature);
             $status = json_decode($statusRaw, true);
             if (!is_array($status)) {
                 continue;
@@ -155,6 +304,7 @@ class AiAssistService
             $lastStatus = strtoupper((string) ($status['status'] ?? ''));
 
             if ($lastStatus === 'COMPLETED') {
+                $finalStatus = $status;
                 if (!empty($status['text'])) {
                     return trim((string) $status['text']);
                 }
@@ -179,59 +329,28 @@ class AiAssistService
         );
     }
 
-    private function httpPostJson(string $url, string $key, string $payload, int $timeoutSeconds): string
+    private function httpPostJson(string $url, string $key, string $payload, int $timeoutSeconds, string $feature = ''): string
     {
-        $ctx = stream_context_create([
-            'http' => [
-                'method' => 'POST',
-                'header' => implode("\r\n", [
-                    'Content-Type: application/json',
-                    'Authorization: Bearer ' . $key,
-                ]),
-                'content' => $payload,
-                'timeout' => $timeoutSeconds,
-                'ignore_errors' => true,
-            ],
-            'ssl' => [
-                'verify_peer' => true,
-                'verify_peer_name' => true,
-            ],
-        ]);
-
-        $raw = @file_get_contents($url, false, $ctx);
-        if ($raw === false) {
-            $err = error_get_last();
-            $hint = is_array($err) && !empty($err['message']) ? $err['message'] : 'connection failed or timed out';
-            throw new \RuntimeException('No response from AI provider (' . $hint . ').');
+        $res = AiHttp::request('POST', $url, array_merge([
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . $key,
+        ], AiConfig::requestHeaders($feature)), $payload, $timeoutSeconds);
+        if ($res['body'] === false) {
+            throw new \RuntimeException('No response from AI provider (' . ($res['error'] ?: 'connection failed or timed out') . ').');
         }
-        return $raw;
+        return $res['body'];
     }
 
-    private function httpGetJson(string $url, string $key, int $timeoutSeconds): string
+    private function httpGetJson(string $url, string $key, int $timeoutSeconds, string $feature = ''): string
     {
-        $ctx = stream_context_create([
-            'http' => [
-                'method' => 'GET',
-                'header' => implode("\r\n", [
-                    'Authorization: Bearer ' . $key,
-                    'Accept: application/json',
-                ]),
-                'timeout' => $timeoutSeconds,
-                'ignore_errors' => true,
-            ],
-            'ssl' => [
-                'verify_peer' => true,
-                'verify_peer_name' => true,
-            ],
-        ]);
-
-        $raw = @file_get_contents($url, false, $ctx);
-        if ($raw === false) {
-            $err = error_get_last();
-            $hint = is_array($err) && !empty($err['message']) ? $err['message'] : 'connection failed or timed out';
-            throw new \RuntimeException('No response polling AI job (' . $hint . ').');
+        $res = AiHttp::request('GET', $url, array_merge([
+            'Authorization: Bearer ' . $key,
+            'Accept: application/json',
+        ], AiConfig::requestHeaders($feature)), null, $timeoutSeconds);
+        if ($res['body'] === false) {
+            throw new \RuntimeException('No response polling AI job (' . ($res['error'] ?: 'connection failed or timed out') . ').');
         }
-        return $raw;
+        return $res['body'];
     }
 
     private function parseCompletionText(string $raw): string
@@ -336,44 +455,23 @@ class AiAssistService
 
     private function resolve(string $key, string $platformDefault = ''): string
     {
-        $fromDb = $this->settingRaw($key);
-        if ($fromDb !== '') {
-            return $fromDb;
-        }
-        $fromConfig = (string) Bootstrap::config('ai.' . $key, '');
-        if ($fromConfig !== '') {
-            return $fromConfig;
-        }
-        return $platformDefault;
+        $v = AiConfig::get($key);
+        return $v !== '' ? $v : $platformDefault;
     }
 
     private function resolveApiKey(): string
     {
-        $fromDb = $this->settingRaw('ai_api_key');
-        if ($fromDb !== '') {
-            return $fromDb;
-        }
-        $fromConfig = (string) Bootstrap::config('ai.ai_api_key', '');
-        if ($fromConfig !== '') {
-            return $fromConfig;
-        }
-        return self::PLATFORM_API_KEY;
+        return AiConfig::get('ai_api_key');
     }
 
-    private function settingRaw(string $key): string
+    /** Effective model / endpoint (for diagnostics in HQ). */
+    public function effectiveModel(): string
     {
-        static $cache = null;
-        if ($cache === null) {
-            $cache = [];
-            try {
-                $rows = Database::fetchAll("SELECT setting_key, setting_value FROM settings");
-                foreach ($rows as $r) {
-                    $cache[$r['setting_key']] = (string) $r['setting_value'];
-                }
-            } catch (\Throwable $e) {
-                $cache = [];
-            }
-        }
-        return isset($cache[$key]) ? trim((string) $cache[$key]) : '';
+        return $this->resolve('ai_model', self::PLATFORM_MODEL);
+    }
+
+    public function effectiveEndpoint(): string
+    {
+        return $this->resolve('ai_api_url', self::PLATFORM_API_URL);
     }
 }

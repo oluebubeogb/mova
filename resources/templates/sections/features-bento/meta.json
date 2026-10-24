@@ -1,0 +1,60 @@
+{
+    "name": "Bento features",
+    "category": "features",
+    "tags": [
+        "features",
+        "icons",
+        "bento",
+        "modern"
+    ],
+    "description": "Bento layout with a wide lead card.",
+    "preview": "/assets/templates/previews/features-bento.png",
+    "type": "features",
+    "slots": [
+        "eyebrow",
+        "title",
+        "lead",
+        "items",
+        "buttons",
+        "images"
+    ],
+    "constraints": [
+        "Keep the root <section class=\"mx mx-…\"> and inner <div class=\"mx-in\"> wrappers.",
+        "Colours, fonts and radius come from theme CSS variables — do not hard-code colours.",
+        "Keep data-reveal attributes; motion is disabled automatically for reduced-motion users.",
+        "Use inline SVG/gradient art or uploaded images only — no external image hosts."
+    ],
+    "spec": {
+        "type": "features",
+        "variant": "bento",
+        "eyebrow": "Platform",
+        "title": "One platform. Endless possibilities.",
+        "items": [
+            {
+                "icon": "zap",
+                "title": "Lightning fast",
+                "text": "Pages load in a blink on any device, so visitors stay and explore."
+            },
+            {
+                "icon": "shield",
+                "title": "Secure by default",
+                "text": "Modern security practices and automatic backups keep you safe."
+            },
+            {
+                "icon": "palette",
+                "title": "On-brand design",
+                "text": "Your colours, fonts and logo flow through every page automatically."
+            },
+            {
+                "icon": "chart",
+                "title": "Clear insights",
+                "text": "Understand what works with simple, privacy-friendly analytics."
+            },
+            {
+                "icon": "chat",
+                "title": "Human support",
+                "text": "Real people who answer quickly and actually solve the problem."
+            }
+        ]
+    }
+}

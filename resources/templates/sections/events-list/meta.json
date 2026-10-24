@@ -1,0 +1,63 @@
+{
+    "name": "Events list",
+    "category": "news",
+    "tags": [
+        "events",
+        "calendar",
+        "dates",
+        "list"
+    ],
+    "description": "Upcoming events with date tiles.",
+    "preview": "/assets/templates/previews/events-list.png",
+    "type": "news",
+    "slots": [
+        "eyebrow",
+        "title",
+        "lead",
+        "items",
+        "buttons",
+        "images"
+    ],
+    "constraints": [
+        "Keep the root <section class=\"mx mx-…\"> and inner <div class=\"mx-in\"> wrappers.",
+        "Colours, fonts and radius come from theme CSS variables — do not hard-code colours.",
+        "Keep data-reveal attributes; motion is disabled automatically for reduced-motion users.",
+        "Use inline SVG/gradient art or uploaded images only — no external image hosts."
+    ],
+    "spec": {
+        "type": "news",
+        "variant": "events",
+        "eyebrow": "What is on",
+        "title": "Upcoming events",
+        "more": {
+            "label": "Full calendar",
+            "href": "/events"
+        },
+        "items": [
+            {
+                "day": "14",
+                "month": "Nov",
+                "title": "Open house & tours",
+                "time": "10:00 – 14:00",
+                "place": "Main hall",
+                "href": "#"
+            },
+            {
+                "day": "22",
+                "month": "Nov",
+                "title": "Design thinking workshop",
+                "time": "16:00 – 18:00",
+                "place": "Studio B",
+                "href": "#"
+            },
+            {
+                "day": "06",
+                "month": "Dec",
+                "title": "End-of-year celebration",
+                "time": "18:30",
+                "place": "Rooftop",
+                "href": "#"
+            }
+        ]
+    }
+}

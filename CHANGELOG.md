@@ -7,6 +7,119 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (site packs: selective Export / Import)
+- **HQ → Operations → Backups → Export & import** (`/hq/backups/packs`, owners and administrators only, CSRF-protected). It appears in HQ search and in the Operations landing.
+- **Export** writes a `.movapack` file. You pick groups (content by type, blogs, galleries, media, menus, taxonomy, design, non-secret settings, site AI knowledge, forms). Subscribers, form entries and comments are opt-in.
+  - Packs never contain users, passwords, keys, secret settings, mail or integration credentials, sessions or login data, logs, page views, AI jobs or the search index.
+  - The pack is downloaded and a copy is kept in `storage/exports/`.
+  - CLI: `bin/mova-export.php`.
+- **Import** takes an uploaded pack or one placed in `storage/imports/`.
+  - Validation: zip, manifest, checksums, minimum Mova version, zip-slip, media types only. SVGs are sanitised.
+  - Dry-run preview: update, add, unchanged, conflict and remove, matched by ID and slug+type. It shows a per-item override, changed fields and a body diff.
+  - Options: add new (on), remove missing (off, needs typing REMOVE), per-group toggles.
+  - Apply runs as a background job:
+    1. auto backup
+    2. single transaction with rollback
+    3. staged media swap
+    4. revisions
+    5. cache clear, then search, AI index and asset-version refresh
+  - History with who and when (Africa/Lagos time), one-click Undo, and audit entries.
+  - CLI: `bin/mova-import.php --dry-run|--apply|--undo|--history`. `bin/mova-pack.php` handles offline info, verify, unpack and repack.
+- `bin/ai-worker.php` also advances queued site-pack imports.
+
+### Fixed (AI punctuation saved as code: `Nigeriau2019s`, `fastu2011changing`, `20u202f%`)
+- Root cause: when a model's JSON reply was not strictly valid (e.g. raw newlines inside a long HTML body), `AiChatService::recoverActionsFromBrokenJson()` unescaped strings with `stripcslashes()`. That drops the backslash of `\uXXXX`, so `\u2019` became `u2019`. The smart-quote replacement in `parseJsonReply()` could also break JSON around curly quotes. Real characters (such as a literal `—`) were never affected.
+- New `Mova\AI\AiText` handles AI text in one place:
+  - `jsonUnescape()`: `json_decode` with a surrogate-safe fallback;
+  - `repairJson()`: smart-quote delimiters, trailing commas and raw control characters, applied only outside or inside strings as appropriate;
+  - `decodeLeakedEscapes()`: literal `\uXXXX` and surrogate pairs, skipping code, `<pre>` and `<script>`;
+  - `normalizePunctuation()`: U+2011 becomes `-` and U+202F becomes a space. Curly quotes and dashes are kept.
+- Every AI path now uses `AiText`: the HQ panel (text protocol, recovery and native tools), the editor AI assist, the site assistant, and the setup wizard (page HTML and section rewrites). `create_content` and `update_content` clean their payload before saving, as a safety net. JSON is stored and returned with `JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE`.
+- **HQ → Operations → Text repair** (`/hq/text-repair`, admin only) and `php bin/fix-unicode-escapes.php` (`--apply`, `--id=N`) repair content that was already saved.
+  - Dry run by default. Every match is listed with its context.
+  - A database backup (plus a JSON file of the old values) is written to `storage/backups/` before any change.
+  - Covers titles, excerpts, bodies, meta and revisions.
+  - Only matches a letter or digit followed by `u` and a known punctuation code point. Years, URLs, attributes and code are not touched.
+  - An admin notice appears on Operations and in the editor when matches exist.
+- HQ asset version is now `20261023uni`.
+
+### Changed (HQ Mova AI panel)
+- Every HQ panel prompt now runs as a background job (worker, cron, loopback, poll and shutdown fallbacks). The 'Background' checkbox is gone, and `/hq/ai/chat` and `/hq/ai/jobs` always enqueue, so old clients can't skip the queue. Answers still appear inline with live progress. Normal chat jobs keep native tool calling; only coding jobs use the async long-running path.
+- 'Plain chat' is now a **RAW** switch (`role=switch`, off by default, remembered per user in localStorage). When it is on, the AI gets a minimal neutral prompt with no tools, no HqMap and no site context.
+- The composer footer shows a one-line 'Ctrl+J · Enter' hint ('⌘J' on Mac) next to the switch.
+- Removed the jobs icon and jobs view from the panel header and the jobs badge from the FAB. Sessions remain, and a toast still announces finished jobs while the panel is closed.
+
+### Added (Phase 5b: installable app / PWA)
+- **HQ → Extend → App (PWA)** (`/hq/pwa`, admin only; listed in the nav, HQ search and the Mova AI HQ map via `RouteRegistry`). The page has: an enable switch; app name and short name (prefilled from the site name); theme and background colours (prefilled from the brand and theme tokens); an icon field (site logo, a URL or an upload); display mode; start URL (same-origin only, never `/hq` or `/api`); and an offline page switch. Install banner settings: on/off, message, show after a delay or after N page views, and snooze days after dismissal. It also shows a live home-screen and banner preview, tooltips instead of help text, an HTTPS warning and a notice when GD is missing.
+- `app/Site/Pwa.php` serves these routes from PHP (works on shared hosting, no build step):
+  - `/manifest.webmanifest` (`application/manifest+json`);
+  - `/sw.js` from the site root (scope `/`, `Service-Worker-Allowed: /`, `Cache-Control: no-cache`);
+  - `/pwa-offline`;
+  - `/pwa-icon-{192,512,maskable,180}.png`, generated with GD into `storage/pwa/` (rounded "any" icon, full-bleed maskable with a safe zone, Apple 180);
+  - `/pwa-icon.svg`.
+  If the site has no logo, the icon is a lettermark in the theme colour, using the bundled Inter Bold in `resources/fonts/` (OFL). Without GD, the manifest uses the logo plus the SVG icon.
+- Service worker:
+  - network-first for HTML, falling back to the cached copy and then the offline page;
+  - cache-first for static assets;
+  - versioned caches (`mova-pages-*` / `mova-assets-*`): the version changes when PWA settings, content, settings or asset versions change, and old caches are deleted on activate.
+  It never handles `/hq`, `/api`, requests made by HQ pages, non-GET or range requests, preview URLs, or responses marked private. Signed-in visitors get an `X-Mova-Private: 1` header, so their pages are never cached.
+- Turning the app off serves a kill-switch `/sw.js` that deletes the `mova-*` caches and unregisters. Pages also run a small inline clean-up for visitors who still have the old worker.
+- The install banner (`public/assets/js/pwa.js`, `public/assets/css/pwa.css`) uses each theme's tokens (colours, font, radius) in all 4 themes and all kits (it is injected from the shared `resources/theme-parts/head.php`):
+  - uses `beforeinstallprompt`; iOS Safari gets Share > Add to Home Screen instructions;
+  - is hidden when the app is installed or running standalone (`display-mode` or `navigator.standalone`) and on `appinstalled`;
+  - remembers dismissal for N days and closes with Esc;
+  - is a labelled `role="dialog"`, honours `prefers-reduced-motion`, and is skipped inside iframes and previews.
+- `nginx.conf` routes the PWA paths to PHP ahead of the static-asset rule. `.htaccess` adds the `.webmanifest` MIME type.
+
+### Fixed (Phase 5 regression fixes)
+- Site AI: the Design and Knowledge layers are restored, with all previous fields.
+- HQ navigation drills down one level at a time.
+- The Mova AI button is fixed at the bottom right on every HQ page, and hides while you type on mobile.
+- The Ctrl+K palette now matches the top search exactly and shares its recent history (max 3, remove one with ×, Clear all). The duplicate Quick actions and Recent pages groups are gone.
+- Padding for row actions in the content list.
+- Human-friendly times everywhere ("8 h ago · 23 Oct 2026, 2:15 PM WAT"), using a shared PHP helper (`hqTimeTag`) and a JS formatter (`hq-time.js`). The display timezone is set in Settings → General (default Africa/Lagos). Storage stays UTC.
+- HQ "M" favicon (SVG, PNG, ICO, apple-touch-icon).
+
+### Added (Phase 5: HQ polish, security, REST API)
+- **REST API v1** (`app/Api/RestApi.php`, `/api/v1`): Bearer (or `X-Api-Key`) auth validated by `ApiKeyService::authenticate()` (`validate()` alias), a scope check on every route (`site:read`, `content:read`, `content:write`, `media:read`, `taxonomy:read`; legacy `read`/`write`/`*` honoured), per-key rate limit (120/60 s), JSON errors (401/403/404/405/429), method override for restrictive hosts. The HQ API keys page keeps its copy-once display and now offers the scopes. Documented in the README.
+- **Dashboard** rebuilt: greeting hero with quick actions, status lights, storage ring (cached 15 min), AI usage stats, recent edits, a Quick setup checklist until setup is complete, faint background art.
+- **Navigation**: Content sub-nav grouped into Library / Structure / Tools plus a More menu (same URLs); Quick setup and Docs moved to the user/help menu; duplicate Settings and AI usage tabs removed; `/hq/sections` alias; search palette ranking, AI chips, background-job badge/toast, friendly HQ 404.
+- **Editors**: content list, AI assist sidebar, media library dropzone/search/filters and a "no alt text" badge, section thumbnails generated by `bin/make-section-thumbs.php`.
+- **Login** redesigned as a split brand/sign-in layout with caps-lock hint, empty-field shake and busy state.
+- **Documentation theme 2.1.0**: sticky "On this page" TOC sidebar with scroll-spy (collapses to a disclosure on narrow screens), dark styled code blocks with copy buttons, `kbd`/blockquote styling and its own teal accent (`#0e7490`, dark `#22d3ee`).
+- `public/assets/css/hq-p5.css` / `public/assets/js/hq-p5.js`: Phase 5 design layer (brand indigo `#5B5CE2`, gradients, tooltips, hover/open animations, stripes).
+- Font Awesome, CodeMirror and Monaco are bundled locally under `public/assets/vendor` (no CDN needed on shared hosting).
+
+### Security (Phase 5)
+- Capability gate on every HQ POST route (defence in depth on top of CSRF); viewer accounts are read-only everywhere.
+- API keys are stored hashed, shown once, and masked afterwards; AI/image provider keys stay masked in Settings and an empty field keeps the stored value.
+
+### Changed (Phase 5)
+- One name everywhere: **Sections** (was Templates/Sections).
+- Settings → AI: key and Test connection stay visible; URL, model, provider, tool calling and background jobs live under an "Advanced" disclosure that opens automatically when non-default.
+- Dark theme splits accent tokens: `--hq-accent` (text-safe `#9A9BF6`) vs `--hq-accent-fill` (`#5B5CE2`) for solid fills behind white text; new `--hq-accent-text`, `--hq-success-text`, `--hq-danger-text`.
+
+### Accessibility (Phase 5)
+- `prefers-reduced-motion` honoured across HQ, `:focus-visible` rings, one `h1` per page, labels on icon-only buttons and inputs (colour tokens, SEO row checkboxes, Elements toolbars now `role=group` + `aria-pressed`), focusable scroll regions.
+- axe-core WCAG 2 A/AA: 0 colour-contrast, label and ARIA violations on all HQ nav pages in light and dark (Monaco's own syntax colours excepted).
+- Mobile: no horizontal overflow at 390 px on any HQ page; 40 px+ touch targets in Studio and the AI panel; data tables scroll inside their card.
+
+### Added (Phase 4: AI)
+- One AI provider config in HQ Settings with **Test connection**: health, key, model and a test reply. Keys are always masked.
+- Native tool calling where the gateway supports it, with automatic fallback to the JSON-in-text action protocol.
+- A **confirm step** with a from → to preview before theme, design and structural changes (`/hq/ai/action` returns 409 until confirmed).
+- A real background worker: `bin/ai-worker.php` (cron / supervisord / `--daemon` / `--once` / `--status`), a signed loopback poke, a browser poll and a shutdown-function fallback, plus a heartbeat.
+- Site AI retrieval over an FTS5 index of published content, with BM25 ranking plus title and term-frequency tie-breaks.
+- Per-site usage headers (`X-Mova-Site`, `X-Mova-Site-Host`, `X-Mova-Feature`); HQ → AI usage shows the gateway's own totals.
+- `AiHttp`: a curl-first HTTP client with a streams fallback for every AI call.
+
+### Fixed (Phase 4)
+- The mobile floating AI button no longer covers form fields. It hides while an input is focused, on public sites and in HQ.
+- A legacy `config.php` `ai` block (RunPod direct, no key) silently overrode the gateway default after upgrade.
+- Quick setup copy accepts model replies that list sections as separate JSON objects, a `{"sections": [...]}` wrapper, or fenced JSON.
+- The CLI worker failed to load the setup-wizard classes. It now loads the wizard properly, and a failure hands Quick setup back to web requests.
+- The Site AI public route did not load `SiteIndex`.
+
 ### Fixed
 - HQ AI coding replies now instruct the model to emit correct Mova CSS variables (`var(--color-primary, …)`, `var(--color-bg, …)`, etc. with fallbacks) instead of invalid bare token names like `surface` or `text` as CSS values
 - Coding system prompt documents the full built-in palette map (background → `--color-bg`), radius/spacing/shadow vars, custom `--{name}` / `--mova-*` vars, and scoped modern syntax aligned with public theme pages

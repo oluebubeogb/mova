@@ -40,6 +40,7 @@ $router->get('/ai/templates', function () {
 
 $router->post('/ai/sessions', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('use_ai')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->json(['error' => 'CSRF'], 403);
     }
@@ -53,6 +54,7 @@ $router->post('/ai/sessions', function (Request $req) {
 
 $router->post('/ai/sessions/{id}/delete', function (Request $req, array $params = []) {
     requireAuth();
+    if ($__deny = requirePerm('use_ai')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->json(['error' => 'CSRF'], 403);
     }
@@ -87,15 +89,20 @@ $router->get('/ai/sessions/{id}', function (Request $req, array $params = []) {
     return (new Response())->json(['ok' => true, 'session' => $session, 'messages' => $messages]);
 });
 
-$router->post('/ai/chat', function (Request $req) {
-    requireAuth();
-    if (!Csrf::validate()) {
-        return (new Response())->json(['error' => 'CSRF'], 403);
-    }
+/**
+ * HQ panel prompts always run as background jobs (AiJobService + AiWorker::dispatch:
+ * worker → cron → loopback poke → shutdown function; the browser poll is the last resort).
+ * Shared by POST /ai/jobs and the legacy POST /ai/chat, so no client can force a synchronous run.
+ */
+if (!function_exists('hqAiEnqueueChatJob')) {
+function hqAiEnqueueChatJob(Request $req): Response
+{
     $uid = (int) Auth::id();
     $message = trim((string) $req->post('message', ''));
     $sessionId = (int) $req->post('session_id', 0) ?: null;
+    $clientKey = trim((string) $req->post('client_key', '')) ?: null;
     $mode = strtolower(trim((string) $req->post('mode', '')));
+    $mode = in_array($mode, ['raw', 'original', 'general'], true) ? 'raw' : '';
     $pageContext = [
         'route' => (string) $req->post('route', ''),
         'area' => (string) $req->post('area', ''),
@@ -104,14 +111,35 @@ $router->post('/ai/chat', function (Request $req) {
         'templateId' => trim((string) $req->post('template_id', '')) ?: null,
         'mode' => $mode,
     ];
-    $options = [];
-    if (in_array($mode, ['raw', 'original', 'general'], true)) {
-        $options['mode'] = 'raw';
+    if ($mode === 'raw') {
+        // RAW: no HQ page context reaches the model.
+        $pageContext = ['route' => '', 'area' => '', 'layer' => '', 'entityId' => null, 'templateId' => null, 'mode' => 'raw'];
     }
-    $svc = new AiChatService();
-    $result = $svc->chat($uid, $sessionId, $message, $pageContext, $options);
-    $status = !empty($result['ok']) ? 200 : 400;
-    return (new Response())->json($result, $status);
+    if ($message === '') {
+        return (new Response())->json(['error' => 'Empty message'], 400);
+    }
+    $svc = new \Mova\AI\AiJobService();
+    try {
+        $job = $svc->enqueue($uid, $message, $sessionId, $pageContext, 'chat', $clientKey);
+    } catch (\Throwable $e) {
+        return (new Response())->json(['error' => $e->getMessage()], 400);
+    }
+    $jobId = (int) $job['id'];
+    $via = \Mova\AI\AiWorker::dispatch(static function () use ($svc, $jobId, $uid) {
+        $svc->processJob($jobId, $uid);
+    });
+    return (new Response())->json(['ok' => true, 'job' => $job, 'background' => true, 'via' => $via]);
+}
+}
+
+// Legacy endpoint (older cached panels): now queues a background job instead of answering inline.
+$router->post('/ai/chat', function (Request $req) {
+    requireAuth();
+    if ($__deny = requirePerm('use_ai')) { return $__deny; }
+    if (!Csrf::validate()) {
+        return (new Response())->json(['error' => 'CSRF'], 403);
+    }
+    return hqAiEnqueueChatJob($req);
 });
 
 
@@ -139,56 +167,26 @@ $router->get('/ai/jobs/{id}', function (Request $req, array $params = []) {
 
 $router->post('/ai/jobs', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('use_ai')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->json(['error' => 'CSRF'], 403);
     }
-    $uid = (int) Auth::id();
-    $message = trim((string) $req->post('message', ''));
-    $sessionId = (int) $req->post('session_id', 0) ?: null;
-    $clientKey = trim((string) $req->post('client_key', '')) ?: null;
-    $background = (string) $req->post('background', '1') === '1';
-    $mode = strtolower(trim((string) $req->post('mode', '')));
-    $pageContext = [
-        'route' => (string) $req->post('route', ''),
-        'area' => (string) $req->post('area', ''),
-        'layer' => (string) $req->post('layer', ''),
-        'entityId' => (int) $req->post('entity_id', 0) ?: null,
-        'templateId' => trim((string) $req->post('template_id', '')) ?: null,
-        'mode' => $mode,
-    ];
-    if ($message === '') {
-        return (new Response())->json(['error' => 'Empty message'], 400);
-    }
-    $svc = new \Mova\AI\AiJobService();
-    try {
-        $job = $svc->enqueue($uid, $message, $sessionId, $pageContext, 'chat', $clientKey);
-    } catch (\Throwable $e) {
-        return (new Response())->json(['error' => $e->getMessage()], 400);
-    }
-
-    // Kick processing after response when possible (same PHP worker)
-    if (function_exists('fastcgi_finish_request') || PHP_SAPI !== 'cli') {
-        $jobId = (int) $job['id'];
-        register_shutdown_function(static function () use ($svc, $jobId, $uid) {
-            try {
-                @ignore_user_abort(true);
-                $svc->processJob($jobId, $uid);
-            } catch (\Throwable $e) {
-            }
-        });
-    }
-
-    return (new Response())->json(['ok' => true, 'job' => $job, 'background' => true]);
+    return hqAiEnqueueChatJob($req);
 });
 
 $router->post('/ai/jobs/process', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('use_ai')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->json(['error' => 'CSRF'], 403);
     }
     $uid = (int) Auth::id();
     $jobId = (int) $req->post('job_id', 0);
     $svc = new \Mova\AI\AiJobService();
+    // A live worker owns the queue: don't tie up a web request, just report state.
+    if (\Mova\AI\AiWorker::isAlive()) {
+        return (new Response())->json(['ok' => true, 'worker' => true, 'job' => $jobId > 0 ? $svc->getJob($jobId, $uid) : null]);
+    }
     if ($jobId > 0) {
         $job = $svc->processJob($jobId, $uid);
     } else {
@@ -199,6 +197,7 @@ $router->post('/ai/jobs/process', function (Request $req) {
 
 $router->post('/ai/jobs/{id}/cancel', function (Request $req, array $params = []) {
     requireAuth();
+    if ($__deny = requirePerm('use_ai')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->json(['error' => 'CSRF'], 403);
     }
@@ -217,6 +216,7 @@ $router->get('/ai/map', function () {
 /** Apply a confirmed write action (e.g. design tokens) */
 $router->post('/ai/action', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('use_ai')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->json(['error' => 'CSRF'], 403);
     }
@@ -234,17 +234,24 @@ $router->post('/ai/action', function (Request $req) {
     }
     $type = (string) ($action['type'] ?? '');
     // Safety: create_content is auto-run from chat; allow re-run. Design requires this endpoint.
-    if (!in_array($type, ['create_content', 'update_content', 'update_design_tokens', 'navigate'], true)) {
+    if (!in_array($type, ['create_content', 'update_content', 'update_design_tokens', 'switch_theme', 'navigate'], true)) {
         return (new Response())->json(['error' => 'Action not allowed'], 400);
     }
     $svc = new AiActionService();
-    $result = $svc->execute($action, $uid);
-    $status = !empty($result['ok']) ? 200 : 400;
+    // Design / theme / structural changes run only with confirmed=1 (sent by the confirm dialog).
+    // Without it the endpoint returns 409 + a preview so the UI can ask the user.
+    $confirmed = (string) $req->post('confirmed', '0') === '1';
+    if ((string) $req->post('preview', '0') === '1') {
+        return (new Response())->json(['ok' => true, 'needs_confirm' => $svc->needsConfirm($action), 'preview' => $svc->preview($action)]);
+    }
+    $result = $svc->execute($action, $uid, $confirmed);
+    $status = !empty($result['ok']) ? 200 : (!empty($result['needs_confirm']) ? 409 : 400);
     return (new Response())->json($result, $status);
 });
 
 $router->post('/ai/assist', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('use_ai')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->json(['error' => 'CSRF'], 403);
     }
@@ -266,6 +273,7 @@ $router->post('/ai/assist', function (Request $req) {
 
 $router->post('/ai/analyze', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('use_ai')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->json(['error' => 'CSRF'], 403);
     }
@@ -330,4 +338,38 @@ $router->get('/ai/link-suggestions', function (Request $req) {
     }
 
     return (new Response())->json(['ok' => true, 'items' => $out]);
+});
+
+/**
+ * Loopback "poke" (shared hosting without cron): runs the AI worker in its own request.
+ * Authenticated by a short-lived HMAC (secret kept in settings), not by a session.
+ */
+$router->post('/ai/worker/poke', function (Request $req) {
+    $ts = (string) $req->post('ts', '');
+    $sig = (string) $req->post('sig', '');
+    if (!\Mova\AI\AiWorker::verify($ts, $sig)) {
+        return (new Response())->json(['ok' => false], 403);
+    }
+    @ignore_user_abort(true);
+    @set_time_limit(0);
+    register_shutdown_function(static function () {
+        // Send the 202 now, then work.
+        while (ob_get_level() > 0) {
+            @ob_end_flush();
+        }
+        @flush();
+        if (function_exists('fastcgi_finish_request')) {
+            @fastcgi_finish_request();
+        }
+        if (!\Mova\AI\AiWorker::acquireLock()) {
+            return; // a cron/supervisord worker or another poke is already running
+        }
+        try {
+            \Mova\AI\AiWorker::run(240, 'poke', 4);
+        } catch (\Throwable $e) {
+        } finally {
+            \Mova\AI\AiWorker::releaseLock();
+        }
+    });
+    return (new Response())->json(['ok' => true, 'accepted' => true], 202);
 });

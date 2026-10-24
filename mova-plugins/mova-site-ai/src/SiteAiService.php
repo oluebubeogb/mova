@@ -6,6 +6,8 @@ use Mova\Content\ContentRepository;
 use Mova\Core\Database;
 use Mova\Theme\DesignConfig;
 
+require_once __DIR__ . '/SiteIndex.php'; // the public /api/site-ai routes load this file without plugin.php
+
 class SiteAiService
 {
     public static function config(): array
@@ -64,10 +66,24 @@ class SiteAiService
             return ['reply' => '', 'links' => []];
         }
 
-        $kb = KnowledgeBank::search($message, 6);
+        // Retrieval: FTS5 (BM25) over published pages + knowledge bank; keyword scan as a fallback.
+        $kb = [];
+        try {
+            $kb = SiteIndex::search($message, 6);
+        } catch (\Throwable $e) {
+            $kb = [];
+        }
+        if ($kb === []) {
+            $kb = KnowledgeBank::search($message, 6);
+        }
         $kbBlock = '';
+        $hitLinks = [];
         foreach ($kb as $hit) {
-            $kbBlock .= "Source: {$hit['title']}\n{$hit['content']}\n\n";
+            $src = ($hit['path'] ?? '') !== '' ? "{$hit['title']} ({$hit['path']})" : $hit['title'];
+            $kbBlock .= "Source: {$src}\n" . mb_substr((string) $hit['content'], 0, 900) . "\n\n";
+            if (($hit['path'] ?? '') !== '' && count($hitLinks) < 2) {
+                $hitLinks[] = ['label' => (string) $hit['title'], 'path' => (string) $hit['path']];
+            }
         }
 
         // Site pages (public content only) — not HQ
@@ -98,14 +114,14 @@ class SiteAiService
             . "If the visitor asks to summarize or explain the current page, use the CURRENT PAGE CONTENT below. "
             . "Respond with ONLY JSON: {\"reply\":\"...\",\"links\":[{\"label\":\"...\",\"path\":\"/slug\"}]}\n\n"
             . "Published pages:\n" . implode("\n", array_slice($pageLines, 0, 30)) . "\n\n"
-            . "Knowledge bank excerpts:\n" . ($kbBlock !== '' ? $kbBlock : "(none)\n")
+            . "Relevant excerpts from this site (most relevant first):\n" . ($kbBlock !== '' ? $kbBlock : "(none)\n")
             . "Visitor is currently on: {$pagePath}"
             . ($pageTitle !== '' ? " ({$pageTitle})" : '') . "\n"
             . $currentPageBlock;
 
-        $assist = new AiAssistService();
+        $assist = (new AiAssistService())->forFeature('site_ai.chat');
         $reply = '';
-        $outLinks = $links;
+        $outLinks = array_merge($links, $hitLinks);
         try {
             if ($assist->isConfigured()) {
                 $raw = $assist->chatRaw([
@@ -115,8 +131,12 @@ class SiteAiService
                 $raw = trim($raw);
                 if (preg_match('/\{.*\}/s', $raw, $m)) {
                     $data = json_decode($m[0], true);
+                    if (!is_array($data)) {
+                        // Tolerate raw newlines / trailing commas without mangling \uXXXX escapes.
+                        $data = json_decode(\Mova\AI\AiText::repairJson($m[0]), true);
+                    }
                     if (is_array($data)) {
-                        $reply = trim((string) ($data['reply'] ?? ''));
+                        $reply = \Mova\AI\AiText::clean(trim((string) ($data['reply'] ?? '')));
                         foreach ($data['links'] ?? [] as $l) {
                             if (!is_array($l)) {
                                 continue;
@@ -124,7 +144,7 @@ class SiteAiService
                             $path = (string) ($l['path'] ?? '');
                             if (str_starts_with($path, '/') && !str_starts_with($path, '/hq')) {
                                 $outLinks[] = [
-                                    'label' => (string) ($l['label'] ?? $path),
+                                    'label' => \Mova\AI\AiText::clean((string) ($l['label'] ?? $path)),
                                     'path' => $path,
                                 ];
                             }
@@ -136,6 +156,7 @@ class SiteAiService
                     if (str_starts_with(trim($reply), '{')) {
                         $reply = 'Happy to help — ask me about our pages or products.';
                     }
+                    $reply = \Mova\AI\AiText::clean($reply);
                 }
             }
         } catch (\Throwable $e) {

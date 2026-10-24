@@ -34,7 +34,7 @@ $items = $items ?? [];
             <td><code><?= htmlspecialchars($g['slug']) ?></code></td>
             <td><?= (int)($g['item_count'] ?? 0) ?></td>
             <td><span class="badge badge-<?= htmlspecialchars($g['status']) ?>"><?= htmlspecialchars($g['status']) ?></span></td>
-            <td><?= date('M j, Y', strtotime($g['updated_at'] ?? 'now')) ?></td>
+            <td><?= hqTimeTag($g['updated_at'] ?? null, 'rel') ?></td>
             <td style="white-space:nowrap;">
                 <a href="/hq/galleries/edit/<?= (int)$g['id'] ?>" class="btn-ghost btn-sm">Edit</a>
                 <?php if (($g['status'] ?? '') === 'published'): ?>

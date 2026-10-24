@@ -14,16 +14,77 @@ use Mova\AI\ImageGenService;
 
 $router->get('/media', function (Request $req) {
     requireAuth();
+    if ($deny = requirePerm('manage_media')) {
+        return $deny;
+    }
     $svc = new MediaService();
     $perPage = 25;
     $page = max(1, (int) $req->query('page', 1));
-    $total = $svc->count();
+    $focus = (int) $req->query('focus', 0);
+    if ($focus > 0) {
+        // Jump to the page that contains the focused item (HQ search deep links)
+        try {
+            $row = \Mova\Core\Database::fetch('SELECT created_at FROM media WHERE id = :id', ['id' => $focus]);
+            if ($row) {
+                $before = (int) (\Mova\Core\Database::fetch(
+                    'SELECT COUNT(*) AS c FROM media WHERE created_at > :t',
+                    ['t' => (string) $row['created_at']]
+                )['c'] ?? 0);
+                $page = (int) floor($before / $perPage) + 1;
+            }
+        } catch (\Throwable $e) {
+        }
+    }
+    // Search + "missing alt text" filter (plain SQL LIKE — works on any SQLite build).
+    $q = trim(mb_substr((string) $req->query('q', ''), 0, 120));
+    $filter = (string) $req->query('filter', '');
+    $filter = in_array($filter, ['noalt', 'images', 'video', 'docs'], true) ? $filter : '';
+    $noAltSql = "(mime_type LIKE 'image/%' AND (alt_text IS NULL OR TRIM(alt_text) = ''))";
+    $where = [];
+    $params = [];
+    if ($q !== '') {
+        $where[] = "(original_name LIKE :q ESCAPE '\\' OR alt_text LIKE :q ESCAPE '\\' OR filename LIKE :q ESCAPE '\\')";
+        $params['q'] = '%' . addcslashes($q, '%_\\') . '%';
+    }
+    if ($filter === 'noalt') {
+        $where[] = $noAltSql;
+    } elseif ($filter === 'images') {
+        $where[] = "mime_type LIKE 'image/%'";
+    } elseif ($filter === 'video') {
+        $where[] = "(mime_type LIKE 'video/%' OR mime_type LIKE 'audio/%' OR mime_type = 'application/dash+xml')";
+    } elseif ($filter === 'docs') {
+        $where[] = "mime_type NOT LIKE 'image/%' AND mime_type NOT LIKE 'video/%' AND mime_type NOT LIKE 'audio/%'";
+    }
+    $whereSql = $where ? ' WHERE ' . implode(' AND ', $where) : '';
+    $filtered = $where !== [];
+    $noAltCount = 0;
+    try {
+        $noAltCount = (int) (\Mova\Core\Database::fetch("SELECT COUNT(*) AS c FROM media WHERE {$noAltSql}")['c'] ?? 0);
+    } catch (\Throwable $e) {
+    }
+    $allCount = $svc->count();
+    $total = $filtered
+        ? (int) (\Mova\Core\Database::fetch("SELECT COUNT(*) AS c FROM media{$whereSql}", $params)['c'] ?? 0)
+        : $allCount;
     $totalPages = max(1, (int) ceil($total / $perPage));
     if ($page > $totalPages) {
         $page = $totalPages;
     }
     $offset = ($page - 1) * $perPage;
-    $items = $svc->all($perPage, $offset);
+    if ($filtered) {
+        $items = \Mova\Core\Database::fetchAll(
+            "SELECT * FROM media{$whereSql} ORDER BY created_at DESC LIMIT :limit OFFSET :offset",
+            $params + ['limit' => $perPage, 'offset' => $offset]
+        );
+        foreach ($items as &$row) {
+            if (!empty($row['variants'])) {
+                $row['variants'] = json_decode((string) $row['variants'], true) ?: [];
+            }
+        }
+        unset($row);
+    } else {
+        $items = $svc->all($perPage, $offset);
+    }
     return renderHq('media/list', [
         'items' => $items,
         'title' => 'Media',
@@ -31,11 +92,18 @@ $router->get('/media', function (Request $req) {
         'perPage' => $perPage,
         'total' => $total,
         'totalPages' => $totalPages,
+        'q' => $q,
+        'filter' => $filter,
+        'noAltCount' => $noAltCount,
+        'allCount' => $allCount,
     ]);
 });
 
 $router->get('/media/json', function (Request $req) {
     requireAuth();
+    if ($deny = requirePerm('manage_media')) {
+        return $deny;
+    }
     $svc = new MediaService();
     $perPage = 25;
     $page = max(1, (int) $req->query('page', 1));
@@ -106,6 +174,7 @@ $router->get('/media/json', function (Request $req) {
 
 $router->post('/media/upload', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('manage_media')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())
             ->header('Content-Type', 'application/json')
@@ -152,6 +221,7 @@ $router->post('/media/upload', function (Request $req) {
 
 $router->post('/media/delete/{id}', function (Request $req, array $params) {
     requireAuth();
+    if ($__deny = requirePerm('manage_media')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())
             ->header('Content-Type', 'application/json')
@@ -168,6 +238,7 @@ $router->post('/media/delete/{id}', function (Request $req, array $params) {
 
 $router->post('/media/update/{id}', function (Request $req, array $params) {
     requireAuth();
+    if ($__deny = requirePerm('manage_media')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())
             ->header('Content-Type', 'application/json')
@@ -210,6 +281,7 @@ $router->post('/media/update/{id}', function (Request $req, array $params) {
 
 $router->post('/media/replace/{id}', function (Request $req, array $params) {
     requireAuth();
+    if ($__deny = requirePerm('manage_media')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())
             ->header('Content-Type', 'application/json')
@@ -265,6 +337,9 @@ $router->post('/media/replace/{id}', function (Request $req, array $params) {
 
 $router->get('/media/{id}/json', function (Request $req, array $params) {
     requireAuth();
+    if ($deny = requirePerm('manage_media')) {
+        return $deny;
+    }
     $id = (int) ($params['id'] ?? 0);
     $svc = new MediaService();
     $item = $svc->find($id);
@@ -318,6 +393,7 @@ $router->get('/media/{id}/json', function (Request $req, array $params) {
 
 $router->post('/media/gallery-exclude/{id}', function (Request $req, array $params) {
     requireAuth();
+    if ($__deny = requirePerm('manage_media')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())
             ->header('Content-Type', 'application/json')
@@ -349,6 +425,7 @@ $router->post('/media/gallery-exclude/{id}', function (Request $req, array $para
 
 $router->post('/media/generate', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('manage_media')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())
             ->header('Content-Type', 'application/json')
@@ -420,6 +497,9 @@ $router->post('/media/generate', function (Request $req) {
 
 $router->get('/media/jobs/{id}', function (Request $req, array $params) {
     requireAuth();
+    if ($deny = requirePerm('manage_media')) {
+        return $deny;
+    }
     $uid = (int) Auth::id();
     $id = (int) ($params['id'] ?? 0);
     $jobs = new \Mova\AI\AiJobService();
@@ -438,6 +518,7 @@ $router->get('/media/jobs/{id}', function (Request $req, array $params) {
 /** Process a single image job (long-running; ignore_user_abort inside service). */
 $router->post('/media/jobs/{id}/process', function (Request $req, array $params) {
     requireAuth();
+    if ($__deny = requirePerm('manage_media')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())
             ->header('Content-Type', 'application/json')
@@ -459,6 +540,12 @@ $router->post('/media/jobs/{id}/process', function (Request $req, array $params)
         return (new Response())
             ->header('Content-Type', 'application/json')
             ->body(json_encode(['ok' => true, 'job' => $existing]));
+    }
+    // A live background worker picks the job up; the page keeps polling /hq/media/jobs/{id}.
+    if (\Mova\AI\AiWorker::isAlive()) {
+        return (new Response())
+            ->header('Content-Type', 'application/json')
+            ->body(json_encode(['ok' => true, 'job' => $existing, 'worker' => true]));
     }
     $job = $jobs->processJob($id, $uid);
     return (new Response())

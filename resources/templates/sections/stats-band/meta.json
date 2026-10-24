@@ -1,0 +1,51 @@
+{
+    "name": "Stats band",
+    "category": "stats",
+    "tags": [
+        "stats",
+        "counter",
+        "dark",
+        "animated"
+    ],
+    "description": "Dark band with animated count-up numbers.",
+    "preview": "/assets/templates/previews/stats-band.png",
+    "type": "stats",
+    "slots": [
+        "eyebrow",
+        "title",
+        "lead",
+        "items",
+        "buttons",
+        "images"
+    ],
+    "constraints": [
+        "Keep the root <section class=\"mx mx-…\"> and inner <div class=\"mx-in\"> wrappers.",
+        "Colours, fonts and radius come from theme CSS variables — do not hard-code colours.",
+        "Keep data-reveal attributes; motion is disabled automatically for reduced-motion users.",
+        "Use inline SVG/gradient art or uploaded images only — no external image hosts."
+    ],
+    "spec": {
+        "type": "stats",
+        "variant": "band",
+        "eyebrow": "By the numbers",
+        "title": "Results that speak for themselves",
+        "items": [
+            {
+                "value": "98%",
+                "label": "Client retention"
+            },
+            {
+                "value": "250+",
+                "label": "Projects delivered"
+            },
+            {
+                "value": "15",
+                "label": "Years of craft"
+            },
+            {
+                "value": "40k",
+                "label": "Community members"
+            }
+        ]
+    }
+}

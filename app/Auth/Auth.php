@@ -31,6 +31,16 @@ class Auth
             return false;
         }
 
+        // Transparently upgrade hashes when the preferred algorithm changes
+        // (e.g. bcrypt → Argon2id after the host gains libargon2).
+        try {
+            if (password_needs_rehash((string) $user['password'], self::passwordAlgo())) {
+                Database::update('users', ['password' => self::hashPassword($password)], 'id = :id', ['id' => $user['id']]);
+            }
+        } catch (\Throwable $e) {
+            // never block a valid login on rehash failure
+        }
+
         // Success
         self::clearFailedAttempts();
         self::login($user);
@@ -158,18 +168,34 @@ class Auth
             return false;
         }
 
-        // Administrator has the same capabilities as owner except creating new administrators
-        // (enforced in people routes). All permission checks treat admin like full access.
+        return self::roleCan($role, $permission);
+    }
+
+    /**
+     * Permission check for an arbitrary role (used by background workers with no session).
+     * Administrator has the same capabilities as owner except creating new administrators
+     * (enforced in people routes).
+     */
+    public static function roleCan(?string $role, string $permission): bool
+    {
         $map = [
             'owner'         => ['*'],
             'administrator' => ['*'],
-            'editor'        => ['manage_content', 'manage_media', 'view_insights'],
-            'author'        => ['manage_own_content', 'manage_media'],
+            'editor'        => ['manage_content', 'manage_media', 'view_insights', 'use_ai'],
+            'author'        => ['manage_own_content', 'manage_media', 'use_ai'],
             'viewer'        => ['view_content'],
         ];
 
-        $perms = $map[$role] ?? [];
+        $perms = $map[(string) $role] ?? [];
         return in_array('*', $perms, true) || in_array($permission, $perms, true);
+    }
+
+    /** True if the current user may change anything at all (i.e. not a read-only viewer). */
+    public static function canMutate(): bool
+    {
+        $role = self::role();
+        return $role !== null && $role !== 'viewer'
+            && (self::can('manage_content') || self::can('manage_own_content') || self::can('manage_media'));
     }
 
     private static function recordLoginHistory(?int $userId, string $username, bool $success): void
@@ -188,9 +214,27 @@ class Auth
         }
     }
 
+    /**
+     * Preferred password algorithm: Argon2id when this PHP build has libargon2,
+     * otherwise bcrypt. A configured algorithm that is unavailable falls back too.
+     */
+    public static function passwordAlgo(): string|int|null
+    {
+        $preferred = defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_BCRYPT;
+        $configured = Bootstrap::config('security.password_algo', $preferred);
+        if ($configured === null || $configured === '' || $configured === false) {
+            return $preferred;
+        }
+        $available = function_exists('password_algos') ? password_algos() : ['2y'];
+        if (is_string($configured) && !in_array($configured, $available, true)) {
+            return PASSWORD_BCRYPT;
+        }
+        return $configured;
+    }
+
     public static function hashPassword(string $password): string
     {
-        return password_hash($password, Bootstrap::config('security.password_algo', PASSWORD_ARGON2ID));
+        return password_hash($password, self::passwordAlgo());
     }
 
     /** Re-check the logged-in user's password (sensitive actions). */
@@ -265,8 +309,6 @@ class Auth
 
     private static function clientIp(): string
     {
-        return $_SERVER['HTTP_X_FORWARDED_FOR']
-            ?? $_SERVER['REMOTE_ADDR']
-            ?? '0.0.0.0';
+        return \Mova\Security\ClientIp::get();
     }
 }

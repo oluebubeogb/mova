@@ -658,6 +658,7 @@
       breakpoint = bp;
       document.querySelectorAll('.el-bp-btn').forEach(function (b) {
         b.classList.toggle('is-active', b.getAttribute('data-bp') === bp);
+        b.setAttribute('aria-pressed', b.getAttribute('data-bp') === bp ? 'true' : 'false');
       });
       fillForm();
       updatePreview();
@@ -668,6 +669,7 @@
       pseudo = p;
       document.querySelectorAll('.el-pseudo-btn').forEach(function (b) {
         b.classList.toggle('is-active', b.getAttribute('data-pseudo') === p);
+        b.setAttribute('aria-pressed', b.getAttribute('data-pseudo') === p ? 'true' : 'false');
       });
       fillForm();
       updatePreview();

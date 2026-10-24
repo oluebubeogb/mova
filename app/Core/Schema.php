@@ -616,11 +616,23 @@ class Schema
                 }
             } catch (\Throwable $e) {
             }
+            // New installs get the configured default theme (Presence); upgrades keep
+            // whatever was active (or the legacy 'default') so live sites never flip.
+            $theme = (string) (Bootstrap::config('default_theme', 'presence') ?: 'presence');
+            try {
+                $at = Database::fetch("SELECT setting_value FROM settings WHERE setting_key = 'active_theme'");
+                if ($at && !empty($at['setting_value'])) {
+                    $theme = (string) $at['setting_value'];
+                } elseif (self::hasOwner()) {
+                    $theme = 'default';
+                }
+            } catch (\Throwable $e) {
+            }
             Database::insert('sites', [
                 'name'       => $name,
                 'slug'       => 'primary',
                 'domain'     => '',
-                'theme'      => 'default',
+                'theme'      => $theme,
                 'status'     => 'active',
                 'is_primary' => 1,
                 'settings'   => '{}',
@@ -765,6 +777,7 @@ class Schema
         self::migratePhase11($db);
         self::migratePhase12($db);
         self::migratePhase13($db);
+        self::migratePhase14($db);
     }
 
     /**
@@ -1049,6 +1062,79 @@ class Schema
 
 
     /** Blogs — curated / filtered content feeds with templates */
+    /**
+     * Phase 14 — AI usage ledger, HQ search index (FTS5 trigram w/ LIKE fallback),
+     * stable site UUID, and cleanup of legacy AI seed values (defaults now live in AiConfig).
+     */
+    private static function migratePhase14(\PDO $db): void
+    {
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS ai_usage (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL,
+                day TEXT NOT NULL,
+                feature TEXT NOT NULL DEFAULT 'hq.assist',
+                kind TEXT NOT NULL DEFAULT 'chat',
+                model TEXT,
+                endpoint_host TEXT,
+                prompt_tokens INTEGER,
+                completion_tokens INTEGER,
+                total_tokens INTEGER,
+                estimated INTEGER NOT NULL DEFAULT 0,
+                latency_ms INTEGER NOT NULL DEFAULT 0,
+                status TEXT NOT NULL DEFAULT 'ok',
+                error TEXT,
+                user_id INTEGER,
+                job_id TEXT
+            )
+        ");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_ai_usage_day ON ai_usage(day)");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_ai_usage_feature ON ai_usage(feature, day)");
+
+        $exists = (bool) $db->query("SELECT 1 FROM sqlite_master WHERE name = 'hq_search'")->fetchColumn();
+        if (!$exists) {
+            $engine = 'like';
+            try {
+                $db->exec("
+                    CREATE VIRTUAL TABLE hq_search USING fts5(
+                        title, body, keywords,
+                        kind UNINDEXED, ref UNINDEXED, url UNINDEXED, grp UNINDEXED,
+                        crumb UNINDEXED, icon UNINDEXED, badge UNINDEXED, perm UNINDEXED, weight UNINDEXED,
+                        tokenize = 'trigram'
+                    )
+                ");
+                $engine = 'fts5';
+            } catch (\Throwable $e) {
+                // SQLite < 3.34 or FTS5 not compiled in → plain table + LIKE substring search
+                $db->exec("
+                    CREATE TABLE IF NOT EXISTS hq_search (
+                        title TEXT, body TEXT, keywords TEXT,
+                        kind TEXT, ref TEXT, url TEXT, grp TEXT,
+                        crumb TEXT, icon TEXT, badge TEXT, perm TEXT, weight INTEGER
+                    )
+                ");
+                $db->exec("CREATE INDEX IF NOT EXISTS idx_hq_search_kind ON hq_search(kind, ref)");
+            }
+            $st = $db->prepare("INSERT INTO settings (setting_key, setting_value, updated_at) VALUES ('hq_search_engine', :v, :t)
+                ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value, updated_at = excluded.updated_at");
+            $st->execute(['v' => $engine, 't' => date('c')]);
+            $db->exec("DELETE FROM settings WHERE setting_key = 'hq_search_sig'");
+        }
+
+        // Stable per-install id for AI gateway attribution (X-Mova-Site)
+        $uuid = bin2hex(random_bytes(16));
+        $uuid = substr($uuid, 0, 8) . '-' . substr($uuid, 8, 4) . '-4' . substr($uuid, 13, 3) . '-'
+            . dechex(8 | (hexdec($uuid[16]) & 3)) . substr($uuid, 17, 3) . '-' . substr($uuid, 20, 12);
+        $st = $db->prepare("INSERT OR IGNORE INTO settings (setting_key, setting_value, updated_at) VALUES ('site_uuid', :v, :t)");
+        $st->execute(['v' => $uuid, 't' => date('c')]);
+
+        // Legacy installer seeds pinned old values; drop them so AiConfig defaults (mova-ai) apply.
+        $db->exec("DELETE FROM settings WHERE setting_key = 'ai_model' AND setting_value IN ('qwen2.5:7b', 'granite', '')");
+        $db->exec("DELETE FROM settings WHERE setting_key = 'ai_api_key' AND setting_value IN ('mova-ai-key', '')");
+        $db->exec("DELETE FROM settings WHERE setting_key = 'ai_api_url' AND setting_value IN ('https://movaai.collab.name.ng/v1', 'https://movaai.collab.name.ng/v1/', '')");
+        $db->exec("DELETE FROM settings WHERE setting_key = 'ai_provider' AND setting_value IN ('Mova AI', '')");
+    }
+
     private static function migratePhase13(\PDO $db): void
     {
         $db->exec("

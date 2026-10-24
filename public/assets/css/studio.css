@@ -218,14 +218,14 @@
   cursor: not-allowed;
 }
 .studio-btn-primary {
-  background: var(--hq-accent, #2563eb);
+  background: var(--hq-accent-fill, #4f46e5);
   border-color: var(--hq-accent, #2563eb);
   color: #fff;
   font-weight: 600;
 }
 .studio-btn-primary:hover:not(:disabled) {
   filter: brightness(1.05);
-  background: var(--hq-accent, #2563eb);
+  background: var(--hq-accent-fill, #4f46e5);
 }
 .studio-btn-ghost {
   border-style: dashed;
@@ -409,7 +409,7 @@
 }
 .studio-splitter:hover::after,
 body.studio-resizing .studio-splitter::after {
-  background: var(--hq-accent, #2563eb);
+  background: var(--hq-accent-fill, #4f46e5);
   width: 2px;
   left: 1.5px;
 }
@@ -677,15 +677,29 @@ body[data-theme="dark"] .studio-code-tab.is-active {
 /* ── Phase 2 additions ──────────────────────────────────────────────────── */
 
 .studio-error-badge {
-  display: inline-block;
-  padding: 0.15rem 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.6rem;
   border-radius: 999px;
   font-size: 0.72rem;
   font-weight: 600;
-  background: #fef2f2;
-  color: #991b1b;
   margin-left: 0.35rem;
+  border: 1px solid transparent;
+  transition: background-color .2s ease, color .2s ease;
+  /* neutral / OK state: green, not alarming */
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+  border-color: rgba(16, 185, 129, 0.25);
 }
+.studio-error-badge[hidden] { display: none; }
+.studio-error-badge.is-error {
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+[data-theme="dark"] .studio-error-badge { color: #6ee7b7; }
+[data-theme="dark"] .studio-error-badge.is-error { color: #fca5a5; }
 
 .studio-nav-item.has-styles .studio-nav-short::after {
   content: '●';
@@ -953,5 +967,5 @@ body.studio-resizing .studio-edge-resize {
 }
 .studio-edge-resize:hover::after,
 body.studio-resizing .studio-edge-resize::after {
-  background: var(--hq-accent, #2563eb);
+  background: var(--hq-accent-fill, #4f46e5);
 }

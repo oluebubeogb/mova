@@ -64,7 +64,7 @@ $newCount = (int) ($newCount ?? 0);
 .fb-table th{text-align:left;font-size:0.72rem;font-weight:650;text-transform:uppercase;letter-spacing:0.04em;color:#64748b;padding:0.7rem 1rem;background:#f8fafc;border-bottom:1px solid #eef2f7}
 .fb-table td{padding:0.75rem 1rem;border-bottom:1px solid #f1f5f9;vertical-align:middle}
 .fb-table tr:last-child td{border-bottom:none}
-.fb-table tbody tr:hover{background:#fafbfc}
+.fb-table tbody tr:hover{background:var(--hq-hover,#f1f5f9)}
 .fb-code{font-size:0.8rem;background:#f1f5f9;padding:0.15rem 0.4rem;border-radius:4px}
 .fb-status{font-size:0.75rem;font-weight:600;padding:0.15rem 0.5rem;border-radius:999px;background:#f1f5f9;color:#475569}
 .fb-status.is-published{background:#ecfdf5;color:#059669}

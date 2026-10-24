@@ -1,0 +1,43 @@
+{
+    "name": "Centered hero",
+    "category": "hero",
+    "tags": [
+        "hero",
+        "centered",
+        "wide image",
+        "minimal"
+    ],
+    "description": "Centered headline and actions above a cinematic 21:9 visual.",
+    "preview": "/assets/templates/previews/hero-centered.png",
+    "type": "hero",
+    "slots": [
+        "eyebrow",
+        "title",
+        "lead",
+        "items",
+        "buttons",
+        "images"
+    ],
+    "constraints": [
+        "Keep the root <section class=\"mx mx-…\"> and inner <div class=\"mx-in\"> wrappers.",
+        "Colours, fonts and radius come from theme CSS variables — do not hard-code colours.",
+        "Keep data-reveal attributes; motion is disabled automatically for reduced-motion users.",
+        "Use inline SVG/gradient art or uploaded images only — no external image hosts."
+    ],
+    "spec": {
+        "type": "hero",
+        "variant": "centered",
+        "eyebrow": "Welcome",
+        "title": "Design-led spaces for modern living",
+        "lead": "We plan, build and furnish homes that feel effortless — on time and on budget.",
+        "primary": {
+            "label": "View projects",
+            "href": "/projects"
+        },
+        "secondary": {
+            "label": "Our story",
+            "href": "/about"
+        },
+        "art": "city"
+    }
+}

@@ -105,7 +105,7 @@
 .variant-option:has(input:checked) .variant-preview {
     border-color: var(--hq-accent); color: var(--hq-accent); box-shadow: 0 0 0 1px var(--hq-accent);
 }
-.variant-preview--btn-solid { background: var(--hq-accent); color: #fff; border-color: transparent; }
+.variant-preview--btn-solid { background: var(--hq-accent-fill); color: #fff; border-color: transparent; }
 .variant-preview--btn-outline { border-width: 2px; border-color: var(--hq-accent); color: var(--hq-accent); }
 .variant-preview--btn-ghost { background: transparent; }
 .variant-preview--btn-soft { background: rgba(59, 130, 246, 0.15); color: var(--hq-accent); }

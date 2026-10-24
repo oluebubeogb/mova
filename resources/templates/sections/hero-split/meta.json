@@ -1,0 +1,53 @@
+{
+    "name": "Split hero with image",
+    "category": "hero",
+    "tags": [
+        "hero",
+        "split",
+        "image",
+        "badge"
+    ],
+    "description": "Copy on the left, framed image on the right with a floating highlight card.",
+    "preview": "/assets/templates/previews/hero-split.png",
+    "type": "hero",
+    "slots": [
+        "eyebrow",
+        "title",
+        "lead",
+        "items",
+        "buttons",
+        "images"
+    ],
+    "constraints": [
+        "Keep the root <section class=\"mx mx-…\"> and inner <div class=\"mx-in\"> wrappers.",
+        "Colours, fonts and radius come from theme CSS variables — do not hard-code colours.",
+        "Keep data-reveal attributes; motion is disabled automatically for reduced-motion users.",
+        "Use inline SVG/gradient art or uploaded images only — no external image hosts."
+    ],
+    "spec": {
+        "type": "hero",
+        "variant": "split",
+        "eyebrow": "Trusted by 300+ teams",
+        "title": "The smarter way to run your day",
+        "lead": "Plan, share and deliver in one place. Everything your team needs, nothing it does not.",
+        "primary": {
+            "label": "Get started",
+            "href": "/contact"
+        },
+        "secondary": {
+            "label": "Book a demo",
+            "href": "/contact"
+        },
+        "points": [
+            "Free 14-day trial",
+            "No credit card",
+            "Cancel any time"
+        ],
+        "art": "people",
+        "badge": {
+            "icon": "star",
+            "title": "Rated 4.9",
+            "text": "by 2,000+ reviews"
+        }
+    }
+}

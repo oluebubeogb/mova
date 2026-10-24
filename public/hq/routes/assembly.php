@@ -76,6 +76,7 @@ $router->get('/assembly/picker', function (Request $req) {
 
 $router->post('/assembly', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('manage_content')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->status(403)->body('Forbidden');
     }
@@ -145,6 +146,7 @@ $router->post('/assembly', function (Request $req) {
 
 $router->post('/assembly/preview', function (Request $req) {
     requireAuth();
+    if ($__deny = requirePerm('manage_content')) { return $__deny; }
     if (!Csrf::validate()) {
         return (new Response())->status(403)->header('Content-Type', 'application/json')->body('{"ok":false}');
     }
@@ -162,5 +164,9 @@ $router->post('/assembly/preview', function (Request $req) {
     $html = $svc->renderRow($row, true);
     return (new Response())
         ->header('Content-Type', 'application/json')
-        ->body(json_encode(['ok' => true, 'html' => $html]));
+        ->body(json_encode([
+            'ok' => true,
+            'html' => $html,
+            'tokens' => class_exists(\Mova\Theme\TemplateService::class) ? \Mova\Theme\TemplateService::scopedTokensCss('body') : '',
+        ]));
 });

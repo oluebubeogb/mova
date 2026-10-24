@@ -1,0 +1,22 @@
+/* ==========================================================================
+   Default ("Clarity") — calm, neutral, editorial-business look.
+   Crisp white header, Inter throughout, soft single-hue glow.
+   ========================================================================== */
+body.theme-default {
+  --theme-font-heading: "Inter", var(--font-sans);
+  --h-weight: 720;
+  --h-track: -0.03em;
+  --hdr-bg: color-mix(in srgb, var(--color-surface) 94%, transparent);
+  --hdr-bg-scrolled: color-mix(in srgb, var(--color-surface) 86%, transparent);
+  --hdr-border: var(--color-border);
+  --bg-art: radial-gradient(70rem 26rem at 50% -10%, color-mix(in srgb, var(--color-primary) 8%, transparent), transparent 70%), var(--color-bg);
+}
+body.theme-default .mx-header { border-bottom-color: var(--color-border); }
+body.theme-default .mx-brand__mark { border-radius: 9px; background: var(--color-primary); }
+body.theme-default .mx-nav a { border-radius: 8px; }
+body.theme-default .mx-nav a[aria-current="page"] { background: color-mix(in srgb, var(--color-primary) 9%, transparent); color: var(--color-primary); }
+body.theme-default .mx-nav a[aria-current="page"]::after { display: none; }
+body.theme-default .mx-header__cta { border-radius: var(--btn-r); }
+body.theme-default .content-card { box-shadow: none; }
+body.theme-default .content-card:hover { box-shadow: var(--shadow-1); }
+body.theme-default .mx-footer { background: var(--color-surface); }

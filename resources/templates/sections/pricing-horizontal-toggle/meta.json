@@ -1,0 +1,90 @@
+{
+    "name": "Pricing — billing toggle",
+    "category": "pricing",
+    "tags": [
+        "pricing",
+        "toggle",
+        "monthly",
+        "yearly"
+    ],
+    "description": "Monthly / yearly toggle with animated price swap.",
+    "preview": "/assets/templates/previews/pricing-horizontal-toggle.png",
+    "type": "pricing",
+    "slots": [
+        "eyebrow",
+        "title",
+        "lead",
+        "items",
+        "buttons",
+        "images"
+    ],
+    "constraints": [
+        "Keep the root <section class=\"mx mx-…\"> and inner <div class=\"mx-in\"> wrappers.",
+        "Colours, fonts and radius come from theme CSS variables — do not hard-code colours.",
+        "Keep data-reveal attributes; motion is disabled automatically for reduced-motion users.",
+        "Use inline SVG/gradient art or uploaded images only — no external image hosts."
+    ],
+    "spec": {
+        "type": "pricing",
+        "variant": "toggle",
+        "eyebrow": "Plans",
+        "title": "Pay monthly or save yearly",
+        "save": "Save 17%",
+        "plans": [
+            {
+                "name": "Starter",
+                "text": "For individuals getting going.",
+                "price": "$9",
+                "price_b": "$90",
+                "per": "/month",
+                "per_b": "/year",
+                "features": [
+                    "1 website",
+                    "Custom domain",
+                    "Email support"
+                ],
+                "cta": {
+                    "label": "Choose Starter",
+                    "href": "/contact"
+                }
+            },
+            {
+                "name": "Pro",
+                "text": "For growing teams and brands.",
+                "price": "$29",
+                "price_b": "$290",
+                "per": "/month",
+                "per_b": "/year",
+                "featured": true,
+                "features": [
+                    "5 websites",
+                    "AI writing assistant",
+                    "Priority support",
+                    "Advanced analytics"
+                ],
+                "cta": {
+                    "label": "Choose Pro",
+                    "href": "/contact"
+                }
+            },
+            {
+                "name": "Business",
+                "text": "For organisations at scale.",
+                "price": "$79",
+                "price_b": "$790",
+                "per": "/month",
+                "per_b": "/year",
+                "features": [
+                    "Unlimited websites",
+                    "SSO & roles",
+                    "Dedicated manager",
+                    "SLA"
+                ],
+                "cta": {
+                    "label": "Talk to sales",
+                    "href": "/contact"
+                }
+            }
+        ]
+    }
+}

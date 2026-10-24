@@ -1,0 +1,49 @@
+{
+    "name": "Stat cards",
+    "category": "stats",
+    "tags": [
+        "stats",
+        "counter",
+        "cards",
+        "light"
+    ],
+    "description": "Light stat cards with supporting text.",
+    "preview": "/assets/templates/previews/stats-cards.png",
+    "type": "stats",
+    "slots": [
+        "eyebrow",
+        "title",
+        "lead",
+        "items",
+        "buttons",
+        "images"
+    ],
+    "constraints": [
+        "Keep the root <section class=\"mx mx-…\"> and inner <div class=\"mx-in\"> wrappers.",
+        "Colours, fonts and radius come from theme CSS variables — do not hard-code colours.",
+        "Keep data-reveal attributes; motion is disabled automatically for reduced-motion users.",
+        "Use inline SVG/gradient art or uploaded images only — no external image hosts."
+    ],
+    "spec": {
+        "type": "stats",
+        "variant": "cards",
+        "title": "Growing every year",
+        "items": [
+            {
+                "value": "3.2x",
+                "label": "Faster onboarding",
+                "text": "Compared with the industry average."
+            },
+            {
+                "value": "120k",
+                "label": "Monthly visitors",
+                "text": "Across web and mobile."
+            },
+            {
+                "value": "99.9%",
+                "label": "Uptime",
+                "text": "Backed by our service promise."
+            }
+        ]
+    }
+}

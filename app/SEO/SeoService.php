@@ -124,7 +124,7 @@ class SeoService
             'headline' => $content['title'],
             'url'      => Bootstrap::baseUrl() . '/' . $content['slug'],
             'datePublished' => $content['published_at'] ?? $content['created_at'],
-            'dateModified'  => $content['updated_at'],
+            'dateModified'  => $content['updated_at'] ?? ($content['published_at'] ?? null),
         ];
 
         $schemaDesc = trim((string) ($content['excerpt'] ?? ''));

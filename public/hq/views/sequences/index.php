@@ -39,7 +39,7 @@
         <tr>
             <td><?= htmlspecialchars($s['name']) ?></td>
             <td><?= htmlspecialchars($s['status']) ?></td>
-            <td><?= htmlspecialchars(date('Y-m-d', strtotime($s['created_at']))) ?></td>
+            <td><?= hqTimeTag($s['created_at'], 'date') ?></td>
             <td>
                 <form method="post" action="/hq/sequences" onsubmit="return confirm('Delete?');">
                     <?= Csrf::field() ?>

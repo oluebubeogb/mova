@@ -357,13 +357,13 @@ body.hq {
 }
 
 .btn-primary {
-    background: var(--hq-accent);
+    background: var(--hq-accent-fill);
     color: #fff;
     border-color: var(--hq-accent);
 }
 
 .btn-primary:hover {
-    background: var(--hq-accent-hover);
+    background: color-mix(in srgb, var(--hq-accent-fill, #5b5ce2) 86%, #000);
     border-color: var(--hq-accent-hover);
 }
 
@@ -462,37 +462,47 @@ body.hq {
     background: var(--hq-surface, var(--hq-input-bg));
 }
 
-/* Password with eye toggle */
-.password-field {
+/* Password / secret eye toggle (MovaEye — public/assets/js/hq-eye.js) */
+.mova-eye {
     position: relative;
+    display: block;
+    width: 100%;
 }
-.password-field input {
-    padding-right: 2.6rem;
+.mova-eye.mova-eye--inline {
+    display: inline-block;
+    width: auto;
 }
-.password-toggle {
+.mova-eye > input {
+    padding-right: 2.75rem !important;
+    width: 100%;
+    box-sizing: border-box;
+}
+.mova-eye-btn {
     position: absolute;
-    right: 0.55rem;
+    right: 0.35rem;
     top: 50%;
     transform: translateY(-50%);
-    border: none;
-    background: transparent;
-    color: var(--hq-muted);
-    cursor: pointer;
-    width: 2rem;
-    height: 2rem;
+    width: 2.1rem;
+    height: 2.1rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 6px;
     padding: 0;
+    margin: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--hq-muted, #8a8f98);
+    cursor: pointer;
+    transition: color .15s ease, background .15s ease;
 }
-.password-toggle:hover {
-    color: var(--hq-text);
-    background: rgba(0,0,0,0.04);
-}
-.password-toggle .fa-eye-slash { display: none; }
-.password-toggle.is-visible .fa-eye { display: none; }
-.password-toggle.is-visible .fa-eye-slash { display: inline; }
+.mova-eye-btn:hover { color: var(--hq-text, #111); background: color-mix(in srgb, var(--hq-text, #000) 7%, transparent); }
+.mova-eye-btn:focus-visible { outline: 2px solid var(--hq-accent, #3b82f6); outline-offset: 1px; }
+.mova-eye-btn:disabled { opacity: .4; cursor: not-allowed; }
+.mova-eye-btn .mova-eye-hide { display: none; }
+.mova-eye-btn[aria-pressed="true"] .mova-eye-show { display: none; }
+.mova-eye-btn[aria-pressed="true"] .mova-eye-hide { display: block; }
+.mova-eye-btn[aria-pressed="true"] { color: var(--hq-accent, #3b82f6); }
 
 /* Responsive form grids */
 .form-grid {
@@ -1108,7 +1118,7 @@ body.hq {
 .editor-toolbar .toolbar-group-pick.is-active {
     background: rgba(59, 130, 246, 0.18);
     opacity: 1;
-    color: var(--hq-accent) !important;
+    color: var(--hq-accent-text, var(--hq-accent)) !important;
     border-color: transparent;
 }
 
@@ -1309,7 +1319,7 @@ body.hq {
 .editor-body a.btn {
     display: inline-block;
     padding: 0.55rem 1.15rem;
-    background: var(--hq-accent);
+    background: var(--hq-accent-fill);
     color: #fff !important;
     text-decoration: none;
     border-radius: 6px;
@@ -1668,7 +1678,7 @@ body.hq-sidebar-open {
     width: 22px;
     height: 22px;
     border-radius: 50%;
-    background: var(--hq-accent);
+    background: var(--hq-accent-fill);
     color: #fff;
     display: none;
     align-items: center;
@@ -2336,4 +2346,18 @@ body.hq-sidebar-open {
 }
 .hq-nav-item.is-primary {
     font-weight: 600;
+}
+
+/* ============================================================
+   Accessibility: honour "reduce motion" across HQ, Studio and Mova AI
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+    html:focus-within { scroll-behavior: auto !important; }
+    body.hq *, body.hq *::before, body.hq *::after,
+    .mova-ai-panel *, .mova-ai-fab {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+        scroll-behavior: auto !important;
+    }
 }

@@ -11,10 +11,18 @@
   var contentId = app.getAttribute('data-content-id');
   var csrf = app.getAttribute('data-csrf');
   var saveUrl = app.getAttribute('data-save-url');
-  var monacoCdn = app.getAttribute('data-monaco-cdn') || 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs';
+  var monacoCdn = app.getAttribute('data-monaco-cdn') || '/assets/vendor/monaco/vs';
 
   var siteCssVars = '';
   var varMap = {};
+  var previewAssets = { styles: [], bodyClass: '' };
+  var previewThemeCss = '';
+  try {
+    var paEl = document.getElementById('studio-preview-assets');
+    if (paEl) previewAssets = JSON.parse(paEl.textContent || '{}') || previewAssets;
+    var ptEl = document.getElementById('studio-preview-theme-css');
+    if (ptEl) previewThemeCss = JSON.parse(ptEl.textContent || '""') || '';
+  } catch (e) {}
   (function loadSiteVars() {
     try {
       var styleEl = document.getElementById('studio-site-css-vars');
@@ -841,9 +849,11 @@
     }
     window.MonacoEnvironment = {
       getWorkerUrl: function () {
+        // Blob workers have no base URL, so a bundled (relative) path must be made absolute.
+        var abs = new URL(monacoCdn, window.location.href).href.replace(/\/$/, '');
         return URL.createObjectURL(new Blob([
-          "self.MonacoEnvironment={baseUrl:'" + monacoCdn + "/../'};",
-          "importScripts('" + monacoCdn + "/base/worker/workerMain.js');"
+          "self.MonacoEnvironment={baseUrl:'" + abs + "/../'};",
+          "importScripts('" + abs + "/base/worker/workerMain.js');"
         ], { type: 'text/javascript' }));
       }
     };
@@ -967,12 +977,13 @@
         });
       });
     } catch (e) {}
-    if (count > 0) {
-      errorBadge.hidden = false;
-      errorBadge.textContent = count + (count === 1 ? ' error' : ' errors');
-    } else {
-      errorBadge.hidden = true;
-    }
+    errorBadge.hidden = false;
+    errorBadge.classList.toggle('is-ok', count === 0);
+    errorBadge.classList.toggle('is-error', count > 0);
+    errorBadge.innerHTML = count > 0
+      ? '<i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> ' + count + (count === 1 ? ' error' : ' errors')
+      : '<i class="fa-solid fa-circle-check" aria-hidden="true"></i> No errors';
+    errorBadge.setAttribute('title', count > 0 ? 'Syntax problems found in your code' : 'Code looks valid');
   }
 
   // ── Code tabs ────────────────────────────────────────────────────────────
@@ -1081,11 +1092,16 @@
     // content CSS cannot wipe the design tokens)
     return '<!DOCTYPE html><html data-theme="' + themeAttr + '"><head><meta charset="utf-8">' +
       '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+      // Blob documents have no usable base URL → absolute links to the real public CSS
+      (previewAssets.styles || []).map(function (u) {
+        return '<link rel="stylesheet" href="' + String(location.origin + u).replace(/"/g, '&quot;') + '">';
+      }).join('') +
       '<style id="mova-site-vars">' + (siteCssVars || '') + '\n' + rootInline + '</style>' +
+      (previewThemeCss ? '<style id="mova-theme-css">' + previewThemeCss.replace(/<\/style/gi, '<\\/style') + '</style>' : '') +
       '<style id="mova-content-css">' +
-        'html,body{margin:0;padding:1rem;font-family:system-ui,sans-serif;background:' + bg + ';color:' + fg + ';}' +
+        'html,body{margin:0;font-family:var(--font-body,Inter,system-ui,sans-serif);background:' + bg + ';color:' + fg + ';}' +
         '\n' + css +
-      '</style></head><body>' + html +
+      '</style></head><body class="' + String(previewAssets.bodyClass || '').replace(/"/g, '') + '"><main class="site-main">' + html + '</main>' +
       '<script>window.MovaVars=' + JSON.stringify(varMap || {}) + ';' +
       varBootstrap +
       '(function(){try{' + js + '}catch(e){console.error(e);}})();<\/script></body></html>';
