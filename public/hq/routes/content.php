@@ -213,9 +213,20 @@ $router->get('/content/edit/{id}', function (Request $req, array $params) {
     $tagString = implode(', ', array_column($contentTags, 'name'));
     $customFields = $typeSvc->fieldsForTypeSlug((string) $content['type']);
     $fieldValues = $typeSvc->getFieldValues((int) $content['id']);
-    $relatedIds = (new RelationService())->getRelatedIds((int) $content['id'], 'related');
+    // Optional side panels degrade (logged with a ref) instead of failing the whole editor.
+    $relatedIds = [];
+    try {
+        $relatedIds = (new RelationService())->getRelatedIds((int) $content['id'], 'related');
+    } catch (\Throwable $e) {
+        \Mova\Core\ErrorHandler::report('editor.related', $e);
+    }
     $relatedOptions = $repo->all([], 100);
-    $revisions = $repo->listRevisions((int) $content['id']);
+    $revisions = [];
+    try {
+        $revisions = $repo->listRevisions((int) $content['id']);
+    } catch (\Throwable $e) {
+        \Mova\Core\ErrorHandler::report('editor.revisions', $e);
+    }
 
     $assemblies = [];
     try {
@@ -235,6 +246,8 @@ $router->get('/content/edit/{id}', function (Request $req, array $params) {
                 $unicodeIssues += count($f['hits']);
             }
         } catch (\Throwable $e) {
+            \Mova\Core\ErrorHandler::report('editor.unicode-scan', $e);
+            $unicodeIssues = 0;
         }
     }
 

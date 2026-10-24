@@ -26,6 +26,23 @@ $statusColor = [
 </div>
 <?php endif; ?>
 
+<?php if (!empty($diagnostics)): ?>
+<div class="panel" style="margin-bottom:1.25rem;" id="upgrade-health">
+    <h3 style="margin-top:0;">Upgrade &amp; runtime</h3>
+    <ul style="list-style:none;padding:0;margin:0;font-size:0.85rem;">
+    <?php foreach ($diagnostics as $d): $st = (string) ($d['status'] ?? 'ok'); ?>
+        <li style="padding:0.3rem 0;border-bottom:1px solid var(--hq-border);display:flex;gap:0.5rem;">
+            <span class="<?= $st === 'ok' ? 'hq-ok-text' : ($st === 'error' ? 'hq-bad-text' : 'hq-warn-text') ?>" style="min-width:2.6em;"><?= $st === 'ok' ? 'OK' : ($st === 'error' ? 'FAIL' : 'WARN') ?></span>
+            <span><?= htmlspecialchars((string) $d['label']) ?> — <span style="color:var(--hq-muted)"><?= htmlspecialchars((string) $d['detail']) ?></span></span>
+        </li>
+    <?php endforeach; ?>
+    </ul>
+    <p style="font-size:0.8rem;color:var(--hq-muted);margin:0.75rem 0 0;">
+        Full check on the server: <code>php bin/mova-doctor.php</code> (Docker: <code>docker compose exec -u www-data &lt;service&gt; php bin/mova-doctor.php</code>). Errors are logged to <code>storage/logs/mova-errors.log</code> with the reference id shown on error pages.
+    </p>
+</div>
+<?php endif; ?>
+
 <div class="panel" style="margin-bottom:1.25rem;">
     <h3 style="margin-top:0;">Overall: <span style="color:<?= $statusColor[$report['overall']] ?? 'inherit' ?>"><?= htmlspecialchars(strtoupper($report['overall'])) ?></span></h3>
     <p style="font-size:0.85rem;color:var(--hq-muted);margin:0;">

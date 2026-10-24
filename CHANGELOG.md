@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-10-24
+
+### Fixed
+- **HTTP 500 when opening any saved item in the editor** (old pages, dev-mode pages, visual posts, AI drafts, new drafts after the first save) after upgrading on Docker / PHP-FPM. The image runs OPcache with `validate_timestamps=0`, so after files were replaced in place the FPM pool kept serving the *old* cached `public/hq/helpers.php` while compiling the *new* `public/hq/views/content/edit.php`, whose Revisions panel calls `hqTimeTag()` (added in 1.2.x) -> `Call to undefined function hqTimeTag()`. `/hq/content/new` kept working because it has no revisions. Production also ran with `error_reporting(0)` and the image logged to a file inside the container, so the 500 was blank and unlogged.
+- Dev-mode editor (mova-dev-editor plugin): Monaco web worker failed with "importScripts ... URL is invalid" (relative path inside a Blob worker); now resolved to an absolute URL, as Studio already did.
+
+### Added
+- `app/Core/ErrorHandler.php`: fatals and uncaught exceptions are logged to `storage/logs/mova-errors.log` **and** stderr (docker logs) with a reference id, request method and path (no query string), file:line and trace; secrets (keys, tokens, passwords) are masked. Visitors get a friendly "Something went wrong - Ref XXXXXXXX" page (header `X-Mova-Error-Ref`); HQ shows admins where to look. Details only in debug mode.
+- `app/Core/Runtime.php`: code fingerprint check - on the first web request after a code change Mova calls `opcache_reset()` (and re-issues the GET once), logs `mova.upgrade`, and a stale-code fatal (undefined function/class, redeclare) also triggers a reset (`mova.opcache`). Future in-place upgrades no longer need a manual PHP-FPM restart.
+- Schema-version-gated, idempotent migrations: state (`mova_schema_state`, schema 14) is stored in settings, migrations run once per code change, failures are logged (`mova.migration`, `storage/cache/.mova-migration-error.json`) and retried on the next request instead of breaking pages.
+- `bin/mova-doctor.php`: CLI health check (PHP version and extensions, OPcache settings, writable dirs and SQLite files, schema/migrations, HQ helpers, `php -l` of core files, recent errors). Flags: `--migrate`, `--reset-opcache`, `--json`, `--no-lint`. Exit code 1 on blocking problems.
+- HQ -> Health: new "Upgrade & runtime" panel with the same checks.
+- mbstring polyfills (`app/Core/polyfills.php`) so HQ keeps working on hosts without ext-mbstring.
+- Clear message (and log line) when `config/config.php` is missing after replacing the site folder.
+
+### Changed
+- Editor: optional panels (Revisions, Related, Unicode notice) are isolated - if one fails it shows "could not be loaded (ref ...)" and is logged; editing and saving still work.
+- Dockerfile: `opcache.validate_timestamps=1` with `revalidate_freq=2`, and PHP errors go to stderr (docker logs) instead of `/var/log/php_errors.log` inside the container. Rebuild the image to pick this up (also needed for the 1.2.x ai-worker in supervisord and the nginx PWA block).
+
+### Upgrade notes (Docker)
+1. Keep `config/` and `storage/`; replace the other files.
+2. `docker compose build && docker compose up -d` (or at least `docker compose restart <php service>` to clear the stale OPcache).
+3. `docker compose exec -u www-data <php service> php bin/mova-doctor.php` (add `--migrate` if it reports pending migrations).
+
 ## [1.2.1] - 2026-10-24
 
 ### Fixed (blog and gallery settings are respected again)
