@@ -131,8 +131,12 @@ class SiteAiService
                 $raw = trim($raw);
                 if (preg_match('/\{.*\}/s', $raw, $m)) {
                     $data = json_decode($m[0], true);
+                    if (!is_array($data)) {
+                        // Tolerate raw newlines / trailing commas without mangling \uXXXX escapes.
+                        $data = json_decode(\Mova\AI\AiText::repairJson($m[0]), true);
+                    }
                     if (is_array($data)) {
-                        $reply = trim((string) ($data['reply'] ?? ''));
+                        $reply = \Mova\AI\AiText::clean(trim((string) ($data['reply'] ?? '')));
                         foreach ($data['links'] ?? [] as $l) {
                             if (!is_array($l)) {
                                 continue;
@@ -140,7 +144,7 @@ class SiteAiService
                             $path = (string) ($l['path'] ?? '');
                             if (str_starts_with($path, '/') && !str_starts_with($path, '/hq')) {
                                 $outLinks[] = [
-                                    'label' => (string) ($l['label'] ?? $path),
+                                    'label' => \Mova\AI\AiText::clean((string) ($l['label'] ?? $path)),
                                     'path' => $path,
                                 ];
                             }
@@ -152,6 +156,7 @@ class SiteAiService
                     if (str_starts_with(trim($reply), '{')) {
                         $reply = 'Happy to help — ask me about our pages or products.';
                     }
+                    $reply = \Mova\AI\AiText::clean($reply);
                 }
             }
         } catch (\Throwable $e) {

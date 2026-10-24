@@ -33,7 +33,7 @@ class Response
     {
         $this->status = $status;
         $this->headers['Content-Type'] = 'application/json; charset=utf-8';
-        $this->body = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $this->body = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
         return $this;
     }
 

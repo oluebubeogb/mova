@@ -58,7 +58,7 @@ class AiJobService
             'status' => 'queued',
             'kind' => $kind,
             'prompt' => $prompt,
-            'page_context' => json_encode($pageContext),
+            'page_context' => json_encode($pageContext, AiText::JSON_FLAGS),
             'progress' => self::initialProgress($kind),
             'reply' => null,
             'actions' => null,
@@ -307,7 +307,7 @@ class AiJobService
                 "UPDATE ai_jobs SET status = 'done', reply = :r, actions = :a, provider = :p, progress = :prog, session_id = COALESCE(session_id, :sid), updated_at = :u, finished_at = :f, error = NULL WHERE id = :id",
                 [
                     'r' => (string) ($result['reply'] ?? ''),
-                    'a' => json_encode($result['actions'] ?? []),
+                    'a' => json_encode($result['actions'] ?? [], AiText::JSON_FLAGS),
                     'p' => (string) ($result['provider'] ?? ''),
                     'prog' => 'Done',
                     'sid' => (int) ($result['session_id'] ?? 0) ?: null,

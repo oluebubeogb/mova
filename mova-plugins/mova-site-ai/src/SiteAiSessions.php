@@ -164,7 +164,7 @@ class SiteAiSessions
             'session_id' => $sessionId,
             'role' => $role === 'user' ? 'user' : 'assistant',
             'content' => $content,
-            'links' => $links ? json_encode(array_values($links)) : null,
+            'links' => $links ? json_encode(array_values($links), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE) : null,
             'created_at' => $now,
         ]);
         Database::query(

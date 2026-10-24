@@ -227,10 +227,21 @@ $router->get('/content/edit/{id}', function (Request $req, array $params) {
     }
     $parentOptions = (new ContentRepository())->all([], 200);
 
+    // Admin-only notice when this item still has "Nigeriau2019s"-style AI punctuation damage.
+    $unicodeIssues = 0;
+    if (Auth::hasRole('owner', 'administrator')) {
+        try {
+            foreach ((new \Mova\AI\UnicodeRepairService())->scan((int) $content['id']) as $f) {
+                $unicodeIssues += count($f['hits']);
+            }
+        } catch (\Throwable $e) {
+        }
+    }
+
     return renderHq('content/edit', compact(
         'content', 'types', 'categories', 'selectedCategories', 'tagString',
         'customFields', 'fieldValues', 'relatedIds', 'relatedOptions', 'revisions',
-        'assemblies', 'parentOptions'
+        'assemblies', 'parentOptions', 'unicodeIssues'
     ));
 });
 

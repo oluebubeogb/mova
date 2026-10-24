@@ -229,6 +229,8 @@ final class RouteRegistry
             'view' => 'backups/index', 'keywords' => ['backup', 'restore', 'export', 'download'], 'desc' => 'Create, download and restore backups.']);
         $add(['id' => 'updates', 'label' => 'Updates', 'path' => '/hq/updates', 'section' => 'operations', 'icon' => 'fa-solid fa-arrows-rotate', 'nav' => true, 'perm' => 'admin',
             'view' => 'updates/index', 'keywords' => ['update', 'version', 'release', 'identity', 'mova.json'], 'desc' => 'Core updates and public identity files.']);
+        $add(['id' => 'text-repair', 'label' => 'Text repair', 'path' => '/hq/text-repair', 'section' => 'operations', 'icon' => 'fa-solid fa-spell-check', 'nav' => true, 'perm' => 'admin',
+            'view' => 'text_repair/index', 'keywords' => ['text repair', 'unicode', 'punctuation', 'u2019', 'apostrophe', 'escape', 'fix ai text'], 'desc' => 'Fix AI punctuation saved as code (Nigeriau2019s → Nigeria’s).']);
         $add(['id' => 'ai-usage', 'label' => 'AI usage', 'path' => '/hq/ai-usage', 'section' => 'operations', 'icon' => 'fa-solid fa-chart-column', 'nav' => true, 'perm' => 'admin',
             'view' => 'ai_usage/index', 'keywords' => ['ai usage', 'tokens', 'requests', 'cost', 'gateway', 'quota'], 'desc' => 'AI requests and tokens by day, feature and model.']);
 

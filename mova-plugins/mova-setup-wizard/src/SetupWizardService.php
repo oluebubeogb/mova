@@ -578,7 +578,8 @@ final class SetupWizardService
                         ['role' => 'system', 'content' => $system],
                         ['role' => 'user', 'content' => $user],
                     ], 1200, 90, 0.55);
-                    $clean = self::sanitizeAiHtml($out);
+                    // Leaked "\u2019"-style escapes → real characters before sanitising.
+                    $clean = self::sanitizeAiHtml(\Mova\AI\AiText::clean((string) $out));
                     if ($clean !== null) {
                         return $clean;
                     }
@@ -961,6 +962,10 @@ final class SetupWizardService
         $raw = trim((string) preg_replace('/^\s*```(?:json)?\s*$|^\s*```\s*$/mi', '', trim($raw)));
         $isList = static fn ($v): bool => is_array($v) && $v !== [] && array_is_list($v) && is_array($v[0]);
         $whole = json_decode($raw, true);
+        if ($whole === null && class_exists(\Mova\AI\AiText::class)) {
+            // Raw newlines / trailing commas: repair structurally (keeps \uXXXX escapes intact).
+            $whole = json_decode(\Mova\AI\AiText::repairJson($raw), true);
+        }
         if ($isList($whole)) {
             return $whole;
         }
@@ -1060,6 +1065,9 @@ final class SetupWizardService
             $raw = $assist->chatRaw($msgs, 3500, 120, 0.6);
         }
         $ai = self::parseSectionsJson((string) $raw);
+        if (is_array($ai)) {
+            $ai = \Mova\AI\AiText::cleanDeep($ai);
+        }
         if (!is_array($ai) || count($ai) !== count($filled)) {
             return null;
         }

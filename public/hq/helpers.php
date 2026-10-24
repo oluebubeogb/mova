@@ -174,19 +174,19 @@ HTML;
     <link rel="apple-touch-icon" href="/assets/hq/apple-touch-icon.png?v=p5x" sizes="180x180">
     <script src="/assets/js/theme-boot.js"></script>
     <script>window.MOVA_TZ = <?= json_encode(\Mova\Core\Time::zoneName()) ?>;</script>
-    <script src="/assets/js/hq-time.js?v=20261023aip"></script>
+    <script src="/assets/js/hq-time.js?v=20261023uni"></script>
     <link rel="preload" href="/assets/fonts/inter-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="/assets/fonts/fonts.css">
     <link rel="stylesheet" href="/assets/vendor/fontawesome/css/all.min.css?v=6.5.2">
-    <link rel="stylesheet" href="/assets/css/hq.css?v=20261023aip">
-    <link rel="stylesheet" href="/assets/css/hq-vnext.css?v=20261023aip">
-    <link rel="stylesheet" href="/assets/css/hq-landings.css?v=20261023aip">
-    <link rel="stylesheet" href="/assets/css/hq-nav-search.css?v=20261023aip">
+    <link rel="stylesheet" href="/assets/css/hq.css?v=20261023uni">
+    <link rel="stylesheet" href="/assets/css/hq-vnext.css?v=20261023uni">
+    <link rel="stylesheet" href="/assets/css/hq-landings.css?v=20261023uni">
+    <link rel="stylesheet" href="/assets/css/hq-nav-search.css?v=20261023uni">
     <?php if ($isAuth): ?>
     <meta name="csrf-token" content="<?= htmlspecialchars(\Mova\Security\Csrf::token()) ?>">
-    <link rel="stylesheet" href="/assets/css/mova-ai-panel.css?v=20261023aip">
+    <link rel="stylesheet" href="/assets/css/mova-ai-panel.css?v=20261023uni">
     <?php endif; ?>
-    <link rel="stylesheet" href="/assets/css/hq-p5.css?v=20261023aip">
+    <link rel="stylesheet" href="/assets/css/hq-p5.css?v=20261023uni">
 </head>
 <body class="hq hq-vnext <?= $isAuth ? 'hq-authenticated' : 'hq-guest' ?>" data-workspace="<?= htmlspecialchars($workspace) ?>" data-hq-tz="<?= htmlspecialchars(\Mova\Core\Time::zoneName()) ?>"<?php if ($isAuth): ?> data-hq-admin="<?= \Mova\Hq\RouteRegistry::allowed('admin') ? '1' : '0' ?>" data-hq-design="<?= \Mova\Hq\RouteRegistry::allowed('manage_appearance') ? '1' : '0' ?>" data-hq-ai="<?= \Mova\Hq\RouteRegistry::allowed('use_ai') ? '1' : '0' ?>"<?php endif; ?>>
 <a class="hq-skip-link" href="#hq-main">Skip to content</a>
@@ -349,12 +349,12 @@ HTML;
     <?php if ($isAuth && $navPayload): ?>
     <script>window.MOVA_HQ_NAV = <?= json_encode($navPayload, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
     <?php endif; ?>
-    <script src="/assets/js/hq-nav.js?v=20261023aip" defer></script>
+    <script src="/assets/js/hq-nav.js?v=20261023uni" defer></script>
     <?php if ($isAuth): ?>
-    <script src="/assets/js/hq-search.js?v=20261023aip" defer></script>
+    <script src="/assets/js/hq-search.js?v=20261023uni" defer></script>
     <?php endif; ?>
-    <script src="/assets/js/hq-layers.js?v=20261023aip" defer></script>
-    <script src="/assets/js/hq-p5.js?v=20261023aip" defer></script>
+    <script src="/assets/js/hq-layers.js?v=20261023uni" defer></script>
+    <script src="/assets/js/hq-p5.js?v=20261023uni" defer></script>
     <?php if ($isAuth): ?>
     <script>
     window.MovaAiContext = {
@@ -370,7 +370,7 @@ HTML;
     </script>
     <script src="/assets/js/mova-markdown.js?v=20260930md1"></script>
     <?php if (\Mova\Hq\RouteRegistry::allowed('use_ai')): ?>
-    <script src="/assets/js/mova-ai-panel.js?v=20261023aip" defer></script>
+    <script src="/assets/js/mova-ai-panel.js?v=20261023uni" defer></script>
     <?php endif; ?>
     <script>
     (function () {

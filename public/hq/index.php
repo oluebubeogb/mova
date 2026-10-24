@@ -70,6 +70,7 @@ $routeFiles = [
     'integrations',
     'security_center',
     'backups',
+    'text_repair',
     'updates',
     'fallback',
 ];

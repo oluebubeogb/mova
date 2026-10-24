@@ -112,7 +112,7 @@ class AiChatService
             $reply = $llm['reply'] ?? '';
             $actions = [];
             $provider = $llm['provider'] ?? 'heuristic';
-            $meta = json_encode(['actions' => [], 'provider' => $provider, 'mode' => 'raw'], JSON_UNESCAPED_UNICODE);
+            $meta = json_encode(['actions' => [], 'provider' => $provider, 'mode' => 'raw'], AiText::JSON_FLAGS);
             $this->addMessage($sessionId, 'assistant', $reply, $meta);
             return [
                 'ok' => true,
@@ -302,7 +302,7 @@ class AiChatService
             $reply = 'I can navigate HQ, create draft pages, and suggest design colors. Try: “Create an About Us page” or “Set primary color to #0ea5e9”.';
         }
 
-        $meta = json_encode(['actions' => $actions, 'provider' => $provider], JSON_UNESCAPED_UNICODE);
+        $meta = json_encode(['actions' => $actions, 'provider' => $provider], AiText::JSON_FLAGS);
         $this->addMessage($sessionId, 'assistant', $reply, $meta);
 
         Database::query(
@@ -641,7 +641,7 @@ class AiChatService
                 ];
             }
             return [
-                'reply' => self::stripLeakedJson(trim($raw)),
+                'reply' => self::stripLeakedJson(AiText::clean(trim($raw))),
                 'actions' => $this->actionsFromMatches($mapMatches),
                 'provider' => $this->assist->providerLabel(),
             ];
@@ -747,7 +747,7 @@ class AiChatService
             }
         }
         // Same validation/normalisation as the JSON text protocol.
-        $parsed = $this->parseJsonReply((string) json_encode(['reply' => $res['content'] !== '' ? $res['content'] : ' ', 'actions' => $actions], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $parsed = $this->parseJsonReply((string) json_encode(['reply' => $res['content'] !== '' ? $res['content'] : ' ', 'actions' => $actions], AiText::JSON_FLAGS));
         $reply = trim(self::stripLeakedJson((string) ($parsed['reply'] ?? '')));
         $actions = (array) ($parsed['actions'] ?? []);
         if ($reply === '' && $actions === []) {
@@ -813,11 +813,10 @@ class AiChatService
         }
         $data = json_decode($raw, true);
         if (!is_array($data)) {
-            // Common model failures: trailing commas, smart quotes, unescaped control chars
-            $fixed = $raw;
-            $fixed = str_replace(["\u201c", "\u201d", "\u2018", "\u2019", "“", "”", "‘", "’"], ['"', '"', "'", "'", '"', '"', "'", "'"], $fixed);
-            $fixed = preg_replace('/,\s*([}\]])/', '$1', $fixed) ?? $fixed;
-            $data = json_decode($fixed, true);
+            // Common model failures: trailing commas, smart-quote delimiters, raw newlines/tabs in
+            // strings, invalid escapes. AiText::repairJson fixes those structurally and leaves string
+            // contents (including \uXXXX escapes and real curly quotes) for json_decode to decode.
+            $data = json_decode(AiText::repairJson($raw), true);
         }
         if (!is_array($data)) {
             // Last resort: recover create_content from a broken JSON blob
@@ -827,7 +826,7 @@ class AiChatService
             }
             return null;
         }
-        $reply = trim((string) ($data['reply'] ?? ''));
+        $reply = AiText::clean(trim((string) ($data['reply'] ?? '')));
         $actions = [];
         foreach ($data['actions'] ?? [] as $a) {
             if (!is_array($a)) {
@@ -845,7 +844,7 @@ class AiChatService
                     ];
                 }
             } elseif ($type === 'create_content') {
-                $payload = is_array($a['payload'] ?? null) ? $a['payload'] : [];
+                $payload = AiText::cleanDeep(is_array($a['payload'] ?? null) ? $a['payload'] : []);
                 if (trim((string) ($payload['title'] ?? '')) !== '') {
                     $actions[] = [
                         'type' => 'create_content',
@@ -854,7 +853,7 @@ class AiChatService
                     ];
                 }
             } elseif ($type === 'update_content') {
-                $payload = is_array($a['payload'] ?? null) ? $a['payload'] : [];
+                $payload = AiText::cleanDeep(is_array($a['payload'] ?? null) ? $a['payload'] : []);
                 if ((int) ($payload['id'] ?? 0) > 0 && trim((string) ($payload['body'] ?? '')) !== '') {
                     $actions[] = [
                         'type' => 'update_content',
@@ -906,23 +905,23 @@ class AiChatService
     {
         $reply = '';
         if (preg_match('/"reply"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"/s', $raw, $m)) {
-            $reply = stripcslashes($m[1]);
+            $reply = AiText::jsonUnescape($m[1]);
         } elseif (preg_match('/"reply"\\s*:\\s*"(.*?)"\\s*,\\s*"actions"/s', $raw, $m)) {
-            $reply = stripcslashes($m[1]);
+            $reply = AiText::jsonUnescape($m[1]);
         }
 
         $title = '';
         if (preg_match('/"title"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"/', $raw, $m)) {
-            $title = stripcslashes($m[1]);
+            $title = AiText::jsonUnescape($m[1]);
         }
         $title = $this->cleanTitleCandidate($title);
 
         $body = '';
         // Greedy body capture between "body":" and the next ","excerpt" or ","meta"
         if (preg_match('/"body"\\s*:\\s*"(.*?)"\\s*,\\s*"(?:excerpt|meta|type)"/s', $raw, $m)) {
-            $body = stripcslashes($m[1]);
+            $body = AiText::jsonUnescape($m[1]);
         } elseif (preg_match('/"body"\\s*:\\s*"(.*?)"/s', $raw, $m)) {
-            $body = stripcslashes($m[1]);
+            $body = AiText::jsonUnescape($m[1]);
         }
         // Prefer fenced HTML in the raw stream if body still empty
         if ($this->isStubBody($body)) {
@@ -934,15 +933,15 @@ class AiChatService
 
         $excerpt = '';
         if (preg_match('/"excerpt"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"/', $raw, $m)) {
-            $excerpt = stripcslashes($m[1]);
+            $excerpt = AiText::jsonUnescape($m[1]);
         }
         $seoTitle = '';
         if (preg_match('/"seo_title"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"/', $raw, $m)) {
-            $seoTitle = stripcslashes($m[1]);
+            $seoTitle = AiText::jsonUnescape($m[1]);
         }
         $metaDesc = '';
         if (preg_match('/"meta_description"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"/', $raw, $m)) {
-            $metaDesc = stripcslashes($m[1]);
+            $metaDesc = AiText::jsonUnescape($m[1]);
         }
 
         $typeHint = 'page';
@@ -1012,7 +1011,7 @@ class AiChatService
         if ($reply === '') {
             $reply = 'Recovered draft «' . $title . '» from a partial model response.';
         }
-        return ['reply' => $reply, 'actions' => $actions];
+        return ['reply' => AiText::clean($reply), 'actions' => AiText::cleanDeep($actions)];
     }
 
     /** @param list<array<string,mixed>> $actions */

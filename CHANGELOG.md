@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (AI punctuation saved as code: `Nigeriau2019s`, `fastu2011changing`, `20u202f%`)
+- Root cause: when a model's JSON reply was not strictly valid (e.g. raw newlines inside a long HTML body), `AiChatService::recoverActionsFromBrokenJson()` unescaped strings with `stripcslashes()`. That drops the backslash of `\uXXXX`, so `\u2019` became `u2019`. The smart-quote replacement in `parseJsonReply()` could also break JSON around curly quotes. Real characters (such as a literal `—`) were never affected.
+- New `Mova\AI\AiText` handles AI text in one place:
+  - `jsonUnescape()`: `json_decode` with a surrogate-safe fallback;
+  - `repairJson()`: smart-quote delimiters, trailing commas and raw control characters, applied only outside or inside strings as appropriate;
+  - `decodeLeakedEscapes()`: literal `\uXXXX` and surrogate pairs, skipping code, `<pre>` and `<script>`;
+  - `normalizePunctuation()`: U+2011 becomes `-` and U+202F becomes a space. Curly quotes and dashes are kept.
+- Every AI path now uses `AiText`: the HQ panel (text protocol, recovery and native tools), the editor AI assist, the site assistant, and the setup wizard (page HTML and section rewrites). `create_content` and `update_content` clean their payload before saving, as a safety net. JSON is stored and returned with `JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE`.
+- **HQ → Operations → Text repair** (`/hq/text-repair`, admin only) and `php bin/fix-unicode-escapes.php` (`--apply`, `--id=N`) repair content that was already saved.
+  - Dry run by default. Every match is listed with its context.
+  - A database backup (plus a JSON file of the old values) is written to `storage/backups/` before any change.
+  - Covers titles, excerpts, bodies, meta and revisions.
+  - Only matches a letter or digit followed by `u` and a known punctuation code point. Years, URLs, attributes and code are not touched.
+  - An admin notice appears on Operations and in the editor when matches exist.
+- HQ asset version is now `20261023uni`.
+
 ### Changed (HQ Mova AI panel)
 - Every HQ panel prompt now runs as a background job (worker, cron, loopback, poll and shutdown fallbacks). The 'Background' checkbox is gone, and `/hq/ai/chat` and `/hq/ai/jobs` always enqueue, so old clients can't skip the queue. Answers still appear inline with live progress. Normal chat jobs keep native tool calling; only coding jobs use the async long-running path.
 - 'Plain chat' is now a **RAW** switch (`role=switch`, off by default, remembered per user in localStorage). When it is on, the AI gets a minimal neutral prompt with no tools, no HqMap and no site context.

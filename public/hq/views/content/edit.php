@@ -15,6 +15,12 @@ if (!empty($content['published_at'])) {
 <?php if (!empty($_GET['saved'])): ?>
     <div class="alert alert-success" role="status">Content saved.</div>
 <?php endif; ?>
+<?php if (!$isNew && !empty($unicodeIssues)): ?>
+    <div class="alert alert-error" role="status" id="unicode-repair-notice">
+        <strong>Punctuation glitch:</strong> <?= (int) $unicodeIssues ?> spot(s) such as <code>u2019</code> / <code>u2011</code> were saved as code by an older AI version.
+        <a href="/hq/text-repair?id=<?= (int) $content['id'] ?>">Review and repair</a>
+    </div>
+<?php endif; ?>
 <?php if (!empty($_GET['dev_error'])): ?>
     <div class="alert alert-error" style="background:#fef2f2;color:#991b1b;border:1px solid #fecaca;padding:0.75rem 1rem;border-radius:8px;margin-bottom:1rem;">
         <strong>Dev Editor:</strong> <?= htmlspecialchars(urldecode((string)$_GET['dev_error'])) ?>

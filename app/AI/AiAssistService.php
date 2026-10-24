@@ -62,7 +62,8 @@ class AiAssistService
             try {
                 $result = ($this->feature === null ? $this->forFeature('assist.' . preg_replace('/[^a-z_]/', '', $action)) : $this)
                     ->callProvider($action, $title, $body, $excerpt);
-                return ['ok' => true, 'result' => $result, 'provider' => $this->providerLabel()];
+                // Leaked "\u2019"-style escapes → real characters; U+2011/U+202F → "-"/" ".
+                return ['ok' => true, 'result' => AiText::clean((string) $result), 'provider' => $this->providerLabel()];
             } catch (\Throwable $e) {
                 $heuristic = $this->heuristic($action, $title, $body, $excerpt);
                 return [

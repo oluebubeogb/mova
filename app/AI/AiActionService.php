@@ -182,6 +182,10 @@ class AiActionService
      */
     private function createContent(array $payload, int $userId): array
     {
+        // Final safety net before anything reaches the editor / database: literal "\u2019"-style
+        // escapes (incl. surrogate pairs) → real characters, U+2011 → "-", U+202F → " ".
+        // Bare "u2019" without a backslash is never touched here.
+        $payload = AiText::cleanDeep($payload);
         $title = trim((string) ($payload['title'] ?? ''));
         if ($title === '') {
             return ['ok' => false, 'error' => 'Title is required'];
@@ -311,6 +315,10 @@ class AiActionService
      */
     private function updateContent(array $payload, int $userId): array
     {
+        // Final safety net before anything reaches the editor / database: literal "\u2019"-style
+        // escapes (incl. surrogate pairs) → real characters, U+2011 → "-", U+202F → " ".
+        // Bare "u2019" without a backslash is never touched here.
+        $payload = AiText::cleanDeep($payload);
         $id = (int) ($payload['id'] ?? 0);
         if ($id <= 0) {
             return ['ok' => false, 'error' => 'Content id is required'];
