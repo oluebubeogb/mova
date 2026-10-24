@@ -152,11 +152,24 @@ $router->post('/backups/restore', function (Request $req) {
     if (!$path) {
         return (new Response())->redirect('/hq/backups?error=not_found');
     }
+    @set_time_limit(300);
     try {
-        $svc->restore($path);
-        Audit::log('backup.restored', 'backup', null, ['file' => $file]);
+        $r = $svc->restore($path);
+        try {
+            Audit::log('backup.restored', 'backup', null, ['file' => $file, 'from_version' => $r['from_version'], 'safety_backup' => $r['safety_backup'], 'ref' => $r['ref']]);
+        } catch (\Throwable $e) {
+        }
     } catch (\Throwable $e) {
-        return (new Response())->redirect('/hq/backups?error=' . rawurlencode($e->getMessage()));
+        $ref = \Mova\Core\ErrorHandler::report('backup.restore', $e);
+        return (new Response())->redirect('/hq/backups?error=' . rawurlencode(mb_substr($e->getMessage(), 0, 400) . ' (ref ' . $ref . ')'));
     }
-    return (new Response())->redirect('/hq/backups?restored=1');
+    $q = 'restored=1&ref=' . rawurlencode($r['ref']);
+    if ($r['safety_backup']) {
+        $q .= '&safety=' . rawurlencode($r['safety_backup']);
+    }
+    if ($r['media_failed']) {
+        $q .= '&media_failed=' . (int) $r['media_failed'];
+    }
+    // The restored database may not contain the signed-in account: the redirect then lands on the login page.
+    return (new Response())->redirect('/hq/backups?' . $q);
 });

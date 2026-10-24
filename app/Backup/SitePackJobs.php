@@ -82,6 +82,11 @@ final class SitePackJobs
     {
         foreach (self::all() as $j) {
             if ($j['status'] === 'done' && empty($j['undone_at']) && empty($j['dry_run'])) {
+                if (self::restoredSince((int) ($j['finished'] ?? $j['created'] ?? 0))) {
+                    // A backup was restored after this import: its undo snapshot belongs to another point in
+                    // time and would silently roll the restored content back. Use Backups instead.
+                    return null;
+                }
                 return is_file(SitePack::importsDir() . '/undo/' . $j['id'] . '/database.sqlite') ? $j : null;
             }
             if ($j['status'] === 'done' && !empty($j['undone_at'])) {
@@ -89,6 +94,18 @@ final class SitePackJobs
             }
         }
         return null;
+    }
+
+    /** True when a backup restore ran at or after $ts (unix time). */
+    public static function restoredSince(int $ts): bool
+    {
+        try {
+            $raw = Database::fetch("SELECT setting_value FROM settings WHERE setting_key = 'last_restore'")['setting_value'] ?? '';
+            $at = (string) ((json_decode((string) $raw, true) ?: [])['at'] ?? '');
+            return $at !== '' && ($t = strtotime($at)) !== false && $t >= $ts;
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     public static function create(string $packPath, array $options, ?int $userId, string $via = 'hq'): array
@@ -399,6 +416,9 @@ final class SitePackJobs
         $job = self::load($id);
         $u = self::undoable();
         if ($job === null || $u === null || $u['id'] !== $id) {
+            if ($job !== null && empty($job['undone_at']) && self::restoredSince((int) ($job['finished'] ?? $job['created'] ?? 0))) {
+                throw new \RuntimeException('A backup was restored after this import, so its undo snapshot is out of date. Use Backups to go back to an earlier state instead.');
+            }
             throw new \RuntimeException('Only the most recent import can be undone.');
         }
         $lock = fopen(self::file($id) . '.lock', 'c');

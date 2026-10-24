@@ -193,6 +193,11 @@ $router->post('/content/new', function (Request $req) {
     return (new Response())->redirect('/hq/content/edit/' . $id);
 });
 
+// Legacy/bookmarked URL shape (/hq/content/{id}/edit, used by older dashboard links) -> canonical edit URL.
+$router->get('/content/{id}/edit', function (Request $req, array $params) {
+    return (new Response())->redirect('/hq/content/edit/' . (int) $params['id']);
+});
+
 // Edit content
 $router->get('/content/edit/{id}', function (Request $req, array $params) {
     requireAuth();

@@ -43,11 +43,57 @@ class Database
         return self::$pdo;
     }
 
+    /** Close this request's connection (before the database file is replaced). */
+    public static function disconnect(): void
+    {
+        self::$pdo = null;
+    }
+
+    /**
+     * Write a consistent copy of the live database to $dest. VACUUM INTO reads through the WAL in one
+     * transaction; a raw copy() of the main file can miss committed pages that still live in -wal.
+     */
+    public static function snapshotTo(string $dest): void
+    {
+        @unlink($dest);
+        $pdo = self::connection();
+        try {
+            $pdo->exec('VACUUM INTO ' . $pdo->quote($dest));
+            return;
+        } catch (\Throwable $e) {
+            @unlink($dest);
+        }
+        $busy = $pdo->query('PRAGMA wal_checkpoint(TRUNCATE)')->fetch(PDO::FETCH_NUM);
+        if ($busy && (int) $busy[0] !== 0) {
+            throw new \RuntimeException('Database is busy; could not take a consistent snapshot. Try again.');
+        }
+        if (!copy((string) Bootstrap::config('database.path'), $dest)) {
+            throw new \RuntimeException('Could not write the database snapshot.');
+        }
+    }
+
+    private static bool $ftsHealed = false;
+
     public static function query(string $sql, array $params = []): \PDOStatement
     {
-        $stmt = self::connection()->prepare($sql);
-        $stmt->execute($params);
-        return $stmt;
+        try {
+            $stmt = self::connection()->prepare($sql);
+            $stmt->execute($params);
+            return $stmt;
+        } catch (\PDOException $e) {
+            // The public search index (content_fts) is written by triggers on `content`. If it is damaged
+            // every page save fails. It is derived data: rebuild it once, then retry the statement.
+            if (self::$ftsHealed || stripos($e->getMessage(), 'content_fts') === false
+                || self::connection()->inTransaction() || !class_exists(\Mova\Hq\SearchIndex::class)) {
+                throw $e;
+            }
+            self::$ftsHealed = true;
+            \Mova\Core\ErrorHandler::report('content.fts.heal', $e);
+            \Mova\Hq\SearchIndex::repairContentFts();
+            $stmt = self::connection()->prepare($sql);
+            $stmt->execute($params);
+            return $stmt;
+        }
     }
 
     public static function fetch(string $sql, array $params = []): ?array

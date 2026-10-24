@@ -5,7 +5,15 @@
     <div class="alert alert-success">Backup created.</div>
 <?php endif; ?>
 <?php if (!empty($_GET['restored'])): ?>
-    <div class="alert alert-success">Backup restored.</div>
+    <div class="alert alert-success">Backup restored. Database upgraded to this Mova version, search indexes and caches rebuilt.
+        <?php $safety = (string) ($_GET['safety'] ?? ''); if (preg_match('/^mova-backup-[0-9\-]+-pre-restore\.mova$/', $safety)): ?>
+            Your site as it was just before the restore is saved as <strong><?= htmlspecialchars($safety) ?></strong> - restore that file to undo.
+        <?php endif; ?>
+        <?php if (!empty($_GET['media_failed'])): ?>
+            <br><?= (int) $_GET['media_failed'] ?> media file(s) could not be written - check that storage/uploads is writable by the web server.
+        <?php endif; ?>
+        <?php if (preg_match('/^[A-F0-9]{8}$/', (string) ($_GET['ref'] ?? ''))): ?><small>(log ref <?= htmlspecialchars((string) $_GET['ref']) ?>)</small><?php endif; ?>
+    </div>
 <?php endif; ?>
 <?php if (!empty($_GET['error'])): ?>
     <div class="alert alert-error"><?= htmlspecialchars((string) $_GET['error']) ?></div>

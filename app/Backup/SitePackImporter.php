@@ -1218,10 +1218,25 @@ final class SitePackImporter
             $done[] = 'page cache cleared';
         } catch (\Throwable $e) {
         }
+        // Always rebuild and verify both full-text indexes. rebuild() recreates hq_search when its FTS5 index
+        // is damaged; a failure is logged (storage/logs/mova-errors.log) instead of being swallowed.
         try {
             \Mova\Hq\SearchIndex::rebuild();
-            $done[] = 'HQ search rebuilt';
+            $h = \Mova\Hq\SearchIndex::health();
+            if (!$h['ok']) {
+                \Mova\Hq\SearchIndex::repair();
+                $h = \Mova\Hq\SearchIndex::health();
+            }
+            $done[] = $h['ok'] ? 'HQ search rebuilt' : 'HQ search rebuild FAILED (' . $h['detail'] . ')';
         } catch (\Throwable $e) {
+            \Mova\Core\ErrorHandler::report('pack.refresh.search', $e);
+            $done[] = 'HQ search rebuild FAILED - use HQ search → Rebuild index';
+        }
+        try {
+            \Mova\Hq\SearchIndex::repairContentFts();
+            $done[] = 'site search index rebuilt';
+        } catch (\Throwable $e) {
+            \Mova\Core\ErrorHandler::report('pack.refresh.content_fts', $e);
         }
         try {
             $src = Bootstrap::path('plugins') . '/mova-site-ai/src';
@@ -1240,6 +1255,7 @@ final class SitePackImporter
                 $done[] = 'site AI index rebuilt';
             }
         } catch (\Throwable $e) {
+            \Mova\Core\ErrorHandler::report('pack.refresh.site_ai', $e);
         }
         try {
             $now = date('Y-m-d H:i:s');
@@ -1267,7 +1283,8 @@ final class SitePackImporter
             throw new \RuntimeException('The undo snapshot for this import is gone; restore the pre-import backup from Backups instead.');
         }
         $undo = (array) ($job['result']['undo'] ?? []);
-        $tables = array_values(array_filter((array) ($undo['tables'] ?? []), static fn ($t) => preg_match('/^[a-z0-9_]+$/', (string) $t) && !in_array($t, ['users', 'api_keys', 'sessions'], true)));
+        $tables = array_values(array_filter((array) ($undo['tables'] ?? []), static fn ($t) => preg_match('/^[a-z0-9_]+$/', (string) $t) && !in_array($t, ['users', 'api_keys', 'sessions'], true)
+            && !preg_match('/^(hq_search|content_fts|site_ai_index)(_|$)/', (string) $t))); // FTS internals are rebuilt, never copied
         $pdo = Database::connection();
         $pdo->exec('PRAGMA foreign_keys = OFF');
         $pdo->exec('ATTACH DATABASE ' . $pdo->quote($snap) . ' AS packsnap');

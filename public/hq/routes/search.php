@@ -20,6 +20,7 @@ $router->get('/search', function (Request $req) {
     try {
         $result = SearchIndex::search($q, $limit);
     } catch (\Throwable $e) {
+        \Mova\Core\ErrorHandler::report('hq.search.route', $e);
         $result = ['q' => $q, 'engine' => 'error', 'took_ms' => 0, 'total' => 0, 'groups' => []];
     }
     return (new Response())
@@ -39,8 +40,20 @@ $router->post('/search/rebuild', function (Request $req) {
     $t0 = microtime(true);
     try {
         $n = SearchIndex::rebuild();
+        if (!SearchIndex::health()['ok']) {
+            $n = (int) SearchIndex::repair()['rows'];
+        }
     } catch (\Throwable $e) {
-        return (new Response())->json(['ok' => false, 'error' => 'Rebuild failed.'], 500);
+        if (SearchIndex::isBusy($e)) {
+            return (new Response())->json(['ok' => false, 'error' => 'The site is busy writing (another rebuild or a restore is running) - try again in a few seconds.'], 503);
+        }
+        \Mova\Core\ErrorHandler::report('hq.search.rebuild', $e);
+        try {
+            $n = (int) SearchIndex::repair()['rows'];
+        } catch (\Throwable $e2) {
+            \Mova\Core\ErrorHandler::report('hq.search.repair', $e2);
+            return (new Response())->json(['ok' => false, 'error' => 'Rebuild failed - see storage/logs/mova-errors.log.'], 500);
+        }
     }
     return (new Response())->json([
         'ok' => true,

@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.3] - 2026-10-24
+
+### Fixed
+- **HQ search shows suggestions for 1-2 characters but nothing for 3 or more** on sites where a backup/site data was imported. 1-2 character searches only scan the stored rows (`LIKE`); 3+ character searches use the FTS5 trigram index (`hq_search MATCH`). When that index is damaged (typically by a database file being copied while live in WAL mode - see below) `MATCH` fails with "database disk image is malformed" or silently returns nothing, `SearchIndex::search()` swallowed the error and returned an empty list, and the index could not heal itself: `rebuild()` called `rollBack()` after SQLite had already rolled back, so the real error was replaced by "There is no active transaction" and the HQ "Rebuild index" button just said "Rebuild failed".
+- Backups and "Export install zip with site data" copied the live SQLite file with `copy()` after an unchecked `wal_checkpoint`; committed pages still in `-wal` could be missing from the copy. They now use `VACUUM INTO` (consistent snapshot).
+- **Restoring a backup could take the whole site down** (also on sites that never used import/export). The old restore `copy()`'d the archive database over the open live file while SQLite was in WAL mode, left the old `-wal`/`-shm` beside it, then kept writing settings and an audit row through the same stale connection: the result was "database disk image is malformed" on every page, with the restore half-applied (database swapped, but settings/media/caches not). It also ran no migrations (an older backup left the code ahead of the schema), rebuilt no indexes, kept OPcache, and extracted the zip without restricting paths. Restore is now transactional:
+  - only one restore at a time (lock); the archive is extracted with a whitelist (`manifest.json`, `database.sqlite`, `config/settings.json`, `media/**`) - absolute paths, `..`, and `.php`/`.phtml`/`.phar`/`.htaccess` media are skipped and `config/config.php` is never restored;
+  - the backup database is checked first (`quick_check`, required Mova tables) and a backup from a **newer** Mova version is refused - in all these cases the message says "Nothing was changed";
+  - a **pre-restore backup** of the current site is taken automatically (shown after the restore, usable to undo);
+  - the database is swapped atomically (checkpoint, close connections, copy to a temp file, keep the file owner/mode, rename, drop stale `-wal`/`-shm`), then migrated to the current schema; if the migration fails the previous database is put back ("Restore was rolled back - your site is unchanged");
+  - afterwards page cache, HQ search, site search and site AI indexes are rebuilt, asset versions bumped and OPcache reset; every restore and failure is logged with a ref id.
+- Site-pack "Undo" is withdrawn once a backup has been restored after that import (its snapshot belongs to another point in time and would silently roll the restored content back).
+- Backup retention (10 per month) prunes automatic `-pre-restore` copies before backups you made yourself.
+- A damaged FTS5 table that SQLite cannot even open ("vtable constructor failed") could not be dropped, so the search repair failed forever. Such an index is now removed safely and rebuilt.
+- A damaged public site-search index (`content_fts`) made every page save fail (it is written by triggers on `content`); it is now rebuilt once automatically and the save retried.
+- Concurrent HQ search rebuilds (several PHP-FPM workers) could hit "database is locked" and then drop the index; rebuilds now use `BEGIN IMMEDIATE`, wait/retry on a busy database and never recreate the index for a lock error.
+- Dashboard "recently edited" links pointed to `/hq/content/{id}/edit` (404); they now open `/hq/content/edit/{id}`, and the old URL redirects.
+- Site-pack undo never copies FTS internals (`hq_search*`, `content_fts*`, `site_ai_index*`); they are rebuilt instead.
+- Search result titles/snippets are escaped with `ENT_SUBSTITUTE`; indexed text and queries are forced to valid UTF-8 without control characters.
+
+### Added
+- Self-healing HQ search: on a `MATCH` error, or when `MATCH` finds nothing although the stored rows contain the words, the index is dropped, recreated and rebuilt once and the query retried; if that still fails the search falls back to a substring scan, so the box never goes blank. Every event is logged to `storage/logs/mova-errors.log` (`hq.search*`).
+- `SearchIndex::health()` (FTS5 integrity-check + a real `MATCH` probe + row count, plus the public `content_fts` index), shown as **Search index** in HQ -> Health and `bin/mova-doctor.php`.
+- `php bin/mova-doctor.php --repair-search` recreates and rebuilds the HQ and site full-text indexes.
+- `php bin/mova-doctor.php --list-backups` and `--restore=<file>`: restore from the command line when HQ itself is down (same safe restore; prints the pre-restore backup to undo with). The doctor exits non-zero when a requested action fails.
+- HQ -> Health / doctor: **Database integrity** (`quick_check`), **Last restore** (file, version it was made by, undo backup, media problems) and **Backup temp files** (leftovers of an interrupted backup/restore).
+- Site-pack import and undo always rebuild and verify the HQ search index, the public site-search index and the site AI index, and say so in the job log (a failure is reported instead of being hidden).
+
+### Upgrade notes
+- Replace the files (keep `config/` and `storage/`). The first HQ search after the upgrade detects and repairs a damaged index automatically; or run `php bin/mova-doctor.php --repair-search` (Docker: `docker compose exec <php-service> php bin/mova-doctor.php --repair-search`). No re-import is needed.
+- A site already broken by a restore made with 1.2.2 or older: upgrade the files, then `php bin/mova-doctor.php --list-backups` and `php bin/mova-doctor.php --restore=<backup>` (Docker: `docker compose exec -u www-data <php-service> php bin/mova-doctor.php ...`). Run it as the PHP-FPM user (`-u www-data`) so the files stay writable.
+
 ## [1.2.2] - 2026-10-24
 
 ### Fixed

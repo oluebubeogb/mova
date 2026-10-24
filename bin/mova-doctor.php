@@ -1,10 +1,13 @@
 <?php
 /**
- * Mova doctor - environment + upgrade health check (1.2.2).
+ * Mova doctor - environment + upgrade health check (1.2.3).
  *
  *   php bin/mova-doctor.php              # report only (exit 1 when something is broken)
  *   php bin/mova-doctor.php --migrate    # also apply pending database migrations
  *   php bin/mova-doctor.php --reset-opcache  # make the web pool clear its code cache on its next request
+ *   php bin/mova-doctor.php --repair-search  # recreate + rebuild the HQ and site full-text indexes
+ *   php bin/mova-doctor.php --list-backups   # backups in storage/backups (newest first)
+ *   php bin/mova-doctor.php --restore=<file> # restore a backup from storage/backups when HQ is unreachable
  *   php bin/mova-doctor.php --json       # machine-readable output
  *
  * Docker:  docker compose exec -u www-data <service> php bin/mova-doctor.php
@@ -26,6 +29,15 @@ $args = array_slice($argv, 1);
 $json = in_array('--json', $args, true);
 $doMigrate = in_array('--migrate', $args, true);
 $resetOpcache = in_array('--reset-opcache', $args, true);
+$repairSearch = in_array('--repair-search', $args, true);
+$listBackups = in_array('--list-backups', $args, true);
+$restoreFile = null;
+$actionFailed = false;
+foreach ($args as $a) {
+    if (str_starts_with($a, '--restore=')) {
+        $restoreFile = basename(substr($a, 10));
+    }
+}
 
 if (!is_file($root . '/config/config.php')) {
     fwrite(STDERR, "config/config.php not found - is this the Mova root? ($root)\n");
@@ -52,6 +64,48 @@ if (class_exists(Runtime::class)) {
     if ($doMigrate) {
         $ok = Runtime::migrateIfNeeded(true);
         $out['actions'][] = $ok ? 'Migrations applied (schema is current).' : 'Migrations FAILED - see storage/logs/mova-errors.log (mova.migration).';
+        $actionFailed = $actionFailed || !$ok;
+    }
+    if ($repairSearch) {
+        try {
+            $r = \Mova\Hq\SearchIndex::repair();
+            $out['actions'][] = 'Search indexes repaired: HQ ' . $r['rows'] . ' entries (' . $r['engine'] . '), site search ' . $r['content_fts'] . '.';
+            // The CLI has no signed-in user/route context: let the next HQ request re-index with the full route list.
+            \Mova\Core\Database::query("DELETE FROM settings WHERE setting_key = 'hq_search_sig'");
+        } catch (\Throwable $e) {
+            $out['actions'][] = 'Search repair FAILED: ' . $e->getMessage();
+            $actionFailed = true;
+        }
+    }
+    if ($listBackups || $restoreFile !== null) {
+        $svc = new \Mova\Backup\BackupService();
+        $list = $svc->listBackups();
+        if ($listBackups) {
+            foreach ($list as $b) {
+                $out['actions'][] = 'backup: ' . $b['name'] . '  ' . round($b['size'] / 1048576, 1) . ' MB  ' . date('Y-m-d H:i', $b['mtime']);
+            }
+            if (!$list) {
+                $out['actions'][] = 'No backups in storage/backups.';
+            }
+        }
+        if ($restoreFile !== null) {
+            $hit = array_values(array_filter($list, static fn ($b) => $b['name'] === $restoreFile));
+            if (!$hit) {
+                $out['actions'][] = 'Restore: ' . $restoreFile . ' not found in storage/backups (see --list-backups).';
+                $actionFailed = true;
+            } else {
+                try {
+                    $r = $svc->restore($hit[0]['path']);
+                    // No route context in the CLI: the next HQ request re-indexes with the full route list.
+                    \Mova\Core\Database::query("DELETE FROM settings WHERE setting_key = 'hq_search_sig'");
+                    $out['actions'][] = 'Restored ' . $r['file'] . ' (made by ' . ($r['from_version'] ?: '?') . '); ' . implode(', ', $r['refreshed'])
+                        . ($r['safety_backup'] ? '. Undo with --restore=' . $r['safety_backup'] : '') . ' [ref ' . $r['ref'] . ']';
+                } catch (\Throwable $e) {
+                    $out['actions'][] = 'Restore FAILED: ' . $e->getMessage();
+                    $actionFailed = true;
+                }
+            }
+        }
     }
     if ($resetOpcache) {
         $marker = rtrim(\Mova\Core\Bootstrap::path('cache') ?: $root . '/storage/cache', '/') . '/.mova-code-fingerprint';
@@ -108,7 +162,7 @@ $warns = count(array_filter($out['items'], static fn ($i) => $i['status'] === 'w
 
 if ($json) {
     echo json_encode($out + ['errors' => $errors, 'warnings' => $warns], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), "\n";
-    exit($errors > 0 ? 1 : 0);
+    exit(($errors > 0 || $actionFailed) ? 1 : 0);
 }
 
 $tag = ['ok' => ' OK ', 'warn' => 'WARN', 'error' => 'FAIL', 'info' => 'INFO'];
@@ -123,4 +177,4 @@ echo "\n", $errors ? "$errors problem(s)" : 'No blocking problems', $warns ? ", 
 if ($errors || $warns) {
     echo "After an in-place upgrade: restart PHP-FPM (docker compose restart <service>), then run with --migrate if migrations are pending.\n";
 }
-exit($errors > 0 ? 1 : 0);
+exit(($errors > 0 || $actionFailed) ? 1 : 0);
