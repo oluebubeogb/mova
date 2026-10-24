@@ -268,6 +268,32 @@ class Runtime
                 $need = ['id', 'type', 'title', 'slug', 'body', 'status', 'created_at', 'updated_at'];
                 $missing = array_values(array_diff($need, $cols));
                 $add('content_columns', 'Content table', $missing ? 'error' : 'ok', $missing ? 'missing columns: ' . implode(', ', $missing) : count($cols) . ' columns');
+                // Full-text indexes (a damaged FTS5 index breaks HQ search for 3+ characters only)
+                if (class_exists(\Mova\Hq\SearchIndex::class)) {
+                    $h = \Mova\Hq\SearchIndex::health();
+                    $add('search_index', 'Search index', $h['ok'] ? 'ok' : 'error', $h['ok']
+                        ? $h['detail'] . '; site search ' . $h['content_fts']
+                        : $h['detail'] . '; site search ' . $h['content_fts'] . ' - fix: HQ search → Rebuild index, or php bin/mova-doctor.php --repair-search');
+                }
+                // Physical integrity (a raw copy over a live WAL database - e.g. 1.2.2 backup restore - shows up here)
+                $qc = (string) Database::connection()->query('PRAGMA quick_check')->fetchColumn();
+                $add('db_integrity', 'Database integrity', $qc === 'ok' ? 'ok' : 'error', $qc === 'ok'
+                    ? 'quick_check ok'
+                    : mb_substr_safe($qc, 160) . ' - restore a recent backup (HQ → Backups, or php bin/mova-doctor.php --restore=<file>)');
+                $lr = Database::fetch("SELECT setting_value FROM settings WHERE setting_key = 'last_restore'");
+                if ($lr) {
+                    $r = json_decode((string) $lr['setting_value'], true) ?: [];
+                    $add('last_restore', 'Last restore', !empty($r['media_failed']) ? 'warn' : 'ok', ($r['file'] ?? '?') . ' at ' . ($r['at'] ?? '?')
+                        . ' (made by ' . (($r['from_version'] ?? '') ?: '?') . ')' . (!empty($r['safety_backup']) ? '; undo: ' . $r['safety_backup'] : '')
+                        . (!empty($r['media_failed']) ? '; ' . (int) $r['media_failed'] . ' media file(s) not written' : ''));
+                }
+            }
+            $left = array_merge(glob(Bootstrap::path('storage') . '/restore_*') ?: [], glob(Bootstrap::path('storage') . '/backup_stage_*') ?: [],
+                glob((string) Bootstrap::config('database.path') . '.restore-*') ?: []);
+            $left = array_values(array_filter($left, static fn ($f) => @filemtime($f) < time() - 900));
+            if ($left) {
+                $add('restore_leftovers', 'Backup temp files', 'warn', count($left) . ' leftover temp item(s) in storage/ from an interrupted backup/restore (safe to delete): '
+                    . implode(', ', array_map('basename', array_slice($left, 0, 3))));
             }
         } catch (\Throwable $e) {
             $add('database', 'Database', 'error', mb_substr_safe($e->getMessage(), 200));
@@ -279,8 +305,8 @@ class Runtime
         // Recent errors
         $log = ErrorHandler::logDir() . '/mova-errors.log';
         if (is_file($log)) {
-            // Informational lines (mova.upgrade = code change detected) are not errors.
-            $errs = array_values(array_filter(self::tail($log, 50), static fn ($l) => strpos($l, '] mova.upgrade ') === false));
+            // Informational lines (mova.upgrade = code change detected, mova.hq.search = index repaired, mova.backup.restore = restore done, mova.search.drop = unreadable index removed for rebuild) are not errors.
+            $errs = array_values(array_filter(self::tail($log, 50), static fn ($l) => strpos($l, '] mova.upgrade ') === false && strpos($l, '] mova.hq.search ') === false && strpos($l, '] mova.backup.restore ') === false && strpos($l, '] mova.search.drop ') === false));
             $last = $errs === [] ? '' : (string) end($errs);
             $ts = preg_match('/^\[([0-9T:\-]+Z)\]/', $last, $m) ? (int) strtotime($m[1]) : 0;
             $age = $ts > 0 ? time() - $ts : PHP_INT_MAX;

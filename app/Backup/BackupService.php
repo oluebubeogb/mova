@@ -9,14 +9,15 @@ use Mova\Core\Bootstrap;
 
 class BackupService
 {
-    public function create(): string
+    public function create(string $suffix = ''): string
     {
         $dir = Bootstrap::path('backups');
         if (!is_dir($dir)) {
             mkdir($dir, 0755, true);
         }
 
-        $name = 'mova-backup-' . date('Ymd-His') . '.mova';
+        $suffix = preg_replace('/[^a-z0-9\-]/', '', strtolower($suffix));
+        $name = 'mova-backup-' . date('Ymd-His') . ($suffix !== '' ? '-' . $suffix : '') . '.mova';
         $path = $dir . '/' . $name;
 
         $manifest = [
@@ -33,12 +34,7 @@ class BackupService
         // Database
         $dbPath = Bootstrap::config('database.path');
         if (is_file($dbPath)) {
-            try {
-                $pdo = \Mova\Core\Database::connection();
-                $pdo->exec('PRAGMA wal_checkpoint(TRUNCATE)');
-            } catch (\Throwable $e) {
-            }
-            copy($dbPath, $staging . '/database.sqlite');
+            \Mova\Core\Database::snapshotTo($staging . '/database.sqlite');
             $manifest['files'][] = 'database.sqlite';
         }
 
@@ -123,8 +119,13 @@ class BackupService
                 $inMonth[] = $b;
             }
         }
-        // oldest first
-        usort($inMonth, static fn($a, $b) => $a['mtime'] <=> $b['mtime']);
+        // Automatic pre-restore safety copies go first, then oldest first, so a few restores never
+        // push out a backup the owner made on purpose.
+        usort($inMonth, static function ($a, $b) {
+            $pa = str_contains((string) $a['name'], '-pre-restore') ? 0 : 1;
+            $pb = str_contains((string) $b['name'], '-pre-restore') ? 0 : 1;
+            return [$pa, $a['mtime']] <=> [$pb, $b['mtime']];
+        });
         $removed = 0;
         while (count($inMonth) > $max) {
             $old = array_shift($inMonth);
@@ -196,41 +197,259 @@ class BackupService
         return $out;
     }
 
-    public function restore(string $archivePath): void
+    /** Tables a database must have to be accepted as a Mova backup. */
+    private const REQUIRED_TABLES = ['settings', 'content', 'users'];
+
+    /**
+     * Restore a .mova backup. Safe by construction (1.2.3):
+     *  1. extract only expected entries (no path traversal), validate manifest + database BEFORE touching the site;
+     *  2. refuse backups made by a newer Mova than the running code (clear message, nothing changed);
+     *  3. take an automatic "pre-restore" backup, then swap the database atomically (no copy over the open WAL file);
+     *  4. run schema migrations immediately (older backups are upgraded in place) - on failure the previous
+     *     database is put back, so the site is never left half-restored;
+     *  5. copy media, then rebuild derived data (page cache, HQ search, site search, site AI index, asset versions).
+     *
+     * @return array{file:string, from_version:string, safety_backup:?string, media_failed:int, refreshed:string[], migrated:bool, ref:string}
+     */
+    public function restore(string $archivePath): array
     {
         if (!is_file($archivePath)) {
             throw new \InvalidArgumentException('Backup file not found.');
         }
-
-        $tmp = Bootstrap::path('storage') . '/restore_' . bin2hex(random_bytes(4));
-        mkdir($tmp, 0755, true);
-        $this->extractArchive($archivePath, $tmp);
-
-        $dbSrc = $tmp . '/database.sqlite';
-        if (is_file($dbSrc)) {
-            $dbDest = Bootstrap::config('database.path');
-            copy($dbSrc, $dbDest);
+        $storage = Bootstrap::path('storage');
+        $lock = @fopen($storage . '/.mova-restore.lock', 'c');
+        if ($lock && !flock($lock, LOCK_EX | LOCK_NB)) {
+            throw new \RuntimeException('Another restore is already running. Try again in a minute.');
         }
+        $tmp = $storage . '/restore_' . bin2hex(random_bytes(4));
+        $rollbackDb = null;
+        $dest = (string) Bootstrap::config('database.path');
+        try {
+            mkdir($tmp, 0755, true);
+            $this->extractBackup($archivePath, $tmp);
 
-        $mediaSrc = $tmp . '/media';
-        if (is_dir($mediaSrc)) {
-            $this->copyDir($mediaSrc, Bootstrap::path('uploads'));
-        }
+            // ---- validate (nothing on the live site has been touched yet) ----
+            $manifest = is_file($tmp . '/manifest.json') ? (json_decode((string) file_get_contents($tmp . '/manifest.json'), true) ?: []) : [];
+            $fromVersion = (string) ($manifest['mova_version'] ?? '');
+            $code = Bootstrap::version();
+            if ($fromVersion !== '' && preg_match('/^\d+\.\d+/', $fromVersion) && version_compare(self::baseVersion($fromVersion), self::baseVersion($code), '>')) {
+                throw new \RuntimeException('This backup was made by Mova ' . $fromVersion . ', newer than this site (' . $code . '). Upgrade Mova to ' . $fromVersion . ' or later first, then restore. Nothing was changed.');
+            }
+            $dbSrc = $tmp . '/database.sqlite';
+            if (!is_file($dbSrc)) {
+                throw new \RuntimeException('This archive has no database.sqlite - it is not a Mova site backup. Nothing was changed.');
+            }
+            $this->validateBackupDatabase($dbSrc);
 
-        $settingsFile = $tmp . '/config/settings.json';
-        if (is_file($settingsFile)) {
-            $settings = json_decode(file_get_contents($settingsFile), true) ?: [];
-            foreach ($settings as $k => $v) {
+            // ---- safety net: full pre-restore backup (visible in HQ, restorable) + a fast rollback copy ----
+            $safety = null;
+            try {
+                $safety = basename($this->create('pre-restore'));
+            } catch (\Throwable $e) {
+                \Mova\Core\ErrorHandler::report('backup.restore.safety', $e);
+            }
+            $rollbackDb = $storage . '/restore_rollback_' . bin2hex(random_bytes(4)) . '.sqlite';
+            \Mova\Core\Database::snapshotTo($rollbackDb);
+
+            // ---- swap + migrate (rolled back on failure) ----
+            $this->replaceDatabase($dbSrc, $dest, $tmp);
+            $migrated = true;
+            try {
+                if (class_exists(\Mova\Core\Runtime::class)) {
+                    $migrated = \Mova\Core\Runtime::migrateIfNeeded(true);
+                }
+                if (!$migrated) {
+                    $err = \Mova\Core\Runtime::lastMigrationError();
+                    throw new \RuntimeException('Upgrading the restored database to this Mova version failed'
+                        . ($err ? ' (ref ' . ($err['ref'] ?? '?') . ': ' . ($err['message'] ?? '') . ')' : '') . '.');
+                }
+                foreach (self::REQUIRED_TABLES as $t) {
+                    \Mova\Core\Database::fetch('SELECT 1 FROM ' . $t . ' LIMIT 1');
+                }
+            } catch (\Throwable $e) {
+                \Mova\Core\ErrorHandler::report('backup.restore.migrate', $e);
+                $this->replaceDatabase($rollbackDb, $dest, $tmp);
+                try {
+                    \Mova\Core\Runtime::migrateIfNeeded(true);
+                } catch (\Throwable $e2) {
+                }
+                throw new \RuntimeException('Restore was rolled back - your site is unchanged. ' . $e->getMessage());
+            }
+
+            // ---- media (merge; failures are reported, not fatal) ----
+            $mediaFailed = 0;
+            if (is_dir($tmp . '/media')) {
+                $mediaFailed = $this->copyDir($tmp . '/media', Bootstrap::path('uploads'));
+            }
+            // settings.json is a dump of the same database's settings table: only used when the archive has no DB.
+
+            $refreshed = [];
+            try {
+                $refreshed = SitePackImporter::refreshCaches();
+            } catch (\Throwable $e) {
+                \Mova\Core\ErrorHandler::report('backup.restore.refresh', $e);
+            }
+            if (function_exists('opcache_reset')) {
+                @opcache_reset();
+            }
+            $ref = \Mova\Core\ErrorHandler::log('backup.restore', 'Restored ' . basename($archivePath)
+                . ' (made by ' . ($fromVersion ?: 'unknown') . ', code ' . $code . ')'
+                . ($safety ? '; pre-restore backup ' . $safety : '') . ($mediaFailed ? '; ' . $mediaFailed . ' media file(s) not written' : ''));
+            try {
                 \Mova\Core\Database::query(
-                    "INSERT INTO settings (setting_key, setting_value, updated_at) VALUES (:k, :v, :t)
-                     ON CONFLICT(setting_key) DO UPDATE SET setting_value = :v2, updated_at = :t2",
-                    ['k' => $k, 'v' => $v, 't' => date('c'), 'v2' => $v, 't2' => date('c')]
+                    "INSERT INTO settings (setting_key, setting_value, updated_at) VALUES ('last_restore', :v, :t)
+                     ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value, updated_at = excluded.updated_at",
+                    ['v' => json_encode(['file' => basename($archivePath), 'at' => date('c'), 'from_version' => $fromVersion, 'safety_backup' => $safety, 'media_failed' => $mediaFailed, 'ref' => $ref]), 't' => date('c')]
                 );
+            } catch (\Throwable $e) {
+            }
+            return ['file' => basename($archivePath), 'from_version' => $fromVersion, 'safety_backup' => $safety,
+                'media_failed' => $mediaFailed, 'refreshed' => $refreshed, 'migrated' => $migrated, 'ref' => (string) $ref];
+        } finally {
+            $this->rmDir($tmp);
+            if ($rollbackDb !== null) {
+                @unlink($rollbackDb);
+            }
+            if ($lock) {
+                flock($lock, LOCK_UN);
+                fclose($lock);
             }
         }
+    }
 
-        $this->rmDir($tmp);
-        \Mova\Cache\PageCache::flush();
+    private static function baseVersion(string $v): string
+    {
+        return preg_match('/^(\d+\.\d+(?:\.\d+)?)/', $v, $m) ? $m[1] : '0';
+    }
+
+    /** Integrity + "is this a Mova database" check of a backup DB. Throws with a user-facing message. */
+    private function validateBackupDatabase(string $file): void
+    {
+        try {
+            $chk = new \PDO('sqlite:' . $file, null, null, [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]);
+            $ok = (string) $chk->query('PRAGMA quick_check')->fetchColumn();
+            $tables = $chk->query("SELECT name FROM sqlite_master WHERE type = 'table'")->fetchAll(\PDO::FETCH_COLUMN);
+            $chk = null;
+        } catch (\Throwable $e) {
+            throw new \RuntimeException('The backup database cannot be read (' . mb_substr($e->getMessage(), 0, 120) . '). Nothing was changed.');
+        }
+        if ($ok !== 'ok') {
+            throw new \RuntimeException('The backup database is damaged (quick_check: ' . mb_substr($ok, 0, 120) . '). Nothing was changed.');
+        }
+        $missing = array_diff(self::REQUIRED_TABLES, $tables);
+        if ($missing) {
+            throw new \RuntimeException('The backup database is not a Mova site (missing tables: ' . implode(', ', $missing) . '). Nothing was changed.');
+        }
+    }
+
+    /**
+     * Extract only the entries a backup is supposed to contain, refusing absolute paths, "..", and anything
+     * outside manifest.json / database.sqlite(-wal) / config/settings.json / media/**. (config.php is never restored.)
+     */
+    private function extractBackup(string $archive, string $dest): void
+    {
+        $allowed = static function (string $name): bool {
+            $name = str_replace('\\', '/', $name);
+            if ($name === '' || $name[0] === '/' || preg_match('#(^|/)\.\.(/|$)#', $name) || preg_match('#^[A-Za-z]:#', $name) || str_contains($name, "\0")) {
+                return false;
+            }
+            return in_array($name, ['manifest.json', 'database.sqlite', 'config/settings.json'], true)
+                || (str_starts_with($name, 'media/') && !preg_match('#\.(php\d?|phtml|phar|htaccess)$#i', $name));
+        };
+        if (class_exists(\ZipArchive::class)) {
+            $zip = new \ZipArchive();
+            if ($zip->open($archive) === true) {
+                for ($i = 0; $i < $zip->numFiles; $i++) {
+                    $name = (string) $zip->getNameIndex($i);
+                    if (str_ends_with($name, '/') || !$allowed($name)) {
+                        continue;
+                    }
+                    $target = $dest . '/' . $name;
+                    if (!is_dir(dirname($target))) {
+                        mkdir(dirname($target), 0755, true);
+                    }
+                    $in = $zip->getStream($name);
+                    $out = $in ? fopen($target, 'wb') : false;
+                    if (!$in || !$out || stream_copy_to_stream($in, $out) === false) {
+                        throw new \RuntimeException('Could not extract ' . $name . ' from the backup (disk full or storage/ not writable?). Nothing was changed.');
+                    }
+                    fclose($in);
+                    fclose($out);
+                }
+                $zip->close();
+                return;
+            }
+        }
+        // tar / tar.gz fallback (servers without ZipArchive): PharData, then drop anything not allowed.
+        $raw = $dest . '_raw';
+        try {
+            $tmp = $dest . '_archive.tar.gz';
+            copy($archive, $tmp);
+            (new \PharData($tmp))->extractTo($raw);
+            @unlink($tmp);
+        } catch (\Throwable $e) {
+            @unlink($dest . '_archive.tar.gz');
+            $this->rmDir($raw);
+            throw new \RuntimeException('Could not open the backup archive: ' . $e->getMessage());
+        }
+        $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($raw, \FilesystemIterator::SKIP_DOTS));
+        foreach ($it as $f) {
+            $rel = substr($f->getPathname(), strlen($raw) + 1);
+            if ($f->isFile() && !$f->isLink() && $allowed($rel)) {
+                if (!is_dir(dirname($dest . '/' . $rel))) {
+                    mkdir(dirname($dest . '/' . $rel), 0755, true);
+                }
+                copy($f->getPathname(), $dest . '/' . $rel);
+            }
+        }
+        $this->rmDir($raw);
+    }
+
+    /**
+     * Swap in a restored database safely. The old code copy()'d over the live file while it was open in WAL
+     * mode, leaving the old -wal/-shm beside a different main file: SQLite can then replay stale pages onto
+     * it, which typically shows up first as a damaged FTS5 index (HQ search fails for 3+ characters).
+     */
+    private function replaceDatabase(string $src, string $dest, string $tmpDir): void
+    {
+        $chk = new \PDO('sqlite:' . $src, null, null, [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]);
+        $ok = (string) $chk->query('PRAGMA quick_check')->fetchColumn();
+        $chk->exec('PRAGMA journal_mode = DELETE'); // fold any -wal shipped inside the archive into the file
+        $chk = null;
+        if ($ok !== 'ok') {
+            throw new \RuntimeException('The backup database is damaged (quick_check: ' . mb_substr($ok, 0, 120) . '). Nothing was restored.');
+        }
+        try {
+            $live = \Mova\Core\Database::connection();
+            $live->exec('PRAGMA busy_timeout = 10000'); // let in-flight requests of other PHP workers finish their writes
+            $live->exec('PRAGMA wal_checkpoint(TRUNCATE)');
+        } catch (\Throwable $e) {
+        }
+        \Mova\Core\Database::disconnect();
+        gc_collect_cycles();
+        $stage = $dest . '.restore-' . bin2hex(random_bytes(4));
+        if (!copy($src, $stage)) {
+            throw new \RuntimeException('Could not stage the restored database (disk full, or the database folder is not writable).');
+        }
+        // Keep the live file's mode/owner: a restore run as root (docker compose exec without -u www-data) must not
+        // leave a root-owned database that PHP-FPM can no longer write to.
+        $st = @stat($dest);
+        if ($st) {
+            @chmod($stage, $st['mode'] & 0777);
+            if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+                @chown($stage, $st['uid']);
+                @chgrp($stage, $st['gid']);
+            }
+        }
+        if (!@rename($stage, $dest)) {
+            @unlink($stage);
+            throw new \RuntimeException('Could not replace the database file.');
+        }
+        foreach (['-wal', '-shm', '-journal'] as $sfx) {
+            if (is_file($dest . $sfx)) {
+                @unlink($dest . $sfx);
+            }
+        }
     }
 
     public function delete(string $name): bool
@@ -323,17 +542,16 @@ class BackupService
             // Database
             $dbPath = Bootstrap::config('database.path');
             if (is_string($dbPath) && is_file($dbPath)) {
-                try {
-                    $pdo = \Mova\Core\Database::connection();
-                    $pdo->exec('PRAGMA wal_checkpoint(TRUNCATE)');
-                } catch (\Throwable $e) {
-                }
+                // Consistent snapshot (a raw copy of a live WAL database can be torn / corrupt FTS indexes)
+                $snapTmp = Bootstrap::path('storage') . DIRECTORY_SEPARATOR . 'export_db_' . bin2hex(random_bytes(4)) . '.sqlite';
+                \Mova\Core\Database::snapshotTo($snapTmp);
                 $dbDir = $pkg . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'database';
                 @mkdir($dbDir, 0755, true);
                 $dbName = basename($dbPath);
-                copy($dbPath, $dbDir . DIRECTORY_SEPARATOR . $dbName);
+                copy($snapTmp, $dbDir . DIRECTORY_SEPARATOR . $dbName);
                 // Also classic location if config points elsewhere
-                copy($dbPath, $pkg . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . $dbName);
+                copy($snapTmp, $pkg . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . $dbName);
+                @unlink($snapTmp);
             }
 
             // Live site config
@@ -662,8 +880,10 @@ MOVA_CFG;
         }
     }
 
-    private function copyDir(string $src, string $dest): void
+    /** @return int number of files that could not be written */
+    private function copyDir(string $src, string $dest): int
     {
+        $failed = 0;
         if (!is_dir($dest)) {
             mkdir($dest, 0755, true);
         }
@@ -682,9 +902,15 @@ MOVA_CFG;
                 if (!is_dir($parent)) {
                     mkdir($parent, 0755, true);
                 }
-                copy($item->getPathname(), $target);
+                if (!@copy($item->getPathname(), $target)) {
+                    $failed++;
+                }
             }
         }
+        if ($failed) {
+            \Mova\Core\ErrorHandler::log('backup.copy', $failed . ' file(s) could not be written under ' . basename($dest) . ' (check permissions / disk space)');
+        }
+        return $failed;
     }
 
     private function rmDir(string $dir): void

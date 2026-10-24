@@ -119,7 +119,7 @@ $jobTone = ['done' => 'ok', 'completed' => 'ok', 'running' => 'info', 'queued' =
         <ul class="dash-list">
           <?php foreach ($recent as $r): ?>
             <li>
-              <a href="<?= $canWrite ? '/hq/content/' . (int) $r['id'] . '/edit' : '/' . $h($r['slug']) ?>">
+              <a href="<?= $canWrite ? '/hq/content/edit/' . (int) $r['id'] : '/' . $h($r['slug']) ?>">
                 <span class="dash-list-title"><?= $h($r['title'] !== '' ? $r['title'] : '(untitled)') ?></span>
                 <span class="dash-list-meta"><?= $h(ucfirst((string) $r['type'])) ?><?= $r['author'] ? ' · ' . $h($r['author']) : '' ?> · <?= hqTimeTag($r['updated_at'], 'rel') ?></span>
               </a>

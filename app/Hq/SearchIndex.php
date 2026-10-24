@@ -36,6 +36,7 @@ final class SearchIndex
 
     private static ?string $engine = null;
     private static bool $checked = false;
+    private static bool $healed = false;
 
     public static function available(): bool
     {
@@ -132,24 +133,235 @@ final class SearchIndex
     public static function rebuild(?string $sig = null): int
     {
         if (!self::available()) {
-            return 0;
+            self::createTable(Database::connection());
+            if (!self::available()) {
+                return 0;
+            }
         }
         $rows = array_merge(self::routeRows(), self::viewRows(), self::dataRows());
+        try {
+            self::fill($rows);
+        } catch (\Throwable $e) {
+            if (self::isBusy($e)) {
+                // Another PHP worker is writing (often: rebuilding this same index). Not damage - wait once, retry,
+                // and never drop the table because of a lock.
+                usleep(400000);
+                self::fill($rows);
+            } else {
+                // A damaged FTS5 index (e.g. after a raw database-file copy/restore) makes DELETE/INSERT fail or
+                // leaves MATCH broken. Dropping and recreating the table discards the bad shadow tables entirely.
+                \Mova\Core\ErrorHandler::report('hq.search.rebuild', $e);
+                self::recreate();
+                self::fill($rows);
+            }
+        }
+        self::saveSig($sig ?? self::signature());
+        return count($rows);
+    }
+
+    /** SQLITE_BUSY / SQLITE_LOCKED: contention between PHP workers, not corruption. */
+    public static function isBusy(\Throwable $e): bool
+    {
+        return (bool) preg_match('/database (table )?is locked|SQLSTATE\[HY000\]: General error: [56]\b/i', $e->getMessage());
+    }
+
+    /**
+     * Replace every row of hq_search in one transaction. BEGIN IMMEDIATE takes the write lock up front so a
+     * concurrent writer makes us wait (busy timeout) instead of failing with "database is locked".
+     */
+    private static function fill(array $rows): void
+    {
         $pdo = Database::connection();
-        $pdo->beginTransaction();
+        $pdo->exec('BEGIN IMMEDIATE');
         try {
             $pdo->exec('DELETE FROM hq_search');
             $stmt = $pdo->prepare('INSERT INTO hq_search (' . implode(',', self::COLS) . ') VALUES (:' . implode(',:', self::COLS) . ')');
             foreach ($rows as $r) {
                 $stmt->execute(self::normalizeRow($r));
             }
-            $pdo->commit();
+            $pdo->exec('COMMIT');
         } catch (\Throwable $e) {
-            $pdo->rollBack();
+            // SQLite may already have rolled back (SQLITE_CORRUPT); a failing ROLLBACK must not hide $e.
+            try {
+                $pdo->exec('ROLLBACK');
+            } catch (\Throwable $e2) {
+            }
             throw $e;
         }
-        self::saveSig($sig ?? self::signature());
-        return count($rows);
+    }
+
+    /** Drop hq_search (and its FTS5 shadow tables) and create it again, empty. */
+    public static function recreate(): string
+    {
+        $pdo = Database::connection();
+        if ($pdo->inTransaction()) {
+            try {
+                $pdo->rollBack();
+            } catch (\Throwable $e) {
+            }
+        }
+        self::dropVirtual($pdo, 'hq_search', ['hq_search_data', 'hq_search_idx', 'hq_search_content', 'hq_search_docsize', 'hq_search_config']);
+        self::$engine = null;
+        $engine = self::createTable($pdo);
+        try {
+            Database::query("DELETE FROM settings WHERE setting_key = 'hq_search_sig'");
+        } catch (\Throwable $e) {
+        }
+        \Mova\Core\ErrorHandler::log('hq.search', 'HQ search index recreated (' . $engine . ')');
+        return $engine;
+    }
+
+    /**
+     * Drop an FTS5 table even when it is too damaged to open. SQLite must construct a virtual table to
+     * DROP it, so when its shadow tables are broken ("vtable constructor failed") a plain DROP can never
+     * succeed. Last resort: remove only that table's schema row, bump schema_version so every open
+     * connection (other PHP-FPM workers) reloads the schema, then drop the plain shadow tables.
+     * Only ever used for the two derived search indexes, which are rebuilt from content afterwards.
+     *
+     * @param string[] $shadows
+     */
+    private static function dropVirtual(\PDO $pdo, string $name, array $shadows): void
+    {
+        if (!in_array($name, ['hq_search', 'content_fts'], true)) {
+            throw new \InvalidArgumentException('dropVirtual is only for search indexes');
+        }
+        try {
+            $pdo->exec('DROP TABLE IF EXISTS ' . $name);
+            return;
+        } catch (\Throwable $e) {
+            \Mova\Core\ErrorHandler::report('search.drop', $e);
+        }
+        $pdo->exec('BEGIN IMMEDIATE');
+        try {
+            $ver = (int) $pdo->query('PRAGMA schema_version')->fetchColumn();
+            $pdo->exec('PRAGMA writable_schema = ON');
+            $pdo->exec("DELETE FROM sqlite_master WHERE type = 'table' AND name = " . $pdo->quote($name) . " AND sql LIKE 'CREATE VIRTUAL TABLE%'");
+            $pdo->exec('PRAGMA schema_version = ' . ($ver + 1));
+            $pdo->exec('PRAGMA writable_schema = OFF');
+            $pdo->exec('COMMIT');
+        } catch (\Throwable $e) {
+            try {
+                $pdo->exec('PRAGMA writable_schema = OFF');
+                $pdo->exec('ROLLBACK');
+            } catch (\Throwable $e2) {
+            }
+            throw $e;
+        }
+        foreach ($shadows as $t) {
+            try {
+                $pdo->exec('DROP TABLE IF EXISTS ' . $t);
+            } catch (\Throwable $e2) {
+            }
+        }
+        \Mova\Core\ErrorHandler::log('search.drop', 'Removed unreadable ' . $name . ' index so it can be rebuilt');
+    }
+
+    /** Create hq_search when missing: FTS5 trigram, or a plain table when FTS5/trigram is unavailable. Returns the engine. */
+    public static function createTable(\PDO $db): string
+    {
+        if ((bool) $db->query("SELECT 1 FROM sqlite_master WHERE name = 'hq_search'")->fetchColumn()) {
+            return self::engine();
+        }
+        $engine = 'like';
+        try {
+            $db->exec("
+                CREATE VIRTUAL TABLE hq_search USING fts5(
+                    title, body, keywords,
+                    kind UNINDEXED, ref UNINDEXED, url UNINDEXED, grp UNINDEXED,
+                    crumb UNINDEXED, icon UNINDEXED, badge UNINDEXED, perm UNINDEXED, weight UNINDEXED,
+                    tokenize = 'trigram'
+                )
+            ");
+            $engine = 'fts5';
+        } catch (\Throwable $e) {
+            $db->exec("
+                CREATE TABLE IF NOT EXISTS hq_search (
+                    title TEXT, body TEXT, keywords TEXT,
+                    kind TEXT, ref TEXT, url TEXT, grp TEXT,
+                    crumb TEXT, icon TEXT, badge TEXT, perm TEXT, weight INTEGER
+                )
+            ");
+            $db->exec('CREATE INDEX IF NOT EXISTS idx_hq_search_kind ON hq_search(kind, ref)');
+        }
+        try {
+            $st = $db->prepare("INSERT INTO settings (setting_key, setting_value, updated_at) VALUES ('hq_search_engine', :v, :t)
+                ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value, updated_at = excluded.updated_at");
+            $st->execute(['v' => $engine, 't' => date('c')]);
+        } catch (\Throwable $e) {
+        }
+        self::$engine = $engine;
+        return $engine;
+    }
+
+    /** Recreate + rebuild the HQ index and repair the public content index. Returns a short summary. */
+    public static function repair(): array
+    {
+        self::recreate();
+        $n = self::rebuild();
+        self::$checked = true;
+        return ['rows' => $n, 'engine' => self::engine(), 'content_fts' => self::repairContentFts()];
+    }
+
+    /**
+     * Health of both full-text indexes: FTS5 integrity-check plus a real MATCH probe (an index whose
+     * inverted lists were lost can pass integrity-check yet return nothing for 3+ character queries).
+     *
+     * @return array{ok:bool,engine:string,rows:int,detail:string,content_fts:string}
+     */
+    public static function health(): array
+    {
+        $out = ['ok' => true, 'engine' => 'none', 'rows' => 0, 'detail' => '', 'content_fts' => 'n/a'];
+        if (!self::available()) {
+            return ['ok' => false, 'detail' => 'hq_search table is missing'] + $out;
+        }
+        $out['engine'] = self::engine();
+        try {
+            $out['rows'] = (int) (Database::fetch('SELECT COUNT(*) AS n FROM hq_search')['n'] ?? 0);
+            if ($out['engine'] === 'fts5') {
+                Database::query("INSERT INTO hq_search(hq_search) VALUES('integrity-check')");
+                $probe = Database::fetch("SELECT title FROM hq_search WHERE length(title) >= 3 ORDER BY rowid LIMIT 1");
+                if ($probe) {
+                    $tok = mb_strtolower(mb_substr((string) $probe['title'], 0, 3));
+                    $hit = Database::fetch('SELECT COUNT(*) AS n FROM hq_search WHERE hq_search MATCH :m', ['m' => '"' . str_replace('"', '""', $tok) . '"']);
+                    if ((int) ($hit['n'] ?? 0) < 1) {
+                        throw new \RuntimeException('MATCH probe found nothing for a word that is in the index');
+                    }
+                }
+            }
+            $out['detail'] = $out['rows'] . ' entries, ' . ($out['engine'] === 'fts5' ? 'full-text (FTS5 trigram)' : 'basic (LIKE)');
+        } catch (\Throwable $e) {
+            $out['ok'] = false;
+            $out['detail'] = 'index damaged: ' . mb_substr($e->getMessage(), 0, 160);
+        }
+        try {
+            if (Database::fetch("SELECT 1 FROM sqlite_master WHERE name = 'content_fts'")) {
+                Database::query("INSERT INTO content_fts(content_fts) VALUES('integrity-check')");
+                $out['content_fts'] = 'ok';
+            }
+        } catch (\Throwable $e) {
+            $out['ok'] = false;
+            $out['content_fts'] = 'damaged: ' . mb_substr($e->getMessage(), 0, 120);
+        }
+        return $out;
+    }
+
+    /** Rebuild the public site-search index (external-content FTS5 over `content`); recreate it if needed. */
+    public static function repairContentFts(): string
+    {
+        $pdo = Database::connection();
+        if (!$pdo->query("SELECT 1 FROM sqlite_master WHERE name = 'content_fts'")->fetchColumn()) {
+            return 'absent';
+        }
+        try {
+            $pdo->exec("INSERT INTO content_fts(content_fts) VALUES('rebuild')");
+            return 'rebuilt';
+        } catch (\Throwable $e) {
+            \Mova\Core\ErrorHandler::report('content.fts.rebuild', $e);
+        }
+        self::dropVirtual($pdo, 'content_fts', ['content_fts_data', 'content_fts_idx', 'content_fts_docsize', 'content_fts_config']);
+        $pdo->exec("CREATE VIRTUAL TABLE IF NOT EXISTS content_fts USING fts5(title, excerpt, body, content='content', content_rowid='id')");
+        $pdo->exec("INSERT INTO content_fts(content_fts) VALUES('rebuild')");
+        return 'recreated';
     }
 
     /** Incremental: one content row changed (create/update/trash/restore). */
@@ -201,7 +413,7 @@ final class SearchIndex
         $out = [];
         foreach (self::COLS as $c) {
             $v = $r[$c] ?? '';
-            $out[$c] = $c === 'weight' ? (int) $v : self::clip((string) $v, $c === 'body' ? 6000 : 400);
+            $out[$c] = $c === 'weight' ? (int) $v : self::clip(self::text((string) $v), $c === 'body' ? 6000 : 400);
         }
         return $out;
     }
@@ -507,7 +719,7 @@ final class SearchIndex
     public static function search(string $q, int $limit = 24): array
     {
         $t0 = microtime(true);
-        $q = trim((string) preg_replace('/\s+/u', ' ', $q));
+        $q = trim((string) preg_replace('/\s+/u', ' ', self::text($q)));
         $q = mb_substr($q, 0, 100);
         $out = ['q' => $q, 'engine' => self::engine(), 'took_ms' => 0.0, 'total' => 0, 'groups' => []];
         if ($q === '' || !self::available()) {
@@ -553,7 +765,46 @@ final class SearchIndex
         try {
             $rows = Database::fetchAll($sql, $params);
         } catch (\Throwable $e) {
-            $rows = [];
+            // 3+ character tokens use the FTS5 index (MATCH); 1-2 character tokens only scan stored rows (LIKE).
+            // A damaged index therefore breaks the longer queries first (a table that cannot even be opened
+            // breaks all of them). Log it, repair once, retry, and
+            // fall back to a plain substring scan so the search box never goes blank.
+            \Mova\Core\ErrorHandler::report('hq.search', $e);
+            $rows = null;
+            if (!self::$healed && !self::isBusy($e)) {
+                self::$healed = true;
+                try {
+                    self::repair();
+                    $rows = Database::fetchAll($sql, $params);
+                    $out['healed'] = true;
+                } catch (\Throwable $e2) {
+                    \Mova\Core\ErrorHandler::report('hq.search.heal', $e2);
+                    $rows = null;
+                }
+            }
+            if ($rows === null) {
+                $rows = self::likeSearch($tokens);
+                $out['engine'] = 'like';
+                $out['degraded'] = true;
+            }
+        }
+        if ($rows === [] && $long && !self::$healed && self::likeSearch($tokens, 1) !== []) {
+            // MATCH found nothing although the stored rows contain the words: the inverted index lost entries.
+            self::$healed = true;
+            \Mova\Core\ErrorHandler::log('hq.search', 'HQ search index out of sync (MATCH empty, substring scan has rows); repairing');
+            try {
+                self::repair();
+                $rows = Database::fetchAll($sql, $params);
+                $out['healed'] = true;
+            } catch (\Throwable $e) {
+                \Mova\Core\ErrorHandler::report('hq.search.heal', $e);
+                $rows = [];
+            }
+            if ($rows === []) {
+                $rows = self::likeSearch($tokens);
+                $out['engine'] = 'like';
+                $out['degraded'] = true;
+            }
         }
 
         $qLower = mb_strtolower($q);
@@ -645,22 +896,40 @@ final class SearchIndex
         return $out;
     }
 
+    /** Substring scan over the stored rows (works even when the FTS5 index is unusable). */
+    private static function likeSearch(array $tokens, int $limit = 400): array
+    {
+        $params = [];
+        $parts = [];
+        foreach ($tokens as $i => $tok) {
+            $params['l' . $i] = '%' . addcslashes($tok, '%_\\') . '%';
+            $parts[] = "(title LIKE :l{$i} ESCAPE '\\' OR keywords LIKE :l{$i} ESCAPE '\\' OR body LIKE :l{$i} ESCAPE '\\')";
+        }
+        try {
+            return Database::fetchAll('SELECT rowid AS rid, title, body, keywords, kind, ref, url, grp, crumb, icon, badge, perm, weight FROM hq_search WHERE '
+                . implode(' AND ', $parts) . ' ORDER BY weight DESC LIMIT ' . max(1, $limit), $params);
+        } catch (\Throwable $e) {
+            \Mova\Core\ErrorHandler::report('hq.search.like', $e);
+            return [];
+        }
+    }
+
     /** Escape text and wrap token matches in <mark>. */
     public static function highlight(string $text, array $tokens): string
     {
         $tokens = array_values(array_filter($tokens, static fn($t) => $t !== ''));
         if (!$tokens) {
-            return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+            return htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         }
         usort($tokens, static fn($a, $b) => mb_strlen($b) <=> mb_strlen($a));
         $re = '/(' . implode('|', array_map(static fn($t) => preg_quote($t, '/'), $tokens)) . ')/iu';
         $parts = preg_split($re, $text, -1, PREG_SPLIT_DELIM_CAPTURE);
         if ($parts === false) {
-            return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+            return htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         }
         $html = '';
         foreach ($parts as $i => $p) {
-            $e = htmlspecialchars($p, ENT_QUOTES, 'UTF-8');
+            $e = htmlspecialchars($p, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
             $html .= ($i % 2 === 1) ? '<mark>' . $e . '</mark>' : $e;
         }
         return $html;
@@ -695,6 +964,15 @@ final class SearchIndex
     private static function clean(string $s): string
     {
         return trim((string) preg_replace('/\s+/u', ' ', $s));
+    }
+
+    /** Valid UTF-8 without NUL/control characters (imported content can carry both). */
+    public static function text(string $s): string
+    {
+        if (!mb_check_encoding($s, 'UTF-8')) {
+            $s = (string) mb_convert_encoding($s, 'UTF-8', 'UTF-8');
+        }
+        return (string) preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', ' ', $s);
     }
 
     private static function clip(string $s, int $max): string
