@@ -361,12 +361,18 @@ class BlogService
         $url = htmlspecialchars((string) ($item['url'] ?? '#'), ENT_QUOTES, 'UTF-8');
         $img = htmlspecialchars((string) ($item['featured_image'] ?? ''), ENT_QUOTES, 'UTF-8');
 
+        // data-tone: a stable colour slot per category (styled by mova-ui.css chips).
+        $catId = (int) ($item['categories'][0]['id'] ?? 0);
         $catHtml = $cat !== ''
-            ? '<span class="mova-blog-cat">' . $cat . '</span>'
+            ? '<span class="mova-blog-cat" data-tone="' . ($catId > 0 ? ($catId % 6) : 0) . '">' . $cat . '</span>'
+            : '';
+        $date = (string) ($item['date'] ?? '');
+        $dateHtml = $date !== ''
+            ? '<time class="mova-blog-date" datetime="' . htmlspecialchars((string) ($item['date_iso'] ?? ''), ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($date, ENT_QUOTES, 'UTF-8') . '</time>'
             : '';
 
         $col1 = '<div class="mova-blog-col1">'
-            . $catHtml
+            . ($catHtml !== '' || $dateHtml !== '' ? '<span class="mova-blog-meta">' . $catHtml . $dateHtml . '</span>' : '')
             . '<h3 class="mova-blog-title">' . $title . '</h3>'
             . ($excerpt !== '' ? '<p class="mova-blog-excerpt">' . $excerpt . '</p>' : '')
             . '<span class="mova-blog-more">Read more</span>'
@@ -543,6 +549,25 @@ class BlogService
         return $html;
     }
 
+    /**
+     * Server-rendered card list for [blog id=N layout=cards limit=3] — no JavaScript needed, so it
+     * also works inside Dev Mode pages, for crawlers and with JS off. Shows the latest N posts.
+     */
+    public function inlineHtml(int $id, string $layout = 'cards', int $limit = 3): string
+    {
+        $blog = $this->find($id);
+        $layout = in_array($layout, ['cards', 'list', 'compact'], true) ? $layout : 'cards';
+        $feed = $this->feed($id, max(1, min(12, $limit)), 0);
+        if (!$blog || !$feed['items']) {
+            return '<div class="mova-blog mova-blog--' . $layout . ' is-empty"><p class="mova-blog-end">No posts yet.</p></div>';
+        }
+        $html = '<div class="mova-blog mova-blog--' . $layout . '" data-blog-inline="' . (int) $id . '"><div class="mova-blog-grid mova-blog-grid--' . $layout . '">';
+        foreach ($feed['items'] as $it) {
+            $html .= $this->renderCard($it);
+        }
+        return $html . '</div></div>';
+    }
+
     public function mountHtml(int $id): string
     {
         return '<div class="mova-blog" data-blog="' . (int) $id . '"></div>';
@@ -585,14 +610,18 @@ class BlogService
                 if ($id <= 0) {
                     return '<!-- blog: not found -->';
                 }
+                if (preg_match('/\blayout=["\']?(cards|list|compact)\b/i', $attrs, $lm)) {
+                    $lim = preg_match('/\blimit=["\']?(\d+)/i', $attrs, $mm) ? (int) $mm[1] : 3;
+                    return $svc->inlineHtml($id, strtolower($lm[1]), $lim);
+                }
                 return $svc->mountHtml($id);
             }, $body) ?? $body;
 
             static $assets = false;
             if (!$assets && (strpos($body, 'mova-blog') !== false || strpos($body, '[blog') !== false)) {
                 $assets = true;
-                $body .= "\n" . '<link rel="stylesheet" href="/assets/css/mova-blog.css?v=6">'
-                    . '<script src="/assets/js/mova-blog.js?v=5" defer></script>';
+                $body .= "\n" . '<link rel="stylesheet" href="/assets/css/mova-blog.css?v=7">'
+                    . (strpos($body, 'class="mova-blog" data-blog=') !== false ? '<script src="/assets/js/mova-blog.js?v=6" defer></script>' : '');
             }
             return $body;
         });
@@ -705,6 +734,7 @@ class BlogService
         if ($ts === false) {
             return (string) $value;
         }
-        return date('M j, Y', $ts);
+        // Site timezone (Settings → site_timezone, default Africa/Lagos), not the server's UTC.
+        return class_exists(\Mova\Core\Time::class) ? \Mova\Core\Time::fmt((string) $value, 'M j, Y', date('M j, Y', $ts)) : date('M j, Y', $ts);
     }
 }

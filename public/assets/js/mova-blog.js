@@ -8,7 +8,7 @@
     if (!document.querySelector('link[href*="mova-blog.css"]')) {
       var l = document.createElement('link');
       l.rel = 'stylesheet';
-      l.href = '/assets/css/mova-blog.css?v=6';
+      l.href = '/assets/css/mova-blog.css?v=7';
       document.head.appendChild(l);
     }
   }

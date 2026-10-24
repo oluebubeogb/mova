@@ -279,7 +279,7 @@ final class SitePack
 
     public static function version(): string
     {
-        return (string) Bootstrap::config('app_version', '1.0.0');
+        return Bootstrap::version();
     }
 
     public static function exportsDir(): string

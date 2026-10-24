@@ -8,6 +8,8 @@ return [
     'block_publish_on_errors' => false,
     'disable_all_custom_js' => false,
     'disable_all_custom_css' => false,
+    // Make @media (prefers-color-scheme) blocks follow the site's light/dark toggle (html[data-theme]).
+    'sync_color_scheme' => true,
     // Empty = no pattern blocking
     'dangerous_patterns' => [],
     'max_html_bytes' => 512000,

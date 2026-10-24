@@ -1463,17 +1463,21 @@ body.hero-fullscreen .hero {
 
 /* Progressive image reveal — shell paints instantly; images fade in when ready */
 img.mova-img {
-    opacity: 0;
-    transition: opacity 0.4s ease;
     background: color-mix(in srgb, var(--color-border, #e5e7eb) 40%, transparent);
+}
+/* Only hide-until-loaded when scripts run (the reveal needs JS); with JS off
+   images are always visible. No content-visibility on images: it blanks
+   off-screen images in print and full-page captures. */
+@media (scripting: enabled) {
+    img.mova-img:not(.is-loaded) { opacity: 0; }
+    img.mova-img { transition: opacity 0.4s ease; }
+}
+@media (prefers-reduced-motion: reduce) {
+    img.mova-img { transition: none; }
 }
 img.mova-img.is-loaded,
 img.mova-img[complete] {
     opacity: 1;
-}
-/* Already-cached images (from bfcache / memory) should show immediately */
-img.mova-img:not([src=""]) {
-    content-visibility: auto;
 }
 /* Reduce layout shift: keep aspect ratio when width/height known via CSS */
 .article-featured {

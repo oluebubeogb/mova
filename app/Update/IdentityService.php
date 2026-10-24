@@ -47,7 +47,7 @@ class IdentityService
         if ($fromJson !== '') {
             return $fromJson;
         }
-        return (string) Bootstrap::config('app_version', '0.0.0');
+        return Bootstrap::version();
     }
 
     /**
@@ -64,7 +64,7 @@ class IdentityService
         if (isset($opts['version']) && $opts['version'] !== '') {
             $data['version'] = $opts['version'];
         } else {
-            $data['version'] = (string) Bootstrap::config('app_version', $data['version'] ?? '1.0.0');
+            $data['version'] = Bootstrap::version();
         }
         if (!isset($data['site']['created_at']) || $data['site']['created_at'] === '') {
             $data['site']['created_at'] = gmdate('c');
@@ -105,7 +105,7 @@ class IdentityService
             'name' => 'mova',
             'title' => 'Mova CMS',
             'tagline' => 'Content that moves.',
-            'version' => (string) Bootstrap::config('app_version', '1.0.0'),
+            'version' => Bootstrap::version(),
             'php' => '>=8.1',
             'channel' => 'stable',
             'homepage' => '',

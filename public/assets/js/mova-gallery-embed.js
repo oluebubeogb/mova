@@ -73,7 +73,7 @@
     var opts = data.options || {};
     var items = validItems(data.items);
     if (!items.length) {
-      root.innerHTML = '<p class="mova-g-empty">No images</p>';
+      root.innerHTML = '<div class="mova-g-empty mova-gallery-empty" role="status"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-8 8"/></svg><strong>Gallery coming soon</strong><span>Photos will appear here once they are added.</span></div>';
       return;
     }
     applyShell(root, opts);
@@ -159,7 +159,7 @@
     var opts = data.options || {};
     var items = validItems(data.items);
     if (!items.length) {
-      root.innerHTML = '<p class="mova-g-empty">No images</p>';
+      root.innerHTML = '<div class="mova-g-empty mova-gallery-empty" role="status"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-8 8"/></svg><strong>Gallery coming soon</strong><span>Photos will appear here once they are added.</span></div>';
       return;
     }
     applyShell(root, opts);

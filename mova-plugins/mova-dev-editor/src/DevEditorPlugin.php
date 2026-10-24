@@ -101,6 +101,7 @@ class DevEditorPlugin
         $payload['data']['meta']['raw_css'] = $css;
         $payload['data']['meta']['raw_js'] = $js;
         $payload['data']['meta']['use_site_chrome'] = $req->post('use_site_chrome') ? '1' : '0';
+        $payload['data']['meta']['dev_enhance'] = $req->post('dev_enhance') ? '1' : '0';
         $payload['data']['meta']['dev_validation'] = json_encode([
             'errors'   => $result['errors'],
             'warnings' => $result['warnings'] ?? [],

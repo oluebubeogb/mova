@@ -231,3 +231,13 @@ img.mova-fb-flag,
   color: var(--mova-fb-muted);
   text-align: center;
 }
+
+/* Dark mode: inputs follow the site surface instead of the light fallback (toggle + OS setting). */
+html[data-theme="dark"] .mova-feedback {
+  --mova-fb-input-bg: var(--color-input-bg, color-mix(in srgb, var(--color-surface, #0f172a) 70%, var(--color-bg, #020617)));
+}
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme]) .mova-feedback {
+    --mova-fb-input-bg: var(--color-input-bg, color-mix(in srgb, var(--color-surface, #0f172a) 70%, var(--color-bg, #020617)));
+  }
+}

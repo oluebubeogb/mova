@@ -27,6 +27,7 @@ $__e = static fn($v) => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
     <link rel="stylesheet" href="/assets/css/templates.css?v=<?= $__e($F['ver']) ?>">
     <link rel="stylesheet" href="/assets/css/site.css?v=<?= $__e($F['ver']) ?>">
     <link rel="stylesheet" href="/assets/css/sections.css?v=<?= $__e($F['ver']) ?>">
+<link rel="stylesheet" href="/assets/css/mova-ui.css?v=<?= (int) @filemtime(dirname(__DIR__, 2) . '/public/assets/css/mova-ui.css') ?>">
 <?php foreach ($F['css'] as $__css): ?>
     <?= \Mova\Theme\SiteFrame::inlineFile($__css, 'style', 'theme-' . basename($__css, '.css')) ?>
 <?php endforeach; ?>

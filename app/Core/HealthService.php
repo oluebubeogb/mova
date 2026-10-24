@@ -98,7 +98,7 @@ class HealthService
             'overall' => $overall,
             'checks'  => $checks,
             'time'    => date('c'),
-            'version' => Bootstrap::config('app_version', '1.0.0'),
+            'version' => Bootstrap::version(),
         ];
     }
 

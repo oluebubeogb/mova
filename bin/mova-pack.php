@@ -95,8 +95,16 @@ switch ($cmd) {
                 fwrite(STDERR, "skipped: $rel\n");
                 continue;
             }
-            if (str_starts_with($rel, 'data/') && json_decode((string) file_get_contents($f->getPathname())) === null) {
-                $fail("$rel is not valid JSON — fix it before repacking.");
+            if (str_starts_with($rel, 'data/')) {
+                $j = json_decode((string) file_get_contents($f->getPathname()), true);
+                if ($j === null) {
+                    $fail("$rel is not valid JSON — fix it before repacking.");
+                }
+                // Keep manifest row counts in step with edited data (rows added or removed by hand).
+                $tbl = substr($rel, 5, -5);
+                if (is_array($j) && isset($j['rows']) && is_array($j['rows']) && isset($m['counts']) && is_array($m['counts']) && array_key_exists($tbl, $m['counts'])) {
+                    $m['counts'][$tbl] = count($j['rows']);
+                }
             }
             $files[$rel] = ['sha256' => hash_file('sha256', $f->getPathname()), 'size' => filesize($f->getPathname())];
         }

@@ -2,6 +2,7 @@
 <script src="/assets/js/theme.js?v=<?= htmlspecialchars($F['ver']) ?>"></script>
 <script src="/assets/js/nav.js?v=<?= htmlspecialchars($F['ver']) ?>" defer></script>
 <script src="/assets/js/site.js?v=<?= htmlspecialchars($F['ver']) ?>" defer></script>
+<script src="/assets/js/mova-ui.js?v=<?= (int) @filemtime(dirname(__DIR__, 2) . '/public/assets/js/mova-ui.js') ?>" defer></script>
 <script src="/assets/js/sections.js?v=<?= htmlspecialchars($F['ver']) ?>" defer></script>
 <?php foreach ($F['js'] as $__js): ?>
 <?= \Mova\Theme\SiteFrame::inlineFile($__js, 'script', 'theme-' . basename($__js, '.js')) ?>

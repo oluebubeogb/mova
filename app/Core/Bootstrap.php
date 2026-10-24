@@ -82,6 +82,31 @@ class Bootstrap
         }
     }
 
+    /**
+     * Running Mova version. The code ships a VERSION file so an upgraded deploy reports
+     * its real version even when config/config.php (not part of a deploy) still carries
+     * an older app_version. Returns the higher of the two.
+     */
+    public static function version(): string
+    {
+        static $code = null;
+        if ($code === null) {
+            $f = dirname(__DIR__, 2) . '/VERSION';
+            $code = is_file($f) ? trim((string) @file_get_contents($f)) : '';
+            if (!preg_match('/^\d+\.\d+(\.\d+)?([\-+][0-9A-Za-z.\-]+)?$/', $code)) {
+                $code = '';
+            }
+        }
+        $cfg = (string) (self::$config['app_version'] ?? '');
+        if ($code === '') {
+            return $cfg !== '' ? $cfg : '1.0.0';
+        }
+        if ($cfg === '') {
+            return $code;
+        }
+        return version_compare($code, $cfg, '>=') ? $code : $cfg;
+    }
+
     public static function config(?string $key = null, $default = null)
     {
         if ($key === null) {

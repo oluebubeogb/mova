@@ -24,7 +24,7 @@ class MovaManifest
         $meta = self::loadDefaults();
 
         // Version: prefer config app_version so releases stay in sync without editing JSON
-        $ver = (string) Bootstrap::config('app_version', $meta['version'] ?? '1.0.0');
+        $ver = Bootstrap::version();
         if ($ver !== '') {
             $meta['version'] = $ver;
         }

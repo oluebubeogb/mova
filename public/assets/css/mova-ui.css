@@ -1,0 +1,176 @@
+/* ==========================================================================
+   Mova UI kit — mova-ui.css (core, all themes)
+   Soft tint scale from the brand colours, shared prose, blog chips, post
+   extras (progress, contents, share, prev/next, related) and small fixes.
+   No web fonts, no external URLs (CSP-safe). Motion only under
+   prefers-reduced-motion: no-preference; nothing is hidden without JS.
+   ========================================================================== */
+:root {
+  --mx-p: var(--color-primary, #2563eb);
+  --mx-g: var(--color-success, #16a34a);
+  --c-primary-50: color-mix(in srgb, var(--mx-p) 6%, var(--color-bg, #fff));
+  --c-primary-100: color-mix(in srgb, var(--mx-p) 12%, var(--color-bg, #fff));
+  --c-primary-200: color-mix(in srgb, var(--mx-p) 26%, var(--color-bg, #fff));
+  --c-primary-300: color-mix(in srgb, var(--mx-p) 45%, var(--color-bg, #fff));
+  --c-primary-400: color-mix(in srgb, var(--mx-p) 72%, var(--color-bg, #fff));
+  --c-primary-500: var(--mx-p);
+  --c-primary-600: color-mix(in srgb, var(--mx-p) 85%, #000);
+  --c-primary-700: color-mix(in srgb, var(--mx-p) 70%, #000);
+  --c-primary-800: color-mix(in srgb, var(--mx-p) 55%, #000);
+  --c-primary-900: color-mix(in srgb, var(--mx-p) 40%, #000);
+  --c-success-50: color-mix(in srgb, var(--mx-g) 7%, var(--color-bg, #fff));
+  --c-success-100: color-mix(in srgb, var(--mx-g) 14%, var(--color-bg, #fff));
+  --surface-soft: color-mix(in srgb, var(--mx-p) 4%, var(--color-surface, #fff));
+  --surface-tint: linear-gradient(180deg, color-mix(in srgb, var(--mx-p) 7%, var(--color-bg, #fff)), var(--color-bg, #fff));
+  --mx-ease: cubic-bezier(.2, .7, .2, 1);
+}
+
+/* ---------- Prose: visual-editor / pasted bodies ---------- */
+/* Pasted Word/Docs formatting (inline font sizes, families, colours, backgrounds) must not fight the theme. */
+.mova-prose [style*="font-size"] { font-size: inherit !important; }
+.mova-prose [style*="font-family"] { font-family: inherit !important; }
+.mova-prose [style*="line-height"] { line-height: inherit !important; }
+/* Pasted near-black text / white highlights would vanish in dark mode; intentional brand colours are kept. */
+.mova-prose :where(span, p, li, strong, b, em, font)[style*="color: rgb(0, 0, 0)"], .mova-prose :where(span, p, li, strong, b, em, font)[style*="color:rgb(0,0,0)"],
+.mova-prose :where(span, p, li, strong, b, em, font)[style*="color: #000"], .mova-prose :where(span, p, li, strong, b, em, font)[style*="color:#000"],
+.mova-prose :where(span, p, li, strong, b, em, font)[style*="color: black"], .mova-prose :where(span, p, li, strong, b, em, font)[style*="windowtext"],
+.mova-prose :where(span, p, li, strong, b, em, font)[style*="color: rgb(33, 33, 33)"], .mova-prose :where(span, p, li, strong, b, em, font)[style*="color: rgb(34, 34, 34)"],
+.mova-prose :where(span, p, li, strong, b, em, font)[style*="color: rgb(14, 16, 26)"], .mova-prose :where(span, p, li, strong, b, em, font)[style*="color: rgb(13, 13, 13)"] { color: inherit !important; }
+.mova-prose :where(span, p, li, strong, b, em)[style*="background-color: rgb(255, 255, 255)"], .mova-prose :where(span, p, li, strong, b, em)[style*="background-color: #fff"],
+.mova-prose :where(span, p, li, strong, b, em)[style*="background-color: white"], .mova-prose :where(span, p, li, strong, b, em)[style*="background-color: transparent"] { background: none !important; }
+.mova-prose > :where(h2, h3) { scroll-margin-top: calc(var(--hdr-h, 68px) + 1rem); }
+.mova-prose :where(img, video, iframe, table) { max-width: 100%; }
+.mova-prose :where(pre, table) { display: block; overflow-x: auto; }
+.mova-prose ul:not([class]) > li::marker { color: var(--mx-p); }
+.mova-prose ol:not([class]) > li::marker { color: var(--mx-p); font-weight: 700; }
+.mova-prose hr { border: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--color-border, #e5e7eb), transparent); margin: 2.5rem 0; }
+.mova-prose { overflow-wrap: anywhere; }
+
+/* ---------- Chips (categories, tags) ---------- */
+.mx-chip { --mx-tone: var(--mx-p); color: color-mix(in srgb, var(--mx-tone) 55%, var(--color-text, #111)) !important; background: color-mix(in srgb, var(--mx-tone) 12%, transparent) !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mx-tone) 22%, transparent); text-decoration: none !important; transition: background-color .2s, transform .2s var(--mx-ease); }
+.mx-chip:hover { background: color-mix(in srgb, var(--mx-tone) 20%, transparent) !important; }
+.mx-chip[data-tone="1"] { --mx-tone: var(--color-success, #16a34a); }
+.mx-chip[data-tone="2"] { --mx-tone: var(--color-accent-gold, #d4a72c); }
+.mx-chip[data-tone="3"] { --mx-tone: var(--color-accent-cyan, #00aeef); }
+.mx-chip[data-tone="4"] { --mx-tone: var(--color-secondary, #7c3aed); }
+.mx-chip[data-tone="5"] { --mx-tone: var(--color-accent-rose, #e11d48); }
+
+/* ---------- Blog page head ---------- */
+.mova-blog-page-head { position: relative; overflow: hidden; padding: clamp(1.5rem, 4vw, 2.75rem) clamp(1.25rem, 4vw, 2.75rem); margin: 0 0 clamp(1.25rem, 3vw, 2rem); border-radius: 24px; border: 1px solid color-mix(in srgb, var(--mx-p) 12%, var(--color-border, #e5e7eb)); background: radial-gradient(60% 140% at 0% 0%, color-mix(in srgb, var(--mx-p) 12%, transparent), transparent 70%), radial-gradient(45% 120% at 100% 0%, color-mix(in srgb, var(--mx-g) 10%, transparent), transparent 70%), var(--surface-soft); }
+.mova-blog-page-head .mova-blog-page-title { font-size: clamp(2rem, 5vw, 3rem); line-height: 1.08; letter-spacing: -0.03em; margin: 0 0 .5rem; }
+.mova-blog-page-head .mova-blog-page-desc { font-size: clamp(1rem, 1.6vw, 1.15rem); max-width: 42rem; margin: 0; }
+
+/* ---------- Reading progress ---------- */
+.mx-progress { position: fixed; inset: 0 0 auto; height: 3px; z-index: 60; pointer-events: none; display: none; }
+.mx-js .mx-progress { display: block; }
+.mx-progress > span { display: block; height: 100%; width: 100%; transform-origin: 0 50%; transform: scaleX(var(--mx-read, 0)); background: linear-gradient(90deg, var(--mx-p), var(--mx-g)); }
+
+/* ---------- Table of contents (built by mova-ui.js when a post has 3+ headings) ---------- */
+.mx-toc { margin: 0 0 2rem; padding: 1rem 1.2rem; border: 1px solid var(--color-border, #e5e7eb); border-radius: 14px; background: var(--surface-soft); font-size: .95rem; }
+.mx-toc > summary { cursor: pointer; font-weight: 700; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.mx-toc > summary::-webkit-details-marker { display: none; }
+.mx-toc > summary::after { content: ""; width: .5rem; height: .5rem; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform .25s var(--mx-ease); opacity: .6; }
+.mx-toc[open] > summary::after { transform: rotate(-135deg); }
+.mx-toc ol { margin: .75rem 0 0; padding: 0; list-style: none; display: grid; gap: .25rem; }
+.mx-toc li.is-sub { padding-left: 1rem; }
+.mx-toc a { color: var(--color-muted, #6b7280) !important; text-decoration: none !important; display: block; padding: .15rem 0 .15rem .75rem; border-left: 2px solid transparent; transition: color .2s, border-color .2s; }
+.mx-toc a:hover, .mx-toc a.is-active { color: var(--mx-p) !important; border-left-color: var(--mx-p); }
+
+/* ---------- Post extras ---------- */
+.mx-post-extras { margin-top: clamp(2.5rem, 6vw, 4rem); display: grid; gap: clamp(1.75rem, 4vw, 2.75rem); }
+.mx-share { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border, #e5e7eb); }
+.mx-share__label { font-weight: 700; font-size: .85rem; letter-spacing: .06em; text-transform: uppercase; color: var(--color-muted, #6b7280); margin-right: .35rem; }
+.mx-share__btn { display: inline-flex; align-items: center; gap: .4rem; min-height: 40px; padding: .4rem .85rem; border-radius: 999px; border: 1px solid var(--color-border, #e5e7eb); background: var(--color-surface, #fff); color: var(--color-text, #111) !important; font: inherit; font-size: .85rem; font-weight: 600; text-decoration: none !important; cursor: pointer; transition: border-color .2s, color .2s, transform .2s var(--mx-ease), background-color .2s; }
+.mx-share__btn svg { width: 1rem; height: 1rem; fill: currentColor; flex: none; }
+.mx-share__btn:hover { border-color: color-mix(in srgb, var(--mx-p) 45%, var(--color-border, #e5e7eb)); color: var(--mx-p) !important; background: var(--surface-soft); }
+.mx-share__btn.is-done { color: var(--mx-g) !important; border-color: color-mix(in srgb, var(--mx-g) 45%, transparent); }
+.mx-share__btn:focus-visible, .mx-post-nav__item:focus-visible, .mx-related__card:focus-visible { outline: 2px solid var(--mx-p); outline-offset: 2px; }
+.mx-post-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.mx-post-nav__item { display: grid; gap: .25rem; padding: 1rem 1.15rem; border-radius: 14px; border: 1px solid var(--color-border, #e5e7eb); background: var(--color-surface, #fff); text-decoration: none !important; color: var(--color-text, #111) !important; transition: border-color .25s, transform .25s var(--mx-ease), box-shadow .25s; min-width: 0; }
+.mx-post-nav__item.is-empty { border: 0; background: none; }
+.mx-post-nav__item.is-next { text-align: right; }
+.mx-post-nav__item small { font-size: .75rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--mx-p); }
+.mx-post-nav__item.is-prev small::before { content: "\2190  "; }
+.mx-post-nav__item.is-next small::after { content: "  \2192"; }
+.mx-post-nav__item span { font-weight: 650; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+a.mx-post-nav__item:hover { border-color: color-mix(in srgb, var(--mx-p) 40%, var(--color-border, #e5e7eb)); transform: translateY(-2px); box-shadow: 0 14px 30px -20px color-mix(in srgb, var(--mx-p) 60%, transparent); }
+.mx-related__title { font-size: clamp(1.3rem, 2.4vw, 1.6rem) !important; margin: 0 0 1rem !important; letter-spacing: -0.02em; }
+.mx-related__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr)); gap: 1rem; }
+.mx-related__card { display: grid; grid-template-rows: auto 1fr; border-radius: 14px; overflow: hidden; border: 1px solid var(--color-border, #e5e7eb); background: var(--color-surface, #fff); color: var(--color-text, #111) !important; text-decoration: none !important; transition: transform .3s var(--mx-ease), box-shadow .3s, border-color .3s; }
+.mx-related__card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--mx-p) 35%, var(--color-border, #e5e7eb)); box-shadow: 0 18px 36px -22px color-mix(in srgb, var(--mx-p) 60%, transparent); }
+.mx-related__img { display: block; aspect-ratio: 16 / 9; overflow: hidden; background: linear-gradient(135deg, var(--c-primary-100), var(--c-success-50)); }
+.mx-related__img img { width: 100%; height: 100%; object-fit: cover; display: block; margin: 0 !important; border-radius: 0 !important; transition: transform .6s var(--mx-ease); }
+.mx-related__card:hover .mx-related__img img { transform: scale(1.05); }
+.mx-related__body { display: grid; gap: .3rem; padding: .85rem 1rem 1rem; }
+.mx-related__body time { font-size: .75rem; color: var(--color-muted, #6b7280); }
+.mx-related__body strong { font-size: .98rem; line-height: 1.35; }
+@media (max-width: 560px) {
+  .mx-post-nav { grid-template-columns: minmax(0, 1fr); }
+  .mx-post-nav__item.is-next { text-align: left; }
+  .mx-post-nav__item.is-empty { display: none; }
+}
+
+/* ---------- Gallery empty state (mova-gallery-embed.js) ---------- */
+.mova-gallery-empty { display: grid; place-items: center; gap: .4rem; text-align: center; padding: clamp(2rem, 6vw, 3.5rem) 1.25rem; border-radius: 18px; border: 1px dashed color-mix(in srgb, var(--mx-p) 30%, var(--color-border, #e5e7eb)); background: radial-gradient(80% 120% at 50% 0%, var(--c-primary-50), transparent 70%); color: var(--color-muted, #6b7280); }
+.mova-gallery-empty strong { color: var(--color-text, #111); font-size: 1.05rem; }
+.mova-gallery-empty svg { width: 2.25rem; height: 2.25rem; stroke: var(--mx-p); fill: none; stroke-width: 1.6; opacity: .85; }
+
+/* ---------- Small layout fixes ---------- */
+body.mx-site .search-form { min-width: 0; max-width: 100%; }
+body.mx-site .search-form input[type="search"] { min-width: 0; width: 100%; }
+body.mx-site .search-form button { flex: none; }
+@media (max-width: 420px) { body.mx-site .search-form button { padding: 0 1.1rem; } }
+.article-body iframe, .article-body video { max-width: 100%; }
+
+/* ---------- Motion (only when the visitor allows it) ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition { navigation: auto; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .28s; }
+  .mx-js .mx-toc[data-reveal], .mx-js .mx-post-extras > [data-reveal] { transition-duration: .6s; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mx-chip, .mx-share__btn, .mx-post-nav__item, .mx-related__card, .mx-related__img img, .mx-toc a { transition: none !important; }
+  a.mx-post-nav__item:hover, .mx-related__card:hover, .mx-related__card:hover .mx-related__img img { transform: none; }
+  .mx-progress { display: none !important; }
+}
+@media print { .mx-progress, .mx-share, .mx-post-nav, .mx-related, .mx-toc { display: none !important; } }
+
+/* ---------- 1.2 tokens: secondary / accent / green tint scales ---------- */
+:root {
+  --mx-s: var(--color-secondary, #475569);
+  --mx-a: var(--color-accent, var(--mx-p));
+  --c-secondary-50: color-mix(in srgb, var(--mx-s) 6%, var(--color-bg, #fff));
+  --c-secondary-100: color-mix(in srgb, var(--mx-s) 12%, var(--color-bg, #fff));
+  --c-secondary-200: color-mix(in srgb, var(--mx-s) 26%, var(--color-bg, #fff));
+  --c-secondary-500: var(--mx-s);
+  --c-secondary-700: color-mix(in srgb, var(--mx-s) 70%, #000);
+  --c-accent-50: color-mix(in srgb, var(--mx-a) 7%, var(--color-bg, #fff));
+  --c-accent-100: color-mix(in srgb, var(--mx-a) 14%, var(--color-bg, #fff));
+  --c-accent-200: color-mix(in srgb, var(--mx-a) 28%, var(--color-bg, #fff));
+  --c-accent-500: var(--mx-a);
+  --c-accent-700: color-mix(in srgb, var(--mx-a) 70%, #000);
+  --c-success-200: color-mix(in srgb, var(--mx-g) 28%, var(--color-bg, #fff));
+  --c-success-500: var(--mx-g);
+  --c-success-700: color-mix(in srgb, var(--mx-g) 70%, #000);
+}
+
+/* ---------- Opt-in utilities (any editor mode) ---------- */
+/* Buttons: soft / outline variants and a sheen, on top of the theme's .mx-btn. */
+.mx-btn-soft { background: var(--c-primary-100) !important; color: var(--c-primary-700) !important; border: 1px solid var(--c-primary-200) !important; }
+.mx-btn-soft:hover { background: var(--c-primary-200) !important; }
+.mx-btn-outline { background: transparent !important; color: var(--mx-p) !important; border: 1px solid currentColor !important; }
+.mx-btn-outline:hover { background: var(--c-primary-50) !important; }
+.mx-sheen { position: relative; overflow: hidden; isolation: isolate; }
+.mx-sheen::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.28) 50%, transparent 70%); transform: translateX(-120%); }
+.mx-text-gradient { background: linear-gradient(90deg, var(--mx-p), var(--mx-g)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.mx-soft { background: var(--surface-soft); }
+.mx-tint { background: var(--surface-tint); }
+@media (prefers-reduced-motion: no-preference) {
+  .mx-sheen:hover::after { transform: translateX(120%); transition: transform .7s var(--mx-ease); }
+  .mx-lift { transition: transform .3s var(--mx-ease), box-shadow .3s var(--mx-ease); }
+  .mx-lift:hover { transform: translateY(-4px); box-shadow: 0 18px 40px -18px color-mix(in srgb, var(--mx-p) 45%, transparent); }
+  .mx-glow { transition: box-shadow .3s var(--mx-ease); }
+  .mx-glow:hover { box-shadow: 0 0 0 1px color-mix(in srgb, var(--mx-p) 30%, transparent), 0 12px 36px -12px color-mix(in srgb, var(--mx-p) 55%, transparent); }
+  .mx-underline { background: linear-gradient(90deg, var(--mx-p), var(--mx-g)) 0 100% / 0 2px no-repeat; transition: background-size .35s var(--mx-ease); text-decoration: none; }
+  .mx-underline:hover, .mx-underline:focus-visible { background-size: 100% 2px; }
+}
