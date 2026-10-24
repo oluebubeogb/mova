@@ -191,9 +191,11 @@
     const cdn = cfg.monacoCdn || '/assets/vendor/monaco/vs';
     window.MonacoEnvironment = {
       getWorkerUrl: function () {
+        // Blob workers have no base URL, so the bundled (relative) path must be made absolute.
+        const abs = new URL(cdn, window.location.href).href.replace(/\/$/, '');
         return URL.createObjectURL(new Blob([
-          "self.MonacoEnvironment={baseUrl:'" + cdn + "/../'};",
-          "importScripts('" + cdn + "/base/worker/workerMain.js');"
+          "self.MonacoEnvironment={baseUrl:'" + abs + "/../'};",
+          "importScripts('" + abs + "/base/worker/workerMain.js');"
         ], { type: 'text/javascript' }));
       }
     };

@@ -16,15 +16,44 @@ class Bootstrap
             return;
         }
 
-        // Load configuration
-        self::$config = require dirname(__DIR__, 2) . '/config/config.php';
+        // Fallbacks for hosts without ext-mbstring (no-ops when it is loaded).
+        if (!extension_loaded('mbstring') && is_file(__DIR__ . '/polyfills.php')) {
+            require_once __DIR__ . '/polyfills.php';
+        }
 
-        // Error handling
-        if (self::$config['debug'] ?? false) {
+        // Load configuration
+        $cfgFile = dirname(__DIR__, 2) . '/config/config.php';
+        if (!is_file($cfgFile)) {
+            // Usually: the site folder was replaced by an update package (which never ships
+            // config/config.php). Say so clearly instead of a blank fatal 500.
+            $msg = 'mova.boot config/config.php is missing - restore it from your backup (update packages never include it).';
+            error_log($msg);
+            if (PHP_SAPI !== 'cli') {
+                if (!headers_sent()) {
+                    http_response_code(500);
+                    header('Content-Type: text/plain; charset=UTF-8');
+                }
+                echo "Mova is not configured: config/config.php is missing.\n"
+                   . "If you just uploaded an update, restore config/config.php (and storage/) from your previous copy.\n";
+                exit;
+            }
+            throw new \RuntimeException('config/config.php is missing');
+        }
+        self::$config = require $cfgFile;
+
+        // Error handling: fatals/uncaught exceptions are logged to storage/logs/mova-errors.log
+        // and stderr (docker logs) with a reference id; visitors get a friendly 500 page.
+        // (Before 1.2.2 production used error_reporting(0): every fatal was a blank, unlogged 500.)
+        $movaRoot = dirname(__DIR__, 2);
+        if (!class_exists(ErrorHandler::class, false) && is_file(__DIR__ . '/ErrorHandler.php')) {
+            require_once __DIR__ . '/ErrorHandler.php';
+        }
+        if (class_exists(ErrorHandler::class, false)) {
+            ErrorHandler::register((bool) (self::$config['debug'] ?? false), $movaRoot, (string) (self::$config['paths']['logs'] ?? ''));
+        } elseif (self::$config['debug'] ?? false) {
             error_reporting(E_ALL);
             ini_set('display_errors', '1');
         } else {
-            error_reporting(0);
             ini_set('display_errors', '0');
         }
 
@@ -39,13 +68,26 @@ class Bootstrap
 
         self::$booted = true;
 
-        // Apply pending schema migrations on installed sites
+        // New code deployed in place? Reset opcache so old and new files are never mixed
+        // (validate_timestamps=0 in the Docker image), then re-serve the GET once.
+        if (class_exists(Runtime::class)) {
+            Runtime::syncCode();
+        }
+
+        // Apply pending schema migrations once per schema/code change (idempotent). Failures are
+        // logged with a reference id and retried on the next request - no longer swallowed.
         try {
-            if (class_exists(Schema::class) && Schema::isInstalled()) {
+            if (defined('MOVA_NO_AUTO_MIGRATE')) {
+                // bin/mova-doctor.php reports first and migrates only with --migrate.
+            } elseif (class_exists(Runtime::class)) {
+                Runtime::migrateIfNeeded();
+            } elseif (class_exists(Schema::class) && Schema::isInstalled()) {
                 Schema::migrate();
             }
         } catch (\Throwable $e) {
-            // Ignore migration errors during early boot
+            if (class_exists(ErrorHandler::class, false)) {
+                ErrorHandler::log('migration', $e->getMessage(), $e->getFile(), $e->getLine(), get_class($e));
+            }
         }
 
         // Multi-site resolve + active plugins
@@ -78,7 +120,10 @@ class Bootstrap
                 }
             }
         } catch (\Throwable $e) {
-            // isolate extension boot failures
+            // isolate extension boot failures, but leave a trace
+            if (class_exists(ErrorHandler::class, false)) {
+                ErrorHandler::log('boot', $e->getMessage(), $e->getFile(), $e->getLine(), get_class($e));
+            }
         }
     }
 

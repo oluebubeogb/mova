@@ -15,12 +15,12 @@ if (!empty($content['published_at'])) {
 <?php if (!empty($_GET['saved'])): ?>
     <div class="alert alert-success" role="status">Content saved.</div>
 <?php endif; ?>
-<?php if (!$isNew && !empty($unicodeIssues)): ?>
+<?php if (!$isNew && !empty($unicodeIssues)): ob_start(); try { ?>
     <div class="alert alert-error" role="status" id="unicode-repair-notice">
         <strong>Punctuation glitch:</strong> <?= (int) $unicodeIssues ?> spot(s) such as <code>u2019</code> / <code>u2011</code> were saved as code by an older AI version.
         <a href="/hq/text-repair?id=<?= (int) $content['id'] ?>">Review and repair</a>
     </div>
-<?php endif; ?>
+<?php echo ob_get_clean(); } catch (\Throwable $panelErr) { ob_end_clean(); \Mova\Core\ErrorHandler::report('editor.unicode-notice', $panelErr); } endif; ?>
 <?php if (!empty($_GET['dev_error'])): ?>
     <div class="alert alert-error" style="background:#fef2f2;color:#991b1b;border:1px solid #fecaca;padding:0.75rem 1rem;border-radius:8px;margin-bottom:1rem;">
         <strong>Dev Editor:</strong> <?= htmlspecialchars(urldecode((string)$_GET['dev_error'])) ?>
@@ -502,7 +502,7 @@ if (!empty($content['published_at'])) {
             </div>
             </div>
 
-            <?php if (!$isNew && !empty($revisions)): ?>
+            <?php if (!$isNew && !empty($revisions)): ob_start(); try { ?>
             <div class="panel collapsible" data-panel="revisions">
                 <button type="button" class="panel-head" aria-expanded="false">
                     <h3>Revisions</h3>
@@ -513,7 +513,7 @@ if (!empty($content['published_at'])) {
                     <?php foreach ($revisions as $rev): ?>
                         <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;padding:0.4rem 0;border-bottom:1px solid var(--hq-border);">
                             <div>
-                                <div><?= hqTimeTag($rev['created_at'], 'both') ?></div>
+                                <div><?= function_exists('hqTimeTag') ? hqTimeTag($rev['created_at'] ?? null, 'both') : htmlspecialchars((string) ($rev['created_at'] ?? '')) ?></div>
                                 <div style="color:var(--hq-muted);"><?= htmlspecialchars($rev['author_name'] ?? 'Unknown') ?></div>
                             </div>
                             <button type="submit" form="restore-rev-<?= (int) $rev['id'] ?>" class="btn-ghost" style="font-size:0.75rem;"
@@ -523,7 +523,9 @@ if (!empty($content['published_at'])) {
                 </div>
             </div>
             </div>
-            <?php endif; ?>
+            <?php echo ob_get_clean(); } catch (\Throwable $panelErr) { ob_end_clean(); $panelRef = \Mova\Core\ErrorHandler::report('editor.revisions', $panelErr); ?>
+            <div class="panel"><h3>Revisions</h3><p style="color:var(--hq-muted);font-size:0.85rem;margin:0;">Revisions could not be loaded (ref <?= htmlspecialchars($panelRef) ?>). Editing and saving still work.</p></div>
+            <?php } endif; ?>
 
             <div class="panel collapsible" data-panel="seo">
                 <button type="button" class="panel-head" aria-expanded="false">

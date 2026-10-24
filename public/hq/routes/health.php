@@ -31,8 +31,15 @@ $router->get('/health', function () {
     } catch (\Throwable $e) {
     }
     $reqSummary = Requirements::summary();
+    $diagnostics = [];
+    try {
+        $diagnostics = \Mova\Core\Runtime::diagnostics();
+    } catch (\Throwable $e) {
+        \Mova\Core\ErrorHandler::report('health.diagnostics', $e);
+    }
     return renderHq('health/index', [
         'requirements' => $reqSummary,
+        'diagnostics' => $diagnostics,
         'report' => $report,
         'recentAudit' => $recentAudit,
         'recentLogins' => $recentLogins,

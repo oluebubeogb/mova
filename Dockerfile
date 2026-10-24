@@ -38,15 +38,19 @@ RUN set -eux; \
     && apk del --no-network $PHPIZE_DEPS \
     && rm -rf /var/cache/apk/*
 
-# Recommended OPcache settings for production
+# OPcache for production.
+# validate_timestamps=1 + revalidate_freq=2: files replaced in place (volume mount, unzip,
+# docker cp) are picked up within 2 s. With validate_timestamps=0 the pool kept serving old
+# compiled files next to new ones after an upgrade, which caused HTTP 500s in the editor
+# ("Call to undefined function hqTimeTag()"). Mova 1.2.2+ also resets OPcache itself on the
+# first request after a code change.
 RUN { \
         echo 'opcache.enable=1'; \
         echo 'opcache.memory_consumption=128'; \
         echo 'opcache.interned_strings_buffer=16'; \
         echo 'opcache.max_accelerated_files=10000'; \
-        echo 'opcache.validate_timestamps=0'; \
-        echo 'opcache.revalidate_freq=0'; \
-        echo 'opcache.fast_shutdown=1'; \
+        echo 'opcache.validate_timestamps=1'; \
+        echo 'opcache.revalidate_freq=2'; \
     } > /usr/local/etc/php/conf.d/opcache.ini
 
 # PHP production settings
@@ -54,7 +58,7 @@ RUN { \
         echo 'display_errors=Off'; \
         echo 'display_startup_errors=Off'; \
         echo 'log_errors=On'; \
-        echo 'error_log=/var/log/php_errors.log'; \
+        echo '; no error_log: PHP-FPM sends errors to its stderr -> docker logs'; \
         echo 'upload_max_filesize=20M'; \
         echo 'post_max_size=25M'; \
         echo 'memory_limit=256M'; \
