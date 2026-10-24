@@ -38,6 +38,8 @@
     document.body.classList.toggle('mova-dev-mode-on', dev);
     var chromeWrap = document.getElementById('mova-chrome-toggle-wrap');
     if (chromeWrap) chromeWrap.hidden = !dev;
+    var enhanceWrap = document.getElementById('mova-enhance-toggle-wrap');
+    if (enhanceWrap) enhanceWrap.hidden = !dev;
     if (dev && !monacoReady) {
       loadMonaco();
     }

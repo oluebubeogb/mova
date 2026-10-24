@@ -172,3 +172,10 @@ tr.is-new td{background:var(--hq-brand-50,rgba(99,102,241,.08))}
 }
 .sp-wrap [hidden],.sp-tabs [hidden]{display:none!important}
 .sp-lbl{display:inline-flex;align-items:center;gap:.3rem}
+/* requirements: plugins + absolute links (1.2.0) */
+.sp-reqs .sp-plugins td{vertical-align:middle}
+.sp-reqs .sp-plugins small{font-size:.75rem}
+.sp-warn{color:#b45309;font-weight:600}
+html[data-theme="dark"] .sp-warn{color:#fbbf24}
+.sp-plg.is-missing td:first-child strong{color:#b91c1c}
+html[data-theme="dark"] .sp-plg.is-missing td:first-child strong{color:#fca5a5}

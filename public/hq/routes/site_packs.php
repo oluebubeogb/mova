@@ -226,6 +226,9 @@ $router->get('/backups/packs/preview', function (Request $req) use ($spGuard, $s
             'add_new' => $req->query('applied') === null ? true : (string) $req->query('add_new', '') === '1',
             'remove_missing' => (string) $req->query('remove_missing', '') === '1',
             'overrides' => [],
+            // Enabling plugins the pack needs is on by default; rewriting links is opt-in.
+            'activate_plugins' => $req->query('applied') === null ? true : (string) $req->query('activate_plugins', '') === '1',
+            'rewrite_urls' => (string) $req->query('rewrite_urls', '') === '1',
         ];
         try {
             $data['plan'] = (new SitePackImporter($rd))->plan($opts);
@@ -274,7 +277,8 @@ $router->post('/backups/packs/import', function (Request $req) use ($spGuard, $s
     $remove = (string) $req->post('remove_missing', '') === '1';
     if ($remove && strtoupper(trim((string) $req->post('confirm_remove', ''))) !== 'REMOVE') {
         return (new Response())->redirect('/hq/backups/packs/preview?' . http_build_query(['pack' => basename($path), 'g' => (array) $req->post('groups', []),
-            'applied' => 1, 'add_new' => (string) $req->post('add_new', ''), 'remove_missing' => 1, 'error' => 'Type REMOVE to confirm deleting items that are not in the pack.']));
+            'applied' => 1, 'add_new' => (string) $req->post('add_new', ''), 'remove_missing' => 1,
+            'activate_plugins' => (string) $req->post('activate_plugins', ''), 'rewrite_urls' => (string) $req->post('rewrite_urls', ''), 'error' => 'Type REMOVE to confirm deleting items that are not in the pack.']));
     }
     $overrides = array_values(array_filter(array_map('strval', (array) $req->post('overrides', [])), static fn ($o) => preg_match('/^[a-z_]+:[A-Za-z0-9_.-]+$/', $o)));
     try {
@@ -283,6 +287,8 @@ $router->post('/backups/packs/import', function (Request $req) use ($spGuard, $s
             'add_new' => (string) $req->post('add_new', '') === '1',
             'remove_missing' => $remove,
             'overrides' => $overrides,
+            'activate_plugins' => (string) $req->post('activate_plugins', '') === '1',
+            'rewrite_urls' => (string) $req->post('rewrite_urls', '') === '1',
         ], Auth::id(), 'hq');
     } catch (\Throwable $e) {
         return $spBack(['tab' => 'import', 'error' => $e->getMessage()]);

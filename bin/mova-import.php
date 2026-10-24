@@ -12,6 +12,8 @@
  *   --no-add                    don't add items that are new in the pack
  *   --remove-missing            DELETE items of the imported groups that are not in the pack
  *   --override=content:12,...   import these conflicting items anyway (when the pack slug is free)
+ *   --activate-plugins          switch on installed-but-inactive plugins the pack needs (e.g. Dev Mode)
+ *   --rewrite-urls              turn absolute links to the pack's source host into site-relative URLs
  *   --json                      machine-readable output
  *   -v                          list every item in the dry run
  * A pack name without a path is looked up in storage/imports/.
@@ -105,6 +107,8 @@ $opts = [
     'remove_missing' => isset($o['remove-missing']),
     'overrides' => isset($o['override']) ? array_filter(array_map('trim', explode(',', (string) $o['override']))) : [],
     'fail_after' => (int) ($o['fail-after'] ?? 0),
+    'activate_plugins' => isset($o['activate-plugins']),
+    'rewrite_urls' => isset($o['rewrite-urls']),
 ];
 $r = new SitePackReader($path);
 $say('Validating ' . basename($path) . ' …');
@@ -121,8 +125,31 @@ $m = $r->manifest();
 $opts['groups'] = isset($o['groups']) ? array_filter(array_map('trim', explode(',', (string) $o['groups']))) : (array) $m['groups'];
 $say(sprintf('Pack from "%s" (%s), Mova %s, exported %s; groups: %s', $m['site']['name'] ?? '?', $m['site']['host'] ?? '?', $m['mova_version'], $m['exported_at'], implode(', ', $m['groups'])));
 
+$plan = (new SitePackImporter($r))->plan($opts);
+$reportExtras = static function (array $plan) use ($say, $opts): void {
+    $pl = (array) ($plan['plugins'] ?? []);
+    if ($pl) {
+        $say('Plugins the pack expects:');
+        foreach ($pl as $p) {
+            $state = $p['local_status'] === 'active' ? 'active here' : ($p['local_status'] === 'inactive' ? 'installed, INACTIVE' : 'NOT INSTALLED');
+            $todo = $p['action'] === 'activate' ? ($opts['activate_plugins'] ? ' → will be enabled' : ' → add --activate-plugins to enable it') : ($p['action'] === 'missing' ? ' → install it first' : '');
+            $say(sprintf('  %s %-20s %-9s %s; %s%s', $p['required'] ? '!' : '-', $p['slug'], $p['required'] ? 'required' : 'optional', $p['reason'], $state, $todo));
+        }
+    }
+    $u = (array) ($plan['urls'] ?? []);
+    if (!empty($u['count'])) {
+        $parts = [];
+        foreach ((array) $u['tables'] as $t => $n) {
+            $parts[] = $t . ' ' . $n;
+        }
+        $say(sprintf('Warning: %d absolute link(s) to %s in the pack (%s).%s', $u['count'], implode(', ', $u['hosts']), implode(', ', $parts),
+            !empty($plan['options']['rewrite_urls']) ? ' They will be rewritten as site-relative URLs.' : ' Add --rewrite-urls to import them as site-relative URLs (keeps the site portable).'));
+        foreach (array_slice((array) $u['samples'], 0, 5) as $smp) {
+            $say('      ' . $smp);
+        }
+    }
+};
 if (!isset($o['apply'])) {
-    $plan = (new SitePackImporter($r))->plan($opts);
     if ($json) {
         $slim = $plan;
         unset($slim['files'], $slim['remove_files'], $slim['actions'], $slim['children'], $slim['settings'], $slim['kv']);
@@ -139,9 +166,11 @@ if (!isset($o['apply'])) {
             }
         }
     }
+    $reportExtras($plan);
     $say(sprintf('Media files to write: %d (%s). Dry run — nothing changed. Use --apply to import.', count($plan['files']), SitePack::fmtBytes((int) $plan['file_bytes'])));
     exit(0);
 }
+$reportExtras($plan);
 $r->close();
 try {
     $job = SitePackJobs::create($path, $opts, null, 'cli');

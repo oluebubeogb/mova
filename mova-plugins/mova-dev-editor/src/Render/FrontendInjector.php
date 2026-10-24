@@ -17,7 +17,7 @@ class FrontendInjector
     {
         $this->config = $config;
         $this->storage = $storage;
-        $this->scoper = new CssScoper();
+        $this->scoper = new CssScoper(($config['sync_color_scheme'] ?? true) !== false);
         $this->parser = new HtmlDocumentParser();
     }
 
@@ -69,7 +69,7 @@ class FrontendInjector
         $resolved = $this->resolve(array_merge($content, ['body' => $body]));
         $rid = $this->rootId($content);
 
-        return '<div id="' . htmlspecialchars($rid) . '" class="mova-dev-isolate" data-mova-dev="1"'
+        return '<div id="' . htmlspecialchars($rid) . '" class="mova-dev-isolate' . ($this->storage->enhance($content) ? ' mx-enhance' : '') . '" data-mova-dev="1"'
             . ($resolved['full'] ? ' data-mova-full-doc="1"' : '')
             . '>'
             . $resolved['body']
@@ -95,9 +95,16 @@ class FrontendInjector
         $scope = '#' . $this->rootId($content);
         $scoped = $this->scoper->scope($css, $scope);
         $scoped = str_replace('</style>', '<\/style>', $scoped);
+        // @import must come before every other rule or browsers ignore it.
+        $imports = '';
+        if (preg_match_all('/@import\s[^;]+;\s*/i', $scoped, $im)) {
+            $imports = implode("\n", array_map('trim', $im[0])) . "\n";
+            $scoped = (string) preg_replace('/@import\s[^;]+;\s*/i', '', $scoped);
+        }
 
         echo "\n<!-- Mova Dev Editor CSS (scoped to {$scope}) -->\n";
         echo "<style id=\"mova-dev-css\">\n";
+        echo $imports;
         echo $scope . " { isolation: isolate; position: relative; }\n";
         echo $scoped . "\n</style>\n";
     }

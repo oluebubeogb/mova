@@ -343,6 +343,27 @@ class DesignConfig
             $lines[] = '}';
         }
 
+        // Success / "go" colour for chips, badges and accents (mova-ui.css): a custom swatch named
+        // "success", else the first swatch whose slug contains "green", else a neutral green.
+        $succ = ['#16A34A', '#34D399'];
+        $pickSucc = null;
+        foreach ((array) $customColors as $cc) {
+            $sl = is_array($cc) ? strtolower((string) ($cc['slug'] ?? '')) : '';
+            if ($sl === 'success') {
+                $pickSucc = $cc;
+                break;
+            }
+            if ($pickSucc === null && $sl !== '' && str_contains($sl, 'green')) {
+                $pickSucc = $cc;
+            }
+        }
+        if ($pickSucc !== null) {
+            $succ = [self::cssVal((string) ($pickSucc['light'] ?? $succ[0])), self::cssVal((string) ($pickSucc['dark'] ?? $succ[1]))];
+        }
+        $lines[] = ':root { --color-success-light: ' . $succ[0] . '; --color-success-dark: ' . $succ[1] . '; }';
+        $lines[] = ':root, html[data-theme="light"] { --color-success: ' . $succ[0] . '; }';
+        $lines[] = 'html[data-theme="dark"] { --color-success: ' . $succ[1] . '; }';
+
         // Component data attributes as CSS hooks
         $btnVariant = preg_replace('/[^a-z0-9\-]/', '', (string) ($c['button']['variant'] ?? 'solid')) ?: 'solid';
         $cardVariant = preg_replace('/[^a-z0-9\-]/', '', (string) ($c['card']['variant'] ?? 'elevated')) ?: 'elevated';

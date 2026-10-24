@@ -20,3 +20,41 @@ body.theme-default .mx-header__cta { border-radius: var(--btn-r); }
 body.theme-default .content-card { box-shadow: none; }
 body.theme-default .content-card:hover { box-shadow: var(--shadow-1); }
 body.theme-default .mx-footer { background: var(--color-surface); }
+
+/* ---------- 1.2 polish: glass header, animated nav, soft accents ---------- */
+body.theme-default .mx-header {
+  backdrop-filter: saturate(1.5) blur(14px); -webkit-backdrop-filter: saturate(1.5) blur(14px);
+}
+body.theme-default .mx-header__in { transition: height .3s var(--ease); }
+body.theme-default .mx-header.is-scrolled .mx-header__in { height: calc(var(--hdr-h) - 8px); }
+body.theme-default .mx-header::after {
+  content: ""; position: absolute; inset: auto 0 -1px; height: 1px; opacity: 0; pointer-events: none;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-primary) 55%, transparent), color-mix(in srgb, var(--color-success, var(--color-primary)) 45%, transparent), transparent);
+  transition: opacity .3s var(--ease);
+}
+body.theme-default .mx-header.is-scrolled::after { opacity: 1; }
+body.theme-default .mx-nav a:hover { background: transparent; color: var(--color-primary); }
+body.theme-default .mx-nav a::before {
+  content: ""; position: absolute; left: .8rem; right: .8rem; bottom: .3rem; height: 2px; border-radius: 2px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-success, var(--color-primary)));
+  transform: scaleX(0); transform-origin: 0 50%; transition: transform .3s var(--ease);
+}
+body.theme-default .mx-nav a:hover::before, body.theme-default .mx-nav a:focus-visible::before { transform: scaleX(1); }
+body.theme-default .mx-nav a[aria-current="page"]::before { transform: scaleX(1); opacity: .55; }
+body.theme-default .mx-brand { transition: opacity .2s; }
+body.theme-default .mx-brand:hover { opacity: .88; }
+body.theme-default .btn-primary:hover, body.theme-default .article-body a.btn:hover { box-shadow: 0 14px 28px -14px var(--color-primary); }
+body.theme-default .content-card { transition: transform .3s var(--ease), box-shadow .3s var(--ease), border-color .3s; }
+body.theme-default .content-card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--color-primary) 30%, var(--color-border)); }
+body.theme-default .mx-footer { position: relative; background: linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 4%, var(--color-surface)), var(--color-surface) 60%); }
+body.theme-default .mx-footer::before {
+  content: ""; position: absolute; inset: -1px 0 auto; height: 2px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--color-primary) 30%, var(--color-success, var(--color-primary)) 70%, transparent); opacity: .5;
+}
+body.theme-default .mx-footer a { transition: color .2s, padding-left .25s var(--ease); }
+body.theme-default .mx-footer__links a:hover { padding-left: 3px; color: var(--color-primary); }
+html[data-theme="dark"] body.theme-default :where(input, textarea, select):not([type="checkbox"]):not([type="radio"]) { background: color-mix(in srgb, #fff 4%, var(--color-surface)); color: var(--color-text); border-color: var(--color-border); }
+@media (prefers-reduced-motion: reduce) {
+  body.theme-default .mx-header__in, body.theme-default .mx-nav a::before, body.theme-default .content-card, body.theme-default .mx-footer a { transition: none !important; }
+  body.theme-default .content-card:hover { transform: none; }
+}

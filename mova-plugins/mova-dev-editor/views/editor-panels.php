@@ -1,7 +1,7 @@
 <?php
 /**
  * Dev Mode panels — included from EditorRenderer
- * Variables: $mode, $css, $js, $body, $monaco, $cssFile, $jsFile
+ * Variables: $mode, $css, $js, $body, $monaco, $cssFile, $jsFile, $useSiteChrome, $devEnhance
  */
 $isDev = ($mode === 'dev');
 $useSiteChrome = !empty($useSiteChrome);
@@ -17,6 +17,11 @@ $useSiteChrome = !empty($useSiteChrome);
             <input type="checkbox" name="use_site_chrome" value="1" id="mova-use-site-chrome" <?= !empty($useSiteChrome) ? 'checked' : '' ?>>
             <span>Show site header &amp; footer</span>
             <span class="mova-dev-hint">off by default</span>
+        </label>
+        <label class="mova-dev-toggle mova-dev-chrome-toggle" id="mova-enhance-toggle-wrap" <?= $isDev ? '' : 'hidden' ?>>
+            <input type="checkbox" name="dev_enhance" value="1" id="mova-dev-enhance" <?= !empty($devEnhance) ? 'checked' : '' ?>>
+            <span>Scroll animations</span>
+            <span class="mova-dev-hint">reveal sections as visitors scroll</span>
         </label>
         <span id="mova-dev-error-badge" class="mova-dev-badge" hidden>0 errors</span>
     </div>

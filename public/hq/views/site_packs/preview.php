@@ -8,7 +8,7 @@ $tip = static fn (string $t): string => '<span class="hq-help" tabindex="0" role
 $defs = SitePack::groups();
 $labels = ['add' => 'Add', 'update' => 'Update', 'unchanged' => 'Unchanged', 'conflict' => 'Conflict', 'remove' => 'Remove', 'skip' => 'Skip', 'blocked' => 'Blocked'];
 $pill = static fn (string $s): string => '<span class="sp-pill is-' . $e($s) . '">' . $e($labels[$s] ?? ucfirst($s)) . '</span>';
-$opts = $opts ?? ['groups' => [], 'add_new' => true, 'remove_missing' => false];
+$opts = ($opts ?? []) + ['groups' => [], 'add_new' => true, 'remove_missing' => false, 'activate_plugins' => true, 'rewrite_urls' => false];
 $packGroups = $packGroups ?? [];
 $spTabActive = 'packs';
 include __DIR__ . '/_tabs.php';
@@ -61,9 +61,49 @@ include __DIR__ . '/_tabs.php';
                 <span>Add new items</span> <?= $tip('Items in the pack that this site doesn\'t have yet (new pages, media, templates…) are created with the same ID. Untick to only update what already exists.') ?></label>
             <label class="sp-switch is-danger"><input type="checkbox" name="remove_missing" value="1"<?= $opts['remove_missing'] ? ' checked' : '' ?> data-sp-autosubmit>
                 <span>Remove items not in the pack</span> <?= $tip('Deletes items of the selected groups that exist on this site but are missing from the pack — for example pages the designer deleted. Only use this with a pack exported from this site. It can be undone, but you must confirm it.') ?></label>
+<?php $plg = (array) ($plan['plugins'] ?? []); $needAct = array_filter($plg, static fn ($p) => $p['action'] === 'activate'); $urls = (array) ($plan['urls'] ?? []); ?>
+            <?php if ($needAct): ?>
+            <label class="sp-switch"><input type="checkbox" name="activate_plugins" value="1"<?= $opts['activate_plugins'] ? ' checked' : '' ?> data-sp-autosubmit>
+                <span>Enable plugins the pack needs</span> <?= $tip('Switches on plugins that are installed here but inactive, after the import finishes (undo switches them off again): ' . implode(', ', array_map(static fn ($p) => $p['slug'], $needAct)) . '.') ?></label>
+            <?php endif; ?>
+            <?php if (!empty($urls['count'])): ?>
+            <label class="sp-switch"><input type="checkbox" name="rewrite_urls" value="1"<?= $opts['rewrite_urls'] ? ' checked' : '' ?> data-sp-autosubmit>
+                <span>Make links to <?= $e(implode(', ', (array) $urls['hosts'])) ?> relative</span> <?= $tip('Rewrites absolute URLs that point at the site the pack came from (for example https://example.com/mova-uploads/…) to site-relative ones (/mova-uploads/…), so images and links work on any domain. Only use it when those files exist on this site too.') ?></label>
+            <?php endif; ?>
             <noscript><button type="submit" class="btn-secondary btn-sm">Update preview</button></noscript>
         </div>
     </form>
+
+    <?php if ($plg || !empty($urls['count'])): ?>
+    <section class="panel sp-panel sp-reqs" aria-label="Requirements">
+        <div class="sp-row-head"><h3>Before you import</h3></div>
+        <?php if ($plg): ?>
+        <div class="backup-table-wrap"><table class="data-table sp-table sp-plugins">
+            <thead><tr><th>Plugin</th><th>Why</th><th>On this site</th><th>Import will</th></tr></thead>
+            <tbody>
+            <?php foreach ($plg as $p): ?>
+                <tr class="sp-plg is-<?= $e($p['action']) ?>">
+                    <td><strong><?= $e($p['name']) ?></strong> <small class="sp-muted"><?= $e($p['slug']) ?></small><?= $p['required'] ? ' <span class="sp-pill is-conflict">Required</span>' : '' ?></td>
+                    <td class="sp-muted"><?= $e($p['reason']) ?></td>
+                    <td><?php if ($p['local_status'] === 'active'): ?><span class="sp-pill is-unchanged">Active</span><?php elseif ($p['local_status'] === 'inactive'): ?><span class="sp-pill is-update">Inactive</span><?php else: ?><span class="sp-pill is-remove">Not installed</span><?php endif; ?>
+                        <?php if ($p['local_version'] !== '' && $p['version'] !== '' && version_compare($p['local_version'], $p['version'], '<')): ?><small class="sp-muted">v<?= $e($p['local_version']) ?> &lt; pack v<?= $e($p['version']) ?></small><?php endif; ?></td>
+                    <td><?php if ($p['action'] === 'ok'): ?><span class="sp-muted">Nothing to do</span>
+                        <?php elseif ($p['action'] === 'activate'): ?><?= $opts['activate_plugins'] ? '<strong>Enable it</strong>' : '<span class="sp-warn">Leave it off' . ($p['required'] ? ' — pages may look broken' : '') . '</span>' ?>
+                        <?php else: ?><span class="sp-warn">Install it first<?= $p['required'] ? ' — pages may look broken' : '' ?></span><?php endif; ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table></div>
+        <?php endif; ?>
+        <?php if (!empty($urls['count'])): ?>
+            <p class="sp-conflict-note"><i class="fa-solid fa-link" aria-hidden="true"></i>
+                <strong><?= (int) $urls['count'] ?> absolute link(s)</strong> point at <code><?= $e(implode(', ', (array) $urls['hosts'])) ?></code><?= !empty($urls['same_host']) ? ' (this site)' : '' ?>
+                — in <?= $e(implode(', ', array_map(static fn ($k, $v) => $k . ' ' . $v, array_keys((array) $urls['tables']), (array) $urls['tables']))) ?>.
+                <?= !empty($plan['options']['rewrite_urls']) ? 'They will be imported as site-relative URLs.' : 'Tick <em>Make links relative</em> above to import them as site-relative URLs.' ?>
+                <?= $tip('Examples: ' . implode('; ', array_slice((array) $urls['samples'], 0, 6))) ?></p>
+        <?php endif; ?>
+    </section>
+    <?php endif; ?>
 
     <section class="panel sp-panel">
         <div class="sp-totals" role="list">
@@ -138,6 +178,8 @@ include __DIR__ . '/_tabs.php';
         <?php foreach ($opts['groups'] as $gid): ?><input type="hidden" name="groups[]" value="<?= $e($gid) ?>"><?php endforeach; ?>
         <input type="hidden" name="add_new" value="<?= $opts['add_new'] ? '1' : '0' ?>">
         <input type="hidden" name="remove_missing" value="<?= $opts['remove_missing'] ? '1' : '0' ?>">
+        <input type="hidden" name="activate_plugins" value="<?= $opts['activate_plugins'] && !empty($needAct) ? '1' : '0' ?>">
+        <input type="hidden" name="rewrite_urls" value="<?= !empty($plan['options']['rewrite_urls']) ? '1' : '0' ?>">
         <ul class="sp-safety">
             <li><i class="fa-solid fa-box-archive" aria-hidden="true"></i> A full backup is made first.</li>
             <li><i class="fa-solid fa-database" aria-hidden="true"></i> Database changes run in one transaction: if anything fails, nothing changes.</li>

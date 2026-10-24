@@ -28,6 +28,12 @@ class MetaStorage
         return $this->mode($content) === 'dev';
     }
 
+    /** Opt-in: let the core UI kit add scroll reveals to this page's sections (default off). */
+    public function enhance(array $content): bool
+    {
+        return (($content['meta']['dev_enhance'] ?? '0') === '1');
+    }
+
     /** Default off for dev pages */
     public function useSiteChrome(array $content): bool
     {

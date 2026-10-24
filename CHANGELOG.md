@@ -7,6 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-24
+
+### Added (import pre-flight)
+- **Required plugins.** The dry run reads `manifest.features.plugins` and dev-mode signals in the content (`editor_mode=dev`, raw CSS/JS meta). It lists the plugins that are installed but inactive, or missing.
+  - HQ: an *Activate required plugins* switch in the preview.
+  - CLI: `--activate-plugins`.
+  - Activation runs when the import finishes. **Undo** deactivates only the plugins that this import turned on.
+- **Absolute live-host URLs.** The dry run counts `https://<pack site host>/…` URLs in the content, meta, settings, design and assemblies.
+  - HQ: *Rewrite as relative* switch. CLI: `--rewrite-urls`.
+  - Only URLs on the pack's own host are rewritten. Other hosts are untouched.
+- HQ preview: a "Before you import" panel that summarises both checks.
+
+### Added (UI kit: `mova-ui.css` / `mova-ui.js`, every theme, CSP-safe, no web fonts)
+- **Tokens.** Soft tint and shade scales via `color-mix()`:
+  - `--c-primary-50…900`;
+  - `--c-secondary-*`, `--c-accent-*` and `--c-success-*`;
+  - `--surface-soft` and `--surface-tint`.
+- **Semantic green.** New `--color-success` token (light and dark) in `DesignConfig`.
+- **Motion.** The kit reuses the core `data-reveal` system from `sections.css` and `sections.js`.
+  - Below-the-fold blog cards, related posts, post extras, prose headings, figures, quotes and tables, and embedded blogs and galleries fade up with a stagger.
+  - Above-the-fold content is never hidden (no LCP delay).
+  - Nothing is hidden when JS is off.
+  - Everything is off under `prefers-reduced-motion`.
+  - Page fades use `@view-transition` (no-preference only).
+  - Autoplay videos pause off-screen. Under reduced motion they stop and show controls.
+- **Opt-in utilities:**
+  - `.mx-lift`, `.mx-glow`, `.mx-underline` and `.mx-sheen`;
+  - `.mx-btn-soft` and `.mx-btn-outline`;
+  - `.mx-text-gradient`, `.mx-soft` and `.mx-tint`;
+  - `.mx-chip[data-tone=0-5]`.
+  - Counters (`data-count`) and marquees keep using `sections.js`.
+- **Prose (`.mova-prose`, visual-editor bodies).**
+  - Pasted inline `font-size`, `font-family` and `line-height` are neutralised.
+  - Near-black text and white highlights are neutralised, so they stay readable in dark mode. Intentional colours are kept.
+  - Coloured list markers, soft `hr`, overflow-safe tables and code.
+- **Posts** (`post`/`article`/`news`), new `Mova\Theme\PostExtras`:
+  - reading progress bar;
+  - auto table of contents for 3 or more headings;
+  - a category chip that links to the blog with the same slug;
+  - share links (X, LinkedIn, WhatsApp, email, plus copy link when the clipboard is available);
+  - previous and next post;
+  - "Keep reading" related posts by category.
+- **Blog cards (`mova-blog.css` v7):**
+  - image-top cards with a 16:9 `object-fit` fix (removes the grey strip);
+  - category chips coloured per category;
+  - a featured first card on the blog page;
+  - hover lift and image zoom;
+  - a 3-line excerpt;
+  - an empty state;
+  - a contained gradient page head.
+- **Shortcode layouts.** `[blog id=N layout=cards|list|compact limit=3]` is rendered on the server (works inside dev pages and assemblies).
+- **Gallery.** An empty gallery shows a "Gallery coming soon" card instead of "No images".
+- **Default theme.** Glass sticky header that shrinks on scroll, an animated blue-to-green nav underline, button and card hover polish, a gradient footer accent, and dark-mode form inputs.
+- **`Mova\Core\Time::fmt()`.** Post and card dates use the site time zone.
+
+### Added (Dev Mode, mova-dev-editor 1.1.0)
+- **Core `Mova\Theme\DevFallback`.** When the plugin is inactive, a full-document dev page is unwrapped instead of being nested inside the theme's `<html>`. Its styles and scripts plus `raw_css`/`raw_js` are kept.
+- **`sync_color_scheme`** (default on). Dev CSS written with `@media (prefers-color-scheme: dark)` also follows the site's light/dark toggle, so it is not applied twice. Scoped selectors keep their qualifiers.
+- `@import` rules in dev CSS are hoisted so they stay valid.
+- **Per-page "Scroll animations" checkbox** (`dev_enhance`). It adds `.mx-enhance` so the UI kit reveals that page's sections. No restyling.
+
+### Changed
+- `VERSION` file (1.2.0) and `Bootstrap::version()`. The higher of the code version and `config.app_version` is used everywhere: packs, backups, health, manifest, identity, the AI gateway user-agent and `mova.json`.
+- The default theme `blog.php` wraps the title and description in `.mova-blog-page-head`. Assets are versioned by file modification time.
+
+### Fixed
+- Category chips (`.mova-blog-cat`, `.mx-chip`) mix 55% tone with the text colour (was 72%) so bright tones such as cyan, gold and green pass WCAG AA contrast.
+- Responsive images (`img.mova-img`) stay visible when JavaScript is off; the fade-in is gated on `(scripting: enabled)` and skipped under reduced motion, and `content-visibility:auto` was removed from images (it blanked off-screen images in print/full-page captures).
+- `/search` no longer overflows horizontally at 390px (`min-width: 0` on the form).
+- `bin/mova-pack.php repack` refreshes the manifest's per-table row counts from the edited `data/*.json`.
+- Feedback form inputs use a dark surface in dark mode (site toggle and OS setting) instead of the light `#f8fafc` fallback; `--color-input-bg` still overrides.
+
+
 ### Added (site packs: selective Export / Import)
 - **HQ → Operations → Backups → Export & import** (`/hq/backups/packs`, owners and administrators only, CSRF-protected). It appears in HQ search and in the Operations landing.
 - **Export** writes a `.movapack` file. You pick groups (content by type, blogs, galleries, media, menus, taxonomy, design, non-secret settings, site AI knowledge, forms). Subscribers, form entries and comments are opt-in.

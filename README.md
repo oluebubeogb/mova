@@ -186,6 +186,9 @@ The same rules apply on import, so a pack that someone edited by hand cannot ove
 - CLI:
   - `php bin/mova-import.php site.movapack --dry-run|--apply [--groups=...] [--no-add] [--remove-missing] [--override=content:12]`
   - `--undo` and `--history`
+  - `--activate-plugins`: turn on plugins the pack needs (for example `mova-dev-editor` for Dev Mode pages). The dry run lists them, and Undo turns them off again.
+  - `--rewrite-urls`: rewrite absolute URLs on the pack's own host (`https://oldhost/mova-uploads/...`) as relative URLs (`/mova-uploads/...`).
+  - The HQ preview has the same two switches in its **Before you import** panel.
 
 **Pack format (`.movapack`, a zip, `pack_format` 1)**
 ```
@@ -202,6 +205,29 @@ Editing a pack offline:
 2. Edit `data/*.json` and/or replace files in `media/`. Keep the `id`, `slug` and `type` values.
 3. `php bin/mova-pack.php repack ./work restyled.movapack` (this refreshes the checksums).
 4. Optionally run `php bin/mova-pack.php verify restyled.movapack` (or `info`).
+
+## Design system and UI kit (1.2)
+
+Every theme loads `public/assets/css/mova-ui.css` and `public/assets/js/mova-ui.js` (defer). Both are CSP-safe and use no external fonts or URLs.
+
+- **Tokens.** These are derived from the design colours with `color-mix()`:
+  - `--c-primary-50…900`;
+  - `--c-secondary-*`, `--c-accent-*` and `--c-success-*` (`--color-success` is the semantic green, set in Design);
+  - `--surface-soft` and `--surface-tint`.
+- **Motion.** Motion uses the core `data-reveal` attribute (`sections.css`/`sections.js`). Add `data-reveal` (optionally with `style="--mx-d:120ms"`) to any element in any editor.
+  - Add `class="mx-static"` to opt out.
+  - Below-the-fold blog cards, prose blocks and post extras are tagged automatically.
+  - Content is never hidden when JS is off, and nothing animates under `prefers-reduced-motion`.
+  - Counters use `data-count="1200"`.
+- **Utilities:** `.mx-lift`, `.mx-glow`, `.mx-underline`, `.mx-sheen`, `.mx-btn-soft`, `.mx-btn-outline`, `.mx-text-gradient`, `.mx-soft`, `.mx-tint`, and `.mx-chip` with `data-tone="0-5"`.
+- **Posts.** `post`, `article` and `news` get a reading progress bar, an automatic table of contents (3 or more headings), a category chip, share links, previous and next links, and related posts. Visual-editor bodies get `.mova-prose`, which neutralises pasted font sizes and near-black or white inline colours.
+- **Blog shortcode:** `[blog id=1 layout=cards|list|compact limit=3]` lists the latest posts anywhere, including in dev pages and assemblies.
+- **Dev Mode** (mova-dev-editor 1.1.0):
+  - With *Sync colour scheme* (on by default), dev CSS written for `prefers-color-scheme: dark` also follows the site's light/dark toggle.
+  - The per-page **Scroll animations** checkbox adds `.mx-enhance` so the UI kit reveals the page's sections.
+  - If the plugin is inactive, full-document dev pages are unwrapped by core (`DevFallback`) instead of being nested inside the theme.
+- **Dates** on public pages use the site time zone (`Time::fmt`).
+- **Version.** It comes from the `VERSION` file. `Bootstrap::version()` returns the higher of that and `config.app_version`.
 
 ## Multi-site
 

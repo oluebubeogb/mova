@@ -9,6 +9,22 @@ namespace MovaDevEditor\Render;
  */
 class CssScoper
 {
+    /**
+     * When true, `@media (prefers-color-scheme: dark|light)` blocks follow the site's light/dark
+     * toggle (html[data-theme]) instead of only the OS setting: the rules are emitted once for
+     * html[data-theme="dark|light"] and kept inside the media query for html without data-theme
+     * (no-JS visitors). This stops pages turning dark on a dark OS while the visitor chose light.
+     */
+    private bool $syncColorScheme;
+
+    /** Extra qualifier for the html element (e.g. [data-theme="dark"]) while inside a synced block. */
+    private string $ctx = '';
+
+    public function __construct(bool $syncColorScheme = true)
+    {
+        $this->syncColorScheme = $syncColorScheme;
+    }
+
     public function scope(string $css, string $scopeSelector): string
     {
         $css = trim($css);
@@ -97,6 +113,22 @@ class CssScoper
             if (str_ends_with($inner, '}')) {
                 $inner = substr($inner, 0, -1);
             }
+            if ($this->syncColorScheme && $this->ctx === ''
+                && preg_match('/^@media\b(?!.*\bnot\b)(.*)\(\s*prefers-color-scheme\s*:\s*(dark|light)\s*\)/is', substr($at, 0, $brace), $cm)) {
+                $mode = strtolower($cm[2]);
+                $query = trim(substr($at, 6, $brace - 6));
+                $rest = trim((string) preg_replace('/(?:\band\s*)?\(\s*prefers-color-scheme\s*:\s*(?:dark|light)\s*\)(?:\s*and\b)?/i', '', $query));
+                $rest = trim((string) preg_replace('/^(?:only\s+)?(?:all|screen)$/i', '', $rest));
+                // 1) the site toggle (html[data-theme]) wins …
+                $this->ctx = '[data-theme="' . $mode . '"]';
+                $toggled = $this->scope($inner, $scope);
+                // 2) … the OS setting still applies when no theme attribute is set (no JS).
+                $this->ctx = ':not([data-theme])';
+                $os = $this->scope($inner, $scope);
+                $this->ctx = '';
+                $first = $rest === '' ? $toggled . "\n" : '@media ' . $rest . " {\n" . $toggled . "\n}\n";
+                return $first . $header . "\n" . $os . "\n}\n";
+            }
             $scopedInner = $this->scope($inner, $scope);
             return $header . "\n" . $scopedInner . "\n}\n";
         }
@@ -143,24 +175,72 @@ class CssScoper
 
     private function prefixSelectors(string $selectors, string $scope): string
     {
-        $parts = array_map('trim', explode(',', $selectors));
+        $parts = $this->splitSelectors($selectors);
         $prefixed = [];
         foreach ($parts as $sel) {
+            $sel = trim($sel);
             if ($sel === '') {
                 continue;
             }
-            // body/html → scope only (do not restyle real body)
-            if (preg_match('/^(html|body|:root)\b/i', $sel)) {
-                $prefixed[] = $scope;
-                continue;
-            }
             // already scoped
-            if (str_starts_with($sel, $scope)) {
+            if ($this->ctx === '' && str_starts_with($sel, $scope)) {
                 $prefixed[] = $sel;
                 continue;
             }
-            $prefixed[] = $scope . ' ' . $sel;
+            // Leading html / :root / body parts: html and :root map onto the real <html> (keeping
+            // conditions such as [data-theme="dark"] or .no-js); a bare body maps to the scope,
+            // body with conditions (body.menu-open) stays on the real <body>.
+            $htmlQ = '';
+            $bodyQ = null;
+            $rest = $sel;
+            if (preg_match('/^(?:html|:root)((?:\[[^\]]*\]|[.#][\w-]+|:not\([^)]*\)|:(?:lang|is|where)\([^)]*\))*)(?=$|[\s>+~])\s*(?:>\s*)?(.*)$/is', $rest, $m)) {
+                $htmlQ = $m[1];
+                $rest = $m[2];
+            }
+            if (preg_match('/^body((?:\[[^\]]*\]|[.#][\w-]+|:not\([^)]*\))*)(?=$|[\s>+~])\s*(?:>\s*)?(.*)$/is', $rest, $m)) {
+                $bodyQ = $m[1];
+                $rest = $m[2];
+            }
+            $prefix = '';
+            if ($htmlQ !== '' || $this->ctx !== '') {
+                $prefix .= 'html' . $this->ctx . $htmlQ . ' ';
+            }
+            if ($bodyQ !== null && $bodyQ !== '') {
+                $prefix .= 'body' . $bodyQ . ' ';
+            }
+            $prefixed[] = $prefix . $scope . ($rest !== '' ? ' ' . $rest : '');
         }
-        return implode(",\n", $prefixed);
+        return implode(",\n", array_values(array_unique($prefixed)));
+    }
+
+    /** Split a selector list on top-level commas (not inside :is(a, b) or [attr="a,b"]). */
+    private function splitSelectors(string $selectors): array
+    {
+        $out = [];
+        $buf = '';
+        $depth = 0;
+        $quote = '';
+        $len = strlen($selectors);
+        for ($i = 0; $i < $len; $i++) {
+            $c = $selectors[$i];
+            if ($quote !== '') {
+                if ($c === $quote) {
+                    $quote = '';
+                }
+            } elseif ($c === '"' || $c === "'") {
+                $quote = $c;
+            } elseif ($c === '(' || $c === '[') {
+                $depth++;
+            } elseif ($c === ')' || $c === ']') {
+                $depth = max(0, $depth - 1);
+            } elseif ($c === ',' && $depth === 0) {
+                $out[] = $buf;
+                $buf = '';
+                continue;
+            }
+            $buf .= $c;
+        }
+        $out[] = $buf;
+        return $out;
     }
 }

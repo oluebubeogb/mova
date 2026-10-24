@@ -29,6 +29,8 @@ final class SitePackImporter
     private array $cache = [];
     private int $writes = 0;
     private int $failAfter = 0;
+    /** @var list<string> source hosts whose absolute URLs are rewritten to site-relative while reading pack data */
+    private array $rewriteHosts = [];
 
     public function __construct(SitePackReader $reader)
     {
@@ -41,10 +43,241 @@ final class SitePackImporter
     private function packRows(string $table): array
     {
         if (!array_key_exists($table, $this->cache)) {
-            $d = $this->r->data('data/' . $table . '.json');
+            $d = $this->data('data/' . $table . '.json');
             $this->cache[$table] = $d === null ? null : $d['rows'];
         }
         return $this->cache[$table] ?? [];
+    }
+
+    /** Pack data file, with the optional absolute→relative URL rewrite applied to every string value. */
+    private function data(string $name): ?array
+    {
+        $d = $this->r->data($name);
+        if ($d === null || $this->rewriteHosts === []) {
+            return $d;
+        }
+        return self::rewriteDeep($d, $this->rewriteHosts);
+    }
+
+    /** Turn rewriting on/off (clears the row cache). */
+    private function setRewrite(bool $on): void
+    {
+        $hosts = $on ? self::sourceHosts($this->r->manifest()) : [];
+        if ($hosts !== $this->rewriteHosts) {
+            $this->rewriteHosts = $hosts;
+            $this->cache = [];
+        }
+    }
+
+    /** @return list<string> host names the pack was exported from (lower-case, without www.). */
+    public static function sourceHosts(array $m): array
+    {
+        $h = strtolower(trim((string) ($m['site']['host'] ?? '')));
+        $h = preg_replace('/:\d+$/', '', $h) ?? $h;
+        $h = preg_replace('/^www\./', '', $h) ?? $h;
+        if ($h === '' || !preg_match('/^[a-z0-9.-]+$/', $h) || !str_contains($h, '.') || $h === 'localhost') {
+            return [];
+        }
+        return [$h];
+    }
+
+    private static function urlPattern(string $host): string
+    {
+        // http(s)://host, //host and their JSON-escaped forms (https:\/\/host); optional www. and :port
+        return '~(?:https?:)?\\\\?/\\\\?/(?:www\.)?' . preg_quote($host, '~') . '(?::\d+)?(?=\\\\?/|[\'"\s)<>,;?#]|$)~i';
+    }
+
+    /** Absolute URLs on $hosts → site-relative ("https://example.com/a" → "/a", "https://example.com" → "/"). */
+    public static function rewriteUrls(string $v, array $hosts): string
+    {
+        return self::hasHost($v, $hosts) ? self::rewriteString($v, $hosts) : $v;
+    }
+
+    private static function rewriteDeep($v, array $hosts)
+    {
+        if (is_string($v)) {
+            return self::hasHost($v, $hosts) ? self::rewriteString($v, $hosts) : $v;
+        }
+        if (is_array($v)) {
+            foreach ($v as $k => $x) {
+                $v[$k] = self::rewriteDeep($x, $hosts);
+            }
+        }
+        return $v;
+    }
+
+    /** Each match becomes "" when a path follows it, or "/" when the URL was the bare origin. */
+    private static function rewriteString(string $v, array $hosts): string
+    {
+        foreach ($hosts as $h) {
+            if (stripos($v, $h) === false) {
+                continue;
+            }
+            $out = '';
+            $pos = 0;
+            if (preg_match_all(self::urlPattern($h), $v, $mm, PREG_OFFSET_CAPTURE)) {
+                foreach ($mm[0] as [$txt, $off]) {
+                    $end = $off + strlen($txt);
+                    $next = substr($v, $end, 2);
+                    $pathFollows = ($next !== '' && $next[0] === '/') || $next === '\\/';
+                    $out .= substr($v, $pos, $off - $pos) . ($pathFollows ? '' : '/');
+                    $pos = $end;
+                }
+                $v = $out . substr($v, $pos);
+            }
+        }
+        return $v;
+    }
+
+    private static function hasHost(string $v, array $hosts): bool
+    {
+        foreach ($hosts as $h) {
+            if (stripos($v, $h) !== false) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Absolute links back to the pack's source host, found in the pack data.
+     * @return array{hosts:list<string>,count:int,tables:array<string,int>,samples:list<string>,same_host:bool}
+     */
+    public function urlReport(): array
+    {
+        $m = $this->r->manifest();
+        $hosts = self::sourceHosts($m);
+        $rep = ['hosts' => $hosts, 'count' => 0, 'tables' => [], 'samples' => [], 'same_host' => false];
+        if ($hosts === []) {
+            return $rep;
+        }
+        $here = strtolower(preg_replace('/:\d+$/', '', (string) ($_SERVER['HTTP_HOST'] ?? '')) ?? '');
+        $rep['same_host'] = $here !== '' && in_array(preg_replace('/^www\./', '', $here), $hosts, true);
+        foreach (array_keys((array) ($m['files'] ?? [])) as $name) {
+            if (!preg_match('~^data/([a-z0-9_.]+)\.json$~', (string) $name, $mm)) {
+                continue;
+            }
+            $d = $this->r->data((string) $name);
+            foreach ((array) ($d['rows'] ?? []) as $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
+                foreach ($row as $col => $val) {
+                    if (!is_string($val) || !self::hasHost($val, $hosts)) {
+                        continue;
+                    }
+                    $n = 0;
+                    foreach ($hosts as $h) {
+                        $n += (int) preg_match_all(self::urlPattern($h), $val);
+                    }
+                    if ($n === 0) {
+                        continue;
+                    }
+                    $rep['count'] += $n;
+                    $rep['tables'][$mm[1]] = ($rep['tables'][$mm[1]] ?? 0) + $n;
+                    if (count($rep['samples']) < 8) {
+                        $ref = isset($row['id']) ? '#' . $row['id'] : (string) ($row['setting_key'] ?? $row['meta_key'] ?? '');
+                        if (isset($row['meta_key'])) {
+                            $ref .= ' ' . $row['meta_key'];
+                        }
+                        $rep['samples'][] = $mm[1] . ' ' . trim($ref) . ' · ' . $col;
+                    }
+                }
+            }
+        }
+        return $rep;
+    }
+
+    /** Plugins a pack's content needs, keyed by content signal (meta key = value → plugin slug). */
+    private const PLUGIN_SIGNALS = [
+        ['meta' => 'editor_mode', 'value' => 'dev', 'plugin' => 'mova-dev-editor', 'reason' => 'Dev Mode pages'],
+    ];
+
+    /**
+     * Plugins the pack expects: everything active on the source site, plus plugins its content
+     * cannot render without. Each entry says what this site has and what the importer would do.
+     * @return list<array{slug:string,name:string,version:string,required:bool,reason:string,installed:bool,local_version:string,local_status:string,action:string}>
+     */
+    public function pluginReport(): array
+    {
+        $m = $this->r->manifest();
+        $want = [];
+        foreach ((array) ($m['features']['plugins'] ?? []) as $p) {
+            $slug = (string) ($p['slug'] ?? '');
+            if (!preg_match('/^[a-z0-9][a-z0-9_-]{0,63}$/', $slug) || ($p['status'] ?? 'active') !== 'active') {
+                continue;
+            }
+            $want[$slug] = ['version' => (string) ($p['version'] ?? ''), 'required' => false, 'reason' => 'Active on the source site'];
+        }
+        $metaRows = null;
+        foreach (self::PLUGIN_SIGNALS as $sig) {
+            if ($metaRows === null) {
+                $metaRows = $this->r->has('data/content_meta.json') ? (array) ($this->r->data('data/content_meta.json')['rows'] ?? []) : [];
+            }
+            $n = 0;
+            foreach ($metaRows as $row) {
+                if (($row['meta_key'] ?? '') === $sig['meta'] && (string) ($row['meta_value'] ?? '') === $sig['value']) {
+                    $n++;
+                }
+            }
+            if ($n > 0) {
+                $want[$sig['plugin']] = ['version' => $want[$sig['plugin']]['version'] ?? '', 'required' => true,
+                    'reason' => $sig['reason'] . ' (' . $n . ')'];
+            }
+        }
+        if ($want === []) {
+            return [];
+        }
+        $mgr = new \Mova\Plugin\PluginManager();
+        $local = [];
+        try {
+            foreach ($mgr->discover() as $p) {
+                $local[(string) $p['slug']] = $p;
+            }
+        } catch (\Throwable $e) {
+        }
+        $out = [];
+        foreach ($want as $slug => $w) {
+            $l = $local[$slug] ?? null;
+            $status = $l ? ((string) ($l['status'] ?? 'inactive') === 'active' ? 'active' : 'inactive') : 'missing';
+            $out[] = [
+                'slug' => $slug,
+                'name' => (string) ($l['name'] ?? $slug),
+                'version' => $w['version'],
+                'required' => $w['required'],
+                'reason' => $w['reason'],
+                'installed' => $l !== null,
+                'local_version' => (string) ($l['version'] ?? ''),
+                'local_status' => $status,
+                'action' => $status === 'active' ? 'ok' : ($status === 'inactive' ? 'activate' : 'missing'),
+            ];
+        }
+        usort($out, static fn ($a, $b) => [$b['required'], $a['slug']] <=> [$a['required'], $b['slug']]);
+        return $out;
+    }
+
+    /**
+     * Activate the plugins a plan marked "activate" (installed but inactive).
+     * @return list<string> slugs that were switched on
+     */
+    public static function activatePlugins(array $plan): array
+    {
+        $mgr = new \Mova\Plugin\PluginManager();
+        $done = [];
+        foreach ((array) ($plan['plugins'] ?? []) as $p) {
+            $slug = (string) ($p['slug'] ?? '');
+            if (($p['action'] ?? '') !== 'activate' || !preg_match('/^[a-z0-9][a-z0-9_-]{0,63}$/', $slug)) {
+                continue;
+            }
+            $row = Database::fetch('SELECT status FROM plugins WHERE slug = :s', ['s' => $slug]);
+            if ($row && ($row['status'] ?? '') === 'active') {
+                continue;
+            }
+            if ($mgr->activate($slug)) {
+                $done[] = $slug;
+            }
+        }
+        return $done;
     }
 
     private function packHas(string $table): bool
@@ -104,12 +337,19 @@ final class SitePackImporter
         $addNew = (bool) ($opts['add_new'] ?? true);
         $remove = (bool) ($opts['remove_missing'] ?? false);
         $overrides = array_flip(array_map('strval', (array) ($opts['overrides'] ?? [])));
+        $rewrite = (bool) ($opts['rewrite_urls'] ?? false);
+        $activate = (bool) ($opts['activate_plugins'] ?? false);
+        $urlReport = $this->urlReport();
+        $this->setRewrite($rewrite && $urlReport['count'] > 0);
         $defs = SitePack::groups();
         $rules = SitePack::tables();
 
         $plan = [
             'pack' => $this->r->name(),
-            'options' => ['groups' => $groups, 'add_new' => $addNew, 'remove_missing' => $remove, 'overrides' => array_keys($overrides)],
+            'options' => ['groups' => $groups, 'add_new' => $addNew, 'remove_missing' => $remove, 'overrides' => array_keys($overrides),
+                'rewrite_urls' => $rewrite && $urlReport['count'] > 0, 'activate_plugins' => $activate],
+            'plugins' => $this->pluginReport(),
+            'urls' => $urlReport,
             'groups' => [],
             'actions' => [],
             'children' => [],
@@ -364,7 +604,7 @@ final class SitePackImporter
 
     private function planSettings(string $gid, bool $addNew, array &$plan, array &$out): void
     {
-        $d = $this->r->data('data/settings.' . $gid . '.json');
+        $d = $this->data('data/settings.' . $gid . '.json');
         if ($d === null) {
             return;
         }
@@ -528,6 +768,7 @@ final class SitePackImporter
     {
         $this->failAfter = (int) ($ctx['fail_after'] ?? 0);
         $this->writes = 0;
+        $this->setRewrite(!empty($plan['options']['rewrite_urls']));
         $userId = (int) ($ctx['user_id'] ?? 0);
         $userId = $userId > 0 && Database::exists('users', 'id = :id', ['id' => $userId]) ? $userId : null;
         $rules = SitePack::tables();
@@ -648,7 +889,7 @@ final class SitePackImporter
             }
             // 3) settings
             foreach ($plan['settings'] as $gid => $keys) {
-                $d = $this->r->data('data/settings.' . $gid . '.json');
+                $d = $this->data('data/settings.' . $gid . '.json');
                 $vals = [];
                 foreach ($d['rows'] ?? [] as $r) {
                     $vals[(string) $r['setting_key']] = self::norm($r['setting_value'] ?? null);

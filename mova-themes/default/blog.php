@@ -8,12 +8,14 @@ $html = $html ?? '';
 $id = (int)($blog['id'] ?? 0);
 $limit = (int)($blog['per_page'] ?? 12);
 ?>
-<link rel="stylesheet" href="/assets/css/mova-blog.css?v=6">
+<link rel="stylesheet" href="/assets/css/mova-blog.css?v=7">
 <section class="mova-blog-page">
-  <h1 class="mova-blog-page-title"><?= htmlspecialchars($blog['title'] ?? 'Blog') ?></h1>
-  <?php if (!empty($blog['description'])): ?>
-    <p class="mova-blog-page-desc"><?= htmlspecialchars($blog['description']) ?></p>
-  <?php endif; ?>
+  <header class="mova-blog-page-head">
+    <h1 class="mova-blog-page-title"><?= htmlspecialchars($blog['title'] ?? 'Blog') ?></h1>
+    <?php if (!empty($blog['description'])): ?>
+      <p class="mova-blog-page-desc"><?= htmlspecialchars($blog['description']) ?></p>
+    <?php endif; ?>
+  </header>
 
   <div class="mova-blog-feed"
        data-blog-id="<?= $id ?>"
@@ -23,4 +25,4 @@ $limit = (int)($blog['per_page'] ?? 12);
     <?= $html ?>
   </div>
 </section>
-<script src="/assets/js/mova-blog.js?v=3" defer></script>
+<script src="/assets/js/mova-blog.js?v=6" defer></script>

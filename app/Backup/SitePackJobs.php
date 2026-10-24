@@ -108,6 +108,8 @@ final class SitePackJobs
                 'remove_missing' => (bool) ($options['remove_missing'] ?? false),
                 'overrides' => array_values(array_map('strval', (array) ($options['overrides'] ?? []))),
                 'fail_after' => (int) ($options['fail_after'] ?? 0),
+                'rewrite_urls' => (bool) ($options['rewrite_urls'] ?? false),
+                'activate_plugins' => (bool) ($options['activate_plugins'] ?? false),
             ],
             'user_id' => $u ? (int) $u['id'] : null,
             'user' => $u ? (string) ($u['name'] ?: $u['username']) : ($via === 'cli' ? 'CLI' : 'unknown'),
@@ -325,6 +327,20 @@ final class SitePackJobs
                 return;
 
             case 'finalize':
+                if (!empty($job['options']['activate_plugins'])) {
+                    $on = SitePackImporter::activatePlugins((array) ($job['plan'] ?? []));
+                    $job['result']['plugins_activated'] = $on;
+                    if ($on) {
+                        self::log($job, 'Plugins enabled: ' . implode(', ', $on) . '.');
+                        foreach ($on as $slug) {
+                            Audit::log('plugin.activated', 'plugin', null, ['slug' => $slug, 'via' => 'site_pack', 'job' => $id]);
+                        }
+                    }
+                }
+                $missing = array_values(array_filter((array) ($job['plan']['plugins'] ?? []), static fn ($p) => ($p['action'] ?? '') !== 'ok' && !in_array($p['slug'] ?? '', (array) ($job['result']['plugins_activated'] ?? []), true)));
+                if ($missing) {
+                    self::log($job, 'Heads-up — plugins the pack expects that are not active here: ' . implode(', ', array_map(static fn ($p) => $p['slug'] . ($p['action'] === 'missing' ? ' (not installed)' : ' (inactive)'), $missing)) . '.');
+                }
                 $done = SitePackImporter::refreshCaches();
                 $job['result']['refreshed'] = $done;
                 $job['status'] = 'done';
@@ -392,6 +408,13 @@ final class SitePackJobs
         try {
             @set_time_limit(0);
             $res = SitePackImporter::undo($job);
+            $off = [];
+            foreach ((array) ($job['result']['plugins_activated'] ?? []) as $slug) {
+                if (is_string($slug) && preg_match('/^[a-z0-9][a-z0-9_-]{0,63}$/', $slug) && (new \Mova\Plugin\PluginManager())->deactivate($slug)) {
+                    $off[] = $slug;
+                }
+            }
+            $res['plugins_deactivated'] = $off;
             $usr = $userId ? Database::fetch('SELECT username, name FROM users WHERE id = :id', ['id' => $userId]) : null;
             $job['undone_at'] = time();
             $job['undone_by'] = $usr ? (string) ($usr['name'] ?: $usr['username']) : 'CLI';

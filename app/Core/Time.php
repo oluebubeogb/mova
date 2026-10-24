@@ -92,6 +92,13 @@ final class Time
         return $d ? $d->format('j M Y') : $fallback;
     }
 
+    /** Any PHP date() format in the site timezone (public pages: post dates, blog cards). */
+    public static function fmt($v, string $format, string $fallback = ''): string
+    {
+        $d = self::local($v);
+        return $d ? $d->format($format) : $fallback;
+    }
+
     /** Short zone label, e.g. "WAT". */
     public static function abbr(): string
     {

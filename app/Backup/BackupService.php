@@ -20,7 +20,7 @@ class BackupService
         $path = $dir . '/' . $name;
 
         $manifest = [
-            'mova_version' => Bootstrap::config('app_version', '1.0.0'),
+            'mova_version' => Bootstrap::version(),
             'created_at'   => date('c'),
             'files'        => [],
         ];
@@ -508,7 +508,7 @@ MOVA_CFG;
         // Manifest for the export
         $manifest = [
             'type' => 'mova_install_zip',
-            'mova_version' => Bootstrap::config('app_version', '1.0.0'),
+            'mova_version' => Bootstrap::version(),
             'created_at' => date('c'),
             'include_site_data' => $includeSiteData,
             'install' => 'Extract mova-cms/mova-shared-hosting/* into public_html (or open HOSTING.txt).',

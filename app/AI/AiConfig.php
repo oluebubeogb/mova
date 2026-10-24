@@ -228,10 +228,10 @@ final class AiConfig
             $h[] = 'X-Mova-Feature: ' . preg_replace('/[^a-z0-9_.\-]/i', '', $feature);
         }
         try {
-            $h[] = 'X-Mova-Version: ' . (string) Bootstrap::config('app_version', '');
+            $h[] = 'X-Mova-Version: ' . Bootstrap::version();
         } catch (\Throwable $e) {
         }
-        $h[] = 'User-Agent: Mova/' . (string) (Bootstrap::config('app_version', '') ?: '1') . ' (+' . self::siteHost() . ')';
+        $h[] = 'User-Agent: Mova/' . Bootstrap::version() . ' (+' . self::siteHost() . ')';
         return $h;
     }
 

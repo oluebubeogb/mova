@@ -33,6 +33,7 @@ class EditorRenderer
         $css = $this->storage->css($content);
         $js = $this->storage->js($content);
         $useSiteChrome = $this->storage->useSiteChrome($content);
+        $devEnhance = $this->storage->enhance($content);
         $body = (string) ($content['body'] ?? '');
         $monaco = (string) ($this->config['monaco_cdn'] ?? '/assets/vendor/monaco/vs');
         // Older installs stored the jsDelivr URL; the CSP no longer allows it, so use the bundled copy.
