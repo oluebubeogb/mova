@@ -226,7 +226,11 @@ final class RouteRegistry
         $add(['id' => 'security', 'label' => 'Security', 'path' => '/hq/security', 'section' => 'operations', 'icon' => 'fa-solid fa-shield-halved', 'nav' => true, 'perm' => 'admin',
             'view' => 'security/index', 'keywords' => ['security', '2fa', 'audit', 'login history', 'blocked'], 'desc' => 'Audit log, logins and security controls.']);
         $add(['id' => 'backups', 'label' => 'Backups', 'path' => '/hq/backups', 'section' => 'operations', 'icon' => 'fa-solid fa-box-archive', 'nav' => true, 'perm' => 'admin',
-            'view' => 'backups/index', 'keywords' => ['backup', 'restore', 'export', 'download'], 'desc' => 'Create, download and restore backups.']);
+            'view' => 'backups/index', 'keywords' => ['backup', 'restore', 'download', 'snapshot'], 'desc' => 'Create, download and restore backups.']);
+        $add(['id' => 'site-packs', 'label' => 'Export & import', 'path' => '/hq/backups/packs', 'section' => 'operations', 'icon' => 'fa-solid fa-right-left', 'nav' => false, 'perm' => 'admin',
+            'parent' => 'backups', 'prefix' => true, 'view' => 'site_packs/index',
+            'keywords' => ['export', 'import', 'site pack', 'movapack', 'migrate', 'restyle', 'transfer', 'copy site', 'staging', 'overwrite site', 'undo import'],
+            'desc' => 'Export pages, design, media and settings as a .movapack, then import it back with preview and undo.']);
         $add(['id' => 'updates', 'label' => 'Updates', 'path' => '/hq/updates', 'section' => 'operations', 'icon' => 'fa-solid fa-arrows-rotate', 'nav' => true, 'perm' => 'admin',
             'view' => 'updates/index', 'keywords' => ['update', 'version', 'release', 'identity', 'mova.json'], 'desc' => 'Core updates and public identity files.']);
         $add(['id' => 'text-repair', 'label' => 'Text repair', 'path' => '/hq/text-repair', 'section' => 'operations', 'icon' => 'fa-solid fa-spell-check', 'nav' => true, 'perm' => 'admin',

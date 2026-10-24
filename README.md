@@ -135,6 +135,74 @@ Mova can make any site installable, on Android, desktop Chrome/Edge and iOS (via
   - nginx: keep the PWA `location` block from `nginx.conf` above the static-asset rule.
   - Without GD, Mova uses your logo and an SVG icon. For the best result, upload a square 512×512 PNG.
 
+## Export & import (site packs)
+
+**HQ → Operations → Backups → Export & import** (`/hq/backups/packs`, owners and administrators only) moves parts of a site in and out as a single `.movapack` file. The typical round trip:
+
+1. The client exports the parts to restyle.
+2. A designer edits the pack offline, keeping every `id` and `slug`.
+3. The client imports it and the live pages are overwritten safely.
+
+**Export**
+- Choose groups:
+  - pages and content (filter by content type)
+  - blogs, galleries, the media library, menus, and categories and tags with their assignments
+  - design: theme, kit, brand, custom CSS, templates and assemblies
+  - non-secret site settings, site AI knowledge, and forms
+- Subscribers, form entries and comments are personal data, so they are **off by default**.
+- The pack downloads straight away. A copy is kept in `storage/exports/`.
+- CLI: `php bin/mova-export.php --groups=content,design,media [--types=page,post] [--label=...] [--min-version=1.1.4]`. Use `--groups=all` to include everything.
+
+**Never in a pack**
+- users and passwords; API keys; AI and provider keys; mail accounts; integration credentials; webhook secrets
+- any setting whose key looks secret (an exact denylist plus a pattern matching key, secret, token, passw, credential, auth, salt, private, cookie, session, licence, bearer, and similar words)
+- sessions, login history, trusted devices and login attempts
+- page views, audit logs, AI jobs and messages, and the HQ search index
+
+The same rules apply on import, so a pack that someone edited by hand cannot overwrite secrets either.
+
+**Import**
+- Upload a pack (the page shows the server's `upload_max_filesize` and `post_max_size`), or FTP it into `storage/imports/` and pick it from the list.
+- Before anything is shown, the pack is checked:
+  - zip integrity, the manifest, and the sha256 of every file
+  - `min_mova_version` (an older site is told to "Upgrade Mova first")
+  - path traversal (zip-slip)
+  - only media file types are accepted, PHP and executables are refused, and SVGs are sanitised
+- Dry-run preview:
+  - Each item is classed as **update**, **add**, **unchanged**, **conflict** or **remove**. Items are matched by ID and by slug+type.
+  - Conflicts are skipped. You can tick *Overwrite* for one item when its slug is free.
+  - The preview shows the changed fields and a line diff of the page body.
+- Options:
+  - *Add new items* is on by default.
+  - *Remove items not in the pack* is off by default and needs you to type `REMOVE`.
+  - Each group can be switched on or off.
+- Apply runs as a background job with progress. It is driven by the open HQ page or by `bin/ai-worker.php`.
+  1. A full backup is made first.
+  2. The database changes run in one transaction and are rolled back on any error.
+  3. Media is staged, then swapped in.
+  4. Overwritten pages get revisions. IDs are preserved and secrets are never touched.
+  5. Afterwards the page cache is cleared, HQ search and the site AI index are rebuilt, and asset versions are bumped.
+- **History** shows who imported what and when, with one-click **Undo** for the latest import. Everything is written to the audit log.
+- CLI:
+  - `php bin/mova-import.php site.movapack --dry-run|--apply [--groups=...] [--no-add] [--remove-missing] [--override=content:12]`
+  - `--undo` and `--history`
+
+**Pack format (`.movapack`, a zip, `pack_format` 1)**
+```
+manifest.json          format, pack_format, mova_version, min_mova_version, site{name,host},
+                       exported_at (UTC), label, groups[], content_types[], counts{},
+                       items{table: [{id, slug, type, updated_at, title}]},
+                       features{theme, kit, plugins, sections, ...}, files{path: {sha256, size}}
+data/<table>.json      {"table", "columns", "rows": [...]}   e.g. data/content.json, data/media.json
+data/settings.<group>.json   {"table": "settings", "group", "rows": [{setting_key, setting_value, updated_at}]}
+media/<path>           files at the same relative path as in the uploads folder (originals + variants)
+```
+Editing a pack offline:
+1. `php bin/mova-pack.php unpack site.movapack ./work`
+2. Edit `data/*.json` and/or replace files in `media/`. Keep the `id`, `slug` and `type` values.
+3. `php bin/mova-pack.php repack ./work restyled.movapack` (this refreshes the checksums).
+4. Optionally run `php bin/mova-pack.php verify restyled.movapack` (or `info`).
+
 ## Multi-site
 
 Mova includes multi-site support:

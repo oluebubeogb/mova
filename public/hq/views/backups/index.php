@@ -1,4 +1,5 @@
 <?php use Mova\Security\Csrf; $backups = $backups ?? []; ?>
+<?php $spTabActive = 'backups'; include __DIR__ . '/../site_packs/_tabs.php'; ?>
 
 <?php if (!empty($_GET['created'])): ?>
     <div class="alert alert-success">Backup created.</div>

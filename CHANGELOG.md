@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (site packs: selective Export / Import)
+- **HQ → Operations → Backups → Export & import** (`/hq/backups/packs`, owners and administrators only, CSRF-protected). It appears in HQ search and in the Operations landing.
+- **Export** writes a `.movapack` file. You pick groups (content by type, blogs, galleries, media, menus, taxonomy, design, non-secret settings, site AI knowledge, forms). Subscribers, form entries and comments are opt-in.
+  - Packs never contain users, passwords, keys, secret settings, mail or integration credentials, sessions or login data, logs, page views, AI jobs or the search index.
+  - The pack is downloaded and a copy is kept in `storage/exports/`.
+  - CLI: `bin/mova-export.php`.
+- **Import** takes an uploaded pack or one placed in `storage/imports/`.
+  - Validation: zip, manifest, checksums, minimum Mova version, zip-slip, media types only. SVGs are sanitised.
+  - Dry-run preview: update, add, unchanged, conflict and remove, matched by ID and slug+type. It shows a per-item override, changed fields and a body diff.
+  - Options: add new (on), remove missing (off, needs typing REMOVE), per-group toggles.
+  - Apply runs as a background job:
+    1. auto backup
+    2. single transaction with rollback
+    3. staged media swap
+    4. revisions
+    5. cache clear, then search, AI index and asset-version refresh
+  - History with who and when (Africa/Lagos time), one-click Undo, and audit entries.
+  - CLI: `bin/mova-import.php --dry-run|--apply|--undo|--history`. `bin/mova-pack.php` handles offline info, verify, unpack and repack.
+- `bin/ai-worker.php` also advances queued site-pack imports.
+
 ### Fixed (AI punctuation saved as code: `Nigeriau2019s`, `fastu2011changing`, `20u202f%`)
 - Root cause: when a model's JSON reply was not strictly valid (e.g. raw newlines inside a long HTML body), `AiChatService::recoverActionsFromBrokenJson()` unescaped strings with `stripcslashes()`. That drops the backslash of `\uXXXX`, so `\u2019` became `u2019`. The smart-quote replacement in `parseJsonReply()` could also break JSON around curly quotes. Real characters (such as a literal `—`) were never affected.
 - New `Mova\AI\AiText` handles AI text in one place:

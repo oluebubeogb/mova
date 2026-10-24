@@ -68,6 +68,17 @@ if ($__trCount > 0): ?>
       </div>
       <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
     </a>
+
+    <a class="hq-landing-card" href="/hq/backups/packs">
+      <div class="hq-landing-card-inner">
+        <div class="hq-landing-icon is-mix"><i class="fa-solid fa-right-left"></i></div>
+        <div class="hq-landing-card-body">
+          <strong>Export &amp; import</strong>
+          <span>Site packs for restyles and migrations</span>
+        </div>
+      </div>
+      <i class="fa-solid fa-arrow-right hq-landing-arrow" aria-hidden="true"></i>
+    </a>
   
     <a class="hq-landing-card" href="/hq/updates">
       <div class="hq-landing-card-inner">

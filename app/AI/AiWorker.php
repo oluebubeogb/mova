@@ -297,6 +297,19 @@ class AiWorker
                     self::beat($via, true);
                 }
             }
+            // 3) site-pack imports queued from HQ → Backups → Export / Import (time-boxed steps)
+            if (!$did && class_exists(\Mova\Backup\SitePackJobs::class)) {
+                try {
+                    if (\Mova\Backup\SitePackJobs::processNext(min(20.0, max(5.0, (float) ($maxTime - (time() - $t0)))))) {
+                        $did = true;
+                        $stats['packs'] = ($stats['packs'] ?? 0) + 1;
+                        $log('site pack import step');
+                    }
+                } catch (\Throwable $e) {
+                    $log('site pack error: ' . $e->getMessage());
+                }
+                self::beat($via);
+            }
             if ($did) {
                 $idleSince = time();
             }

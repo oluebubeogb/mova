@@ -72,6 +72,7 @@ $routeFiles = [
     'backups',
     'text_repair',
     'updates',
+    'site_packs',
     'fallback',
 ];
 
