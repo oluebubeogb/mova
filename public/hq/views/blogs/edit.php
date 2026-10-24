@@ -22,6 +22,8 @@ $excerptChars = (int)($form['excerpt_chars'] ?? ($blog['excerpt_chars'] ?? 130))
 $tplMode = $form['template_mode'] ?? ($blog['template_mode'] ?? 'default');
 $tplHtml = $form['template_html'] ?? ($blog['template_html'] ?? '');
 $embedLimit = (int)(($blog['embed_options']['limit'] ?? 6));
+$dopt = array_merge(\Mova\Blog\BlogService::DISPLAY_DEFAULTS, (array)($blog['embed_options'] ?? []));
+$dChk = fn($k) => !empty($dopt[$k]) ? 'checked' : '';
 $itemIds = $itemIds ?? [];
 $isDefault = ($blog['slug'] ?? '') === 'blog';
 $publicPath = $isDefault || $slug === 'blog' ? '/blog' : '/blog/' . htmlspecialchars($slug ?: '…');
@@ -197,6 +199,40 @@ $publicPath = $isDefault || $slug === 'blog' ? '/blog' : '/blog/' . htmlspecialc
             <textarea name="template_html" id="b-tpl" rows="12" style="font-family:ui-monospace,monospace;font-size:0.8rem;width:100%"><?= htmlspecialchars((string)$tplHtml) ?></textarea>
           </div>
         </div>
+        <fieldset class="form-group blog-display-opts" style="margin-top:1.25rem;border:1px solid var(--hq-border,#e5e7eb);border-radius:10px;padding:0.85rem 1rem">
+          <legend style="font-weight:600;padding:0 0.35rem">Display</legend>
+          <p class="field-hint" style="margin-top:0">Applies wherever this blog shows: its page, and every <code>[blog]</code> embed. A shortcode attribute (e.g. <code>columns="3"</code>, <code>show_date="hide"</code>) overrides it for that one embed.</p>
+          <div class="form-row" style="display:flex;gap:1rem;flex-wrap:wrap">
+            <div class="form-group" style="flex:1;min-width:140px">
+              <label for="b-cols">Columns</label>
+              <select id="b-cols" name="opt_columns">
+                <?php foreach (['2' => 'Classic (1 → 2)', '1' => '1 column', '3' => 'Up to 3', '4' => 'Up to 4', 'auto' => 'Auto-fit'] as $v => $l): ?>
+                <option value="<?= $v ?>" <?= (string)$dopt['columns'] === (string)$v ? 'selected' : '' ?>><?= $l ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div class="form-group" style="flex:1;min-width:140px">
+              <label for="b-date">Date</label>
+              <select id="b-date" name="opt_show_date">
+                <?php foreach (['auto' => 'As the layout shows it', 'show' => 'Show', 'hide' => 'Hide'] as $v => $l): ?>
+                <option value="<?= $v ?>" <?= $dopt['show_date'] === $v ? 'selected' : '' ?>><?= $l ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div class="form-group" style="flex:1;min-width:140px">
+              <label for="b-chip">Category style</label>
+              <select id="b-chip" name="opt_chip_style">
+                <option value="classic" <?= $dopt['chip_style'] === 'classic' ? 'selected' : '' ?>>Classic (one colour)</option>
+                <option value="tones" <?= $dopt['chip_style'] === 'tones' ? 'selected' : '' ?>>Colour per category</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:0.5rem 1.25rem;font-size:0.88rem">
+            <?php foreach (['show_image' => 'Show image', 'show_excerpt' => 'Show excerpt', 'show_category' => 'Show category', 'featured_first' => 'Feature the first post (wide screens)'] as $k => $l): ?>
+            <label style="display:flex;align-items:center;gap:0.35rem"><input type="hidden" name="opt_<?= $k ?>" value="0"><input type="checkbox" name="opt_<?= $k ?>" value="1" <?= $dChk($k) ?>> <?= $l ?></label>
+            <?php endforeach; ?>
+          </div>
+        </fieldset>
       </div>
 
       <aside class="blog-edit-side">

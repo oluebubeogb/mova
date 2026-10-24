@@ -357,9 +357,9 @@ $selectedMap = array_flip($selectedIds);
         row('Layout', '<select data-k="layout">'+layoutOpts+'</select>') +
         row('Interval (ms)', '<input type="number" data-k="interval" min="2000" max="20000" value="'+(p.interval||5000)+'">') +
         row('Slides visible', '<input type="number" data-k="slides_visible" min="1" max="6" value="'+(p.slides_visible||1)+'">') +
-        row('Max height', '<input type="text" data-k="max_height" value="'+esc(p.max_height||'20vh')+'" placeholder="20vh or 180px">') +
+        row('Max height', '<input type="text" data-k="max_height" value="'+esc(p.max_height||'60vh')+'" placeholder="60vh or 420px">') +
         row('Radius', '<input type="text" data-k="radius" value="'+esc(p.radius||'8px')+'" placeholder="8px">') +
-        row('Aspect', '<select data-k="aspect">' +
+        row('Aspect (auto = fixed height)', '<select data-k="aspect">' +
           ['16/9','4/3','1/1','3/2','auto'].map(function(a){
             return '<option value="'+a+'"'+((p.aspect||'16/9')===a?' selected':'')+'>'+a+'</option>';
           }).join('') + '</select>') +
@@ -459,7 +459,7 @@ $selectedMap = array_flip($selectedIds);
         layout: get('layout') || 'carousel',
         interval: parseInt(get('interval'), 10) || 5000,
         slides_visible: parseInt(get('slides_visible'), 10) || 1,
-        max_height: get('max_height') || '20vh',
+        max_height: get('max_height') || '60vh',
         radius: get('radius') || '8px',
         aspect: get('aspect') || '16/9',
         columns: parseInt(get('columns'), 10) || 3,
@@ -536,7 +536,7 @@ $selectedMap = array_flip($selectedIds);
   function render() {
     box.innerHTML = '';
     if (!presets.length) {
-      presets = [{ key: 'default', name: 'Default', layout: 'carousel', max_height: '20vh', slides_visible: 1, name_mode: 'hide' }];
+      presets = [{ key: 'default', name: 'Default', layout: 'carousel', max_height: '60vh', slides_visible: 1, name_mode: 'hide' }];
     }
     presets.forEach(function (p, i) { box.appendChild(card(p, i)); });
     hidden.value = JSON.stringify(collect());
@@ -549,7 +549,7 @@ $selectedMap = array_flip($selectedIds);
       name: 'Preset ' + (n + 1),
       layout: 'carousel',
       autoplay: false,
-      max_height: '20vh',
+      max_height: '60vh',
       slides_visible: 3,
       radius: '8px',
       name_mode: 'hover'

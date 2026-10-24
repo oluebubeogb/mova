@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-10-24
+
+### Fixed (blog and gallery settings are respected again)
+- **Blog styles follow HQ again.** The 1.2.0 card CSS had restyled every template into image-top cards, forced a featured first card on blog pages, and forced tone chips and dates into default cards. That made the HQ *Template* setting look hardcoded.
+  - The default, modern and minimal templates render as before 1.2.0, including the `!important` embed guards.
+  - The 1.2.0 visual polish is kept as cosmetic-only rules.
+- **Embedded blogs use their own settings.** Shortcodes with extra attributes (for example `layout=`) used to bypass the blog's template. Now each embed renders with its own blog's template and options, so several blogs on one page each look their own way.
+- **Embed limit.** JS-mounted embeds now use the blog's *Embed limit* (previously a fixed 6).
+- **Gallery carousel height.** An unset *Max height* now defaults to 60vh (was 20vh, which made a thin strip). A non-auto *Aspect* now also sizes the carousel (capped by max height), grid cells and collage rows.
+- **Space above the header.** Dev Mode and kit pages (which bring their own header) no longer get the theme's top and bottom page padding. Pages that start with a full-bleed hero or `.alignfull` / `[data-full-bleed]` block get no top padding. Normal pages keep their spacing.
+- Removed a grey band under the image of default horizontal cards. The modern template no longer shows a dangling "·" when the date is hidden.
+
+### Added (blog Display options in HQ → Blogs → Edit)
+- Columns (1–4 or auto), Date (auto/show/hide), Category style (classic/tones), Feature first post, plus switches for image, excerpt and category.
+  - Defaults reproduce the previous look.
+  - Stored in the blog's `embed_options`.
+- Precedence: shortcode attribute > blog HQ setting > default. Example: `[blog id=1 template=minimal columns=1 show_image=0 limit=3]`. Supported attributes: `template`, `limit`, `columns`, `show_image`, `show_excerpt`, `show_category`, `show_date`, `chip_style`, `featured`.
+- Options are applied server-side, so custom templates comply too.
+
 ## [1.2.0] - 2026-10-24
 
 ### Added (import pre-flight)

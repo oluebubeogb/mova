@@ -8,14 +8,15 @@
     if (!document.querySelector('link[href*="mova-blog.css"]')) {
       var l = document.createElement('link');
       l.rel = 'stylesheet';
-      l.href = '/assets/css/mova-blog.css?v=7';
+      l.href = '/assets/css/mova-blog.css?v=8';
       document.head.appendChild(l);
     }
   }
 
 
   function fetchFeed(id, offset, limit) {
-    var url = '/blog/api/feed/' + encodeURIComponent(id) + '?offset=' + offset + '&limit=' + (limit || 12);
+    // No limit = "use this blog's embed limit from HQ" (server side).
+    var url = '/blog/api/feed/' + encodeURIComponent(id) + '?offset=' + offset + (limit ? '&limit=' + limit : '&embed=1');
     return fetch(url, { credentials: 'same-origin' }).then(function (r) {
       if (!r.ok) throw new Error('Feed unavailable');
       return r.json();
@@ -102,7 +103,7 @@
     var id = node.getAttribute('data-blog');
     if (!id) return;
     node.innerHTML = '<div class="mova-blog-loading">Loading…</div>';
-    fetchFeed(id, 0, parseInt(node.getAttribute('data-limit') || '6', 10) || 6).then(function (data) {
+    fetchFeed(id, 0, parseInt(node.getAttribute('data-limit') || '0', 10) || 0).then(function (data) {
       node.innerHTML = '';
       node.setAttribute('data-blog-id', id);
       node.setAttribute('data-offset', String(data.next_offset || 0));

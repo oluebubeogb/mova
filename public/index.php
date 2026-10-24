@@ -424,7 +424,12 @@ $router->get('/blog/api/feed/{id}', function (Request $req, array $params) {
         return (new Response())->header('Content-Type', 'application/json')->status(404)
             ->body(json_encode(['error' => 'Not found']));
     }
-    $limit = (int) $req->query('limit', $blog['per_page'] ?? 12);
+    $limit = (int) $req->query('limit', 0);
+    if ($limit <= 0) {
+        // embeds without an explicit limit use the blog's embed limit (HQ → Blogs → Embed); else page size
+        $limit = $req->query('embed') ? $svc->displayOptions($blog)['limit'] : (int) ($blog['per_page'] ?? 12);
+    }
+    $limit = max(1, min(100, $limit));
     $offset = (int) $req->query('offset', 0);
     $feed = $svc->feed($id, $limit, $offset);
     $html = $svc->renderFeedHtml($blog, $feed['items']);

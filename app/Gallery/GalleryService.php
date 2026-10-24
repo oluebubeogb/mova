@@ -621,7 +621,8 @@ class GalleryService
             'lightbox' => array_key_exists('lightbox', $opts) ? !empty($opts['lightbox']) : true,
             'aspect' => in_array(($opts['aspect'] ?? '16/9'), ['auto', '1/1', '4/3', '16/9', '3/2'], true)
                 ? (string) ($opts['aspect'] ?? '16/9') : '16/9',
-            'max_height' => $this->normalizeSize($opts['max_height'] ?? '20vh', '20vh'),
+            // Unset = 60vh cap (with the 16/9 default aspect the carousel sizes to its width); saved values are kept.
+            'max_height' => $this->normalizeSize($opts['max_height'] ?? '60vh', '60vh'),
             'slides_visible' => $visible,
             'radius' => $this->normalizeSize($opts['radius'] ?? '8px', '8px'),
             // legacy
@@ -857,8 +858,8 @@ class GalleryService
             static $assets = false;
             if (!$assets && is_string($body) && strpos($body, 'mova-gallery') !== false) {
                 $assets = true;
-                $body .= "\n<link rel=\"stylesheet\" href=\"/assets/css/mova-gallery-embed.css?v=5\">"
-                    . "\n<script src=\"/assets/js/mova-gallery-embed.js?v=5\" defer></script>";
+                $body .= "\n<link rel=\"stylesheet\" href=\"/assets/css/mova-gallery-embed.css?v=6\">"
+                    . "\n<script src=\"/assets/js/mova-gallery-embed.js?v=6\" defer></script>";
             }
             return $body;
         }, 25);
