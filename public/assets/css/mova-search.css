@@ -31,12 +31,17 @@
     border-radius: 999px;
     padding: 0.4rem 0.5rem 0.4rem 1.1rem;
     box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04);
-    transition: box-shadow 0.15s;
+    outline: none;
 }
 
-.mx-search-input-wrap:focus-within {
-    /* Keep a subtle lift only — no accent ring / extra border decor */
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.06);
+/* Kill every focus / active border, ring, and outline while editing */
+.mx-search-input-wrap:focus,
+.mx-search-input-wrap:focus-within,
+.mx-search-input-wrap:focus-visible,
+.mx-search-input-wrap:active {
+    outline: none !important;
+    border-color: var(--color-border, #e2e4e8) !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04) !important;
 }
 
 .mx-search-icon {
@@ -47,13 +52,32 @@
 
 .mx-search-input-wrap input[type="search"] {
     flex: 1;
-    border: 0;
+    border: 0 !important;
     background: transparent;
     font-size: 1rem;
     padding: 0.55rem 0.25rem;
     color: var(--color-text, #111);
-    outline: none;
+    outline: none !important;
+    box-shadow: none !important;
     min-width: 0;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.mx-search-input-wrap input[type="search"]:focus,
+.mx-search-input-wrap input[type="search"]:focus-visible,
+.mx-search-input-wrap input[type="search"]:active {
+    outline: none !important;
+    box-shadow: none !important;
+    border: 0 !important;
+}
+
+/* Neutralize any leftover .search-form rules if they bleed in */
+.mx-search-form input[type="search"]:focus,
+.mx-search-form input[type="search"]:focus-visible {
+    outline: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
 }
 
 .mx-search-input-wrap input[type="search"]::placeholder {

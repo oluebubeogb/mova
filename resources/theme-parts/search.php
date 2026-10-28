@@ -37,7 +37,7 @@ $tabs = [
     'blog'     => ['label' => 'Blogs',    'count' => count($blogs)],
 ];
 ?>
-<link rel="stylesheet" href="/assets/css/mova-search.css?v=1">
+<link rel="stylesheet" href="/assets/css/mova-search.css?v=2">
 <section class="mx-search-page">
     <header class="mx-search-hero">
         <p class="mx-tag">Search</p>
