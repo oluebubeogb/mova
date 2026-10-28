@@ -269,9 +269,14 @@ class ContentRepository
             }
         }
 
-        // Score by token hits in title / excerpt / body; build snippet
+        // Score by token hits in title / excerpt / body; build snippet.
+        // Never surface dev-editor content or internal fields on the public search.
         $scored = [];
         foreach ($rows as $row) {
+            $meta = $row['meta'] ?? [];
+            if (is_array($meta) && (($meta['editor_mode'] ?? '') === 'dev')) {
+                continue; // hide in-progress / dev-mode pages from public search
+            }
             $title = mb_strtolower((string) ($row['title'] ?? ''));
             $excerpt = mb_strtolower((string) ($row['excerpt'] ?? ''));
             $bodyPlain = mb_strtolower(strip_tags((string) ($row['body'] ?? '')));
@@ -300,9 +305,20 @@ class ContentRepository
                 continue;
             }
             $score += $matched * 2;
-            $row['_score'] = $score;
-            $row['search_snippet'] = self::snippetAroundTokens((string) ($row['body'] ?? $row['excerpt'] ?? ''), $tokens, 180);
-            $scored[] = $row;
+
+            // Public-safe result shape only (no body, meta, or internal keys)
+            $scored[] = [
+                'id'             => (int) ($row['id'] ?? 0),
+                'type'           => (string) ($row['type'] ?? 'page'),
+                'title'          => (string) ($row['title'] ?? ''),
+                'slug'           => (string) ($row['slug'] ?? ''),
+                'excerpt'        => (string) ($row['excerpt'] ?? ''),
+                'featured_image' => (string) ($row['featured_image'] ?? ''),
+                'published_at'   => $row['published_at'] ?? null,
+                'updated_at'     => $row['updated_at'] ?? null,
+                'search_snippet' => self::snippetAroundTokens((string) ($row['body'] ?? $row['excerpt'] ?? ''), $tokens, 180),
+                '_score'         => $score,
+            ];
         }
 
         usort($scored, static function ($a, $b) {

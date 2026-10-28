@@ -213,12 +213,139 @@ $router->get('/unsubscribe', function (Request $req) {
 
 $router->get('/search', function (Request $req) use ($contentRepo, $seo) {
     $q = trim((string) $req->query('q', ''));
-    $results = $q ? $contentRepo->search($q, 30) : [];
+    $typeFilter = trim((string) $req->query('type', 'all')); // all|page|article|image|gallery|blog
+
+    $contentResults = [];
+    $galleryResults = [];
+    $imageResults = [];
+    $blogResults = [];
+
+    if ($q !== '') {
+        // Content (pages, articles, faq, posts, etc.) — already filters out dev-mode
+        $contentResults = $contentRepo->search($q, 40);
+
+        // Galleries + their images
+        try {
+            $gallerySvc = new \Mova\Gallery\GalleryService();
+            $gSearch = $gallerySvc->search($q, 36);
+            $galleryResults = $gSearch['galleries'] ?? [];
+            foreach (($gSearch['images'] ?? []) as $img) {
+                $gallerySlug = (string) ($img['gallery_slug'] ?? '');
+                // Prefer a ready URL if the service provides one
+                $imgUrl = (string) ($img['url'] ?? '');
+                if ($imgUrl === '' && !empty($img['path'])) {
+                    $imgUrl = '/mova-uploads/' . ltrim((string) $img['path'], '/');
+                }
+                $imageResults[] = [
+                    'id'          => (int) ($img['id'] ?? 0),
+                    'url'         => $imgUrl,
+                    'thumb'       => (string) ($img['thumb_url'] ?? $img['url'] ?? $imgUrl),
+                    'alt'         => (string) ($img['alt'] ?? $img['alt_text'] ?? $img['caption'] ?? ''),
+                    'caption'     => (string) ($img['caption'] ?? ''),
+                    'source'      => 'gallery',
+                    'source_title'=> (string) ($img['gallery_title'] ?? 'Gallery'),
+                    'source_url'  => $gallerySlug !== '' ? '/gallery/' . $gallerySlug : '/gallery',
+                    'created_at'  => $img['created_at'] ?? null,
+                ];
+            }
+        } catch (\Throwable $e) {
+            // ignore gallery failures
+        }
+
+        // Featured images from matching content (only those with a featured image)
+        foreach ($contentResults as $item) {
+            $fi = trim((string) ($item['featured_image'] ?? ''));
+            if ($fi === '') {
+                continue;
+            }
+            $imgUrl = $fi;
+            if (strpos($fi, 'http') !== 0 && strpos($fi, '/') !== 0) {
+                $imgUrl = '/mova-uploads/' . ltrim($fi, '/');
+            } elseif (strpos($fi, 'http') !== 0 && strpos($fi, '/mova-uploads/') === false) {
+                $imgUrl = '/' . ltrim($fi, '/');
+            }
+            $imageResults[] = [
+                'id'          => 0,
+                'url'         => $imgUrl,
+                'thumb'       => $imgUrl,
+                'alt'         => (string) ($item['title'] ?? ''),
+                'caption'     => (string) ($item['title'] ?? ''),
+                'source'      => 'content',
+                'source_title'=> (string) ($item['title'] ?? ''),
+                'source_url'  => '/' . ltrim((string) ($item['slug'] ?? ''), '/'),
+                'created_at'  => $item['published_at'] ?? $item['updated_at'] ?? null,
+            ];
+        }
+
+        // Blogs (collections)
+        try {
+            $blogSvc = new \Mova\Blog\BlogService();
+            $allBlogs = $blogSvc->all(true, 50, 0);
+            $ql = mb_strtolower($q);
+            foreach ($allBlogs as $b) {
+                $title = (string) ($b['title'] ?? '');
+                $desc  = (string) ($b['description'] ?? '');
+                $slug  = (string) ($b['slug'] ?? '');
+                if ($title === '' && $slug === '') {
+                    continue;
+                }
+                if (mb_strpos(mb_strtolower($title), $ql) !== false
+                    || mb_strpos(mb_strtolower($desc), $ql) !== false
+                    || mb_strpos(mb_strtolower($slug), $ql) !== false) {
+                    $blogResults[] = [
+                        'id'          => (int) ($b['id'] ?? 0),
+                        'title'       => $title,
+                        'slug'        => $slug,
+                        'description' => $desc,
+                        'url'         => '/blog/' . $slug,
+                    ];
+                }
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        // Dedupe images by URL
+        $seenUrls = [];
+        $uniqueImages = [];
+        foreach ($imageResults as $img) {
+            $u = $img['url'] ?? '';
+            if ($u === '' || isset($seenUrls[$u])) {
+                continue;
+            }
+            $seenUrls[$u] = true;
+            $uniqueImages[] = $img;
+        }
+        $imageResults = array_slice($uniqueImages, 0, 48);
+    }
+
+    // Group content by broad type for the UI
+    $pages = [];
+    $articles = [];
+    $otherContent = [];
+    foreach ($contentResults as $item) {
+        $t = strtolower((string) ($item['type'] ?? 'page'));
+        if (in_array($t, ['page', 'faq', 'landing'], true)) {
+            $pages[] = $item;
+        } elseif (in_array($t, ['article', 'post', 'news', 'blog'], true)) {
+            $articles[] = $item;
+        } else {
+            $otherContent[] = $item;
+        }
+    }
+
     return renderTheme('search', [
-        'query'   => $q,
-        'results' => $results,
-        'seo'     => $seo,
-        'title'   => $q ? "Search: {$q}" : 'Search',
+        'query'          => $q,
+        'typeFilter'     => $typeFilter,
+        'results'        => $contentResults, // backward compat
+        'pages'          => $pages,
+        'articles'       => $articles,
+        'otherContent'   => $otherContent,
+        'galleries'      => $galleryResults,
+        'images'         => $imageResults,
+        'blogs'          => $blogResults,
+        'seo'            => $seo,
+        'title'          => $q ? "Search: {$q}" : 'Search',
     ]);
 });
 
