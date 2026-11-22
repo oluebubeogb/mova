@@ -4,7 +4,7 @@
    ========================================================================== */
 body.theme-documentation {
   --theme-font-heading: "Space Grotesk", var(--font-sans);
-  --read-w: 50rem;
+  --read-w: var(--max-width, 50rem);
   --hdr-h: 62px;
   --h-weight: 700;
   --h-track: -0.02em;

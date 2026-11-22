@@ -4,7 +4,7 @@
    ========================================================================== */
 body.theme-lengthy {
   --theme-font-heading: "Fraunces", Georgia, "Times New Roman", serif;
-  --read-w: 42rem;
+  --read-w: var(--max-width, 42rem);
   --h-weight: 600;
   --h-track: -0.015em;
   --card-r: max(var(--radius-card, 6px), 6px);

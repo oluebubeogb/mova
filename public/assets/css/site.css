@@ -5,8 +5,8 @@
    colours, fonts and radii. Light + dark, reduced-motion aware.
    ========================================================================== */
 body.mx-site {
-  --site-w: 1200px;
-  --read-w: 46rem;
+  --site-w: var(--max-width, 1200px);
+  --read-w: var(--max-width, 46rem);
   --site-pad: clamp(1rem, 4vw, 2rem);
   --hdr-h: 68px;
   --hdr-bg: transparent;
