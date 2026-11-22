@@ -55,7 +55,7 @@ final class PostExtras
     }
 
     /** Up to $n posts sharing a category, topped up with the latest posts. */
-    public static function related(array $content, int $n = 3): array
+    public static function related(array $content, int $n = 4): array
     {
         $id = (int) ($content['id'] ?? 0);
         $out = [];
@@ -146,9 +146,10 @@ final class PostExtras
             $h .= '</nav>';
         }
 
-        $rel = self::related($content, 3);
+        $rel = self::related($content, 4);
         if ($rel) {
-            $h .= '<section class="mx-related" aria-labelledby="mx-related-h"><h2 id="mx-related-h" class="mx-related__title">Keep reading</h2><div class="mx-related__grid">';
+            $nRel = count($rel);
+            $h .= '<section class="mx-related" aria-labelledby="mx-related-h"><h2 id="mx-related-h" class="mx-related__title">Keep reading</h2><div class="mx-related__grid" style="--mx-related-n:' . $nRel . '">';
             foreach ($rel as $r) {
                 $img = trim((string) ($r['featured_image'] ?? ''));
                 $date = \Mova\Core\Time::fmt($r['published_at'] ?? $r['created_at'] ?? '', 'M j, Y');
