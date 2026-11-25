@@ -883,8 +883,12 @@ body.mobile-nav-align-right .nav-drawer .theme-toggle {
     pointer-events: auto;
 }
 body.nav-open { overflow: hidden; }
-/* Elevate sticky header stacking context above backdrop so the in-header drawer is clickable */
-body.nav-open .site-header {
+/* Elevate sticky header stacking context above the backdrop so the in-header drawer
+   is clickable. Must beat body.mx-site .mx-header { z-index: 60 } in site.css. */
+body.nav-open .site-header,
+body.nav-open .mx-header,
+body.mx-site.nav-open .site-header,
+body.mx-site.nav-open .mx-header {
     z-index: 110;
 }
 
