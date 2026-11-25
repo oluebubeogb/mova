@@ -54,6 +54,18 @@ return [
         'cookie_secure'     => true,
         'cookie_httponly'   => true,
         'cookie_samesite'   => 'Lax',
+        // Public (and HQ) iframe allowlist for Content-Security-Policy frame-src / child-src.
+        // Override here, or append extra hosts with env MOVA_CSP_FRAME_SRC (space-separated).
+        'csp_frame_src'     => [
+            "'self'",
+            'https://www.google.com',
+            'https://maps.google.com',
+            'https://*.google.com',
+            'https://www.youtube.com',
+            'https://www.youtube-nocookie.com',
+            'https://youtube.com',
+            'https://www.openstreetmap.org',
+        ],
     ],
 
     // Content

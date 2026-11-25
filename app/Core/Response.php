@@ -72,6 +72,7 @@ class Response
             if ($isHq) {
                 // HQ: inline scripts for editors. Monaco, CodeMirror, Font Awesome and
                 // fonts are bundled under /assets (Phase 5), so no third-party CDNs.
+                $frames = self::cspFrameSources();
                 $csp = "default-src 'self'; "
                     . "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; "
                     . "style-src 'self' 'unsafe-inline'; "
@@ -79,23 +80,28 @@ class Response
                     . "img-src 'self' data: https: blob:; "
                     . "connect-src 'self' https://cloudflareinsights.com; "
                     . "worker-src 'self' blob:; "
-                    . "child-src 'self' blob:; "
+                    . "child-src " . $frames . " blob:; "
+                    . "frame-src " . $frames . "; "
                     . "frame-ancestors 'self'; "
                     . "base-uri 'self'; "
                     . "form-action 'self'";
 			} else {
-				// Public site: Font Awesome is bundled locally; Cloudflare Insights allowed; rest tight
-				$csp = "default-src 'self'; "
-					. "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; "
-					. "style-src 'self' 'unsafe-inline'; "
-					. "font-src 'self' data:; "
-					. "img-src 'self' data: https: blob:; "
-					. "connect-src 'self' https://cloudflareinsights.com; "
-					. "frame-ancestors 'self'; "
-					. "base-uri 'self'; "
-					. "form-action 'self'; "
-					. "object-src 'none'; "
-					. "upgrade-insecure-requests";
+                // Public site: Font Awesome is bundled locally; Cloudflare Insights allowed; rest tight.
+                // frame-src / child-src allow common embeds (Maps, YouTube, OSM); see security.csp_frame_src.
+                $frames = self::cspFrameSources();
+                $csp = "default-src 'self'; "
+                    . "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; "
+                    . "style-src 'self' 'unsafe-inline'; "
+                    . "font-src 'self' data:; "
+                    . "img-src 'self' data: https: blob:; "
+                    . "connect-src 'self' https://cloudflareinsights.com; "
+                    . "child-src " . $frames . "; "
+                    . "frame-src " . $frames . "; "
+                    . "frame-ancestors 'self'; "
+                    . "base-uri 'self'; "
+                    . "form-action 'self'; "
+                    . "object-src 'none'; "
+                    . "upgrade-insecure-requests";
 			}
             header('Content-Security-Policy: ' . $csp);
         }
@@ -111,6 +117,57 @@ class Response
         }
 
         echo $this->body;
+    }
+
+
+    /**
+     * CSP frame-src / child-src host list.
+     * Defaults (Maps, YouTube, OSM) come from config security.csp_frame_src;
+     * extra hosts can be appended with env MOVA_CSP_FRAME_SRC (space-separated).
+     */
+    private static function cspFrameSources(): string
+    {
+        $defaults = [
+            "'self'",
+            'https://www.google.com',
+            'https://maps.google.com',
+            'https://*.google.com',
+            'https://www.youtube.com',
+            'https://www.youtube-nocookie.com',
+            'https://youtube.com',
+            'https://www.openstreetmap.org',
+        ];
+        $sources = $defaults;
+        if (class_exists(Bootstrap::class)) {
+            $configured = Bootstrap::config('security.csp_frame_src', $defaults);
+            if (is_string($configured)) {
+                $configured = preg_split('/\s+/', trim($configured)) ?: [];
+            }
+            if (is_array($configured) && $configured !== []) {
+                $sources = $configured;
+            }
+        }
+        $extra = trim((string) (getenv('MOVA_CSP_FRAME_SRC') ?: ''));
+        if ($extra !== '') {
+            $sources = array_merge($sources, preg_split('/\s+/', $extra) ?: []);
+        }
+
+        $out = [];
+        foreach ($sources as $src) {
+            $src = trim((string) $src);
+            if ($src === 'self' || $src === "'self'") {
+                $out["'self'"] = "'self'";
+                continue;
+            }
+            if (preg_match('#^https://(\*\.)?[A-Za-z0-9.-]+(?::\d+)?$#', $src)) {
+                $out[$src] = $src;
+            }
+        }
+        if (!isset($out["'self'"])) {
+            $out = ["'self'" => "'self'"] + $out;
+        }
+
+        return implode(' ', $out);
     }
 
     public function getStatus(): int
